@@ -32,27 +32,26 @@ data class Time(
 
 /**
  * Generator for universal times.
+ * @param playerCount The player count to use for time generation.
+ * @param localIDs Scoped sequence for local IDs.
  */
-class TimeGenerator(val playerCount: Short) {
-    /**
-     * Generator for local identities.
-     */
-    private val scopedSequence = ScopedSequence<Long, Byte>(
-        generateSequence(Byte.MIN_VALUE, Byte::inc)
-    )
+class TimeGenerator(
+    val playerCount: Short,
+    val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(generateSequence(Byte.MIN_VALUE, Byte::inc))
+) {
 
     /**
      * Consolidates the underlying generators.
      */
     fun consolidate(time: Long) {
-        scopedSequence.consolidate(time)
+        localIDs.consolidate(time)
     }
 
     /**
      * Takes a time usable to exchange.
      */
     fun take(time: Long, player: Short) =
-        Time(playerCount, time, player, scopedSequence.take(time))
+        Time(playerCount, time, player, localIDs.take(time))
 
 }
 

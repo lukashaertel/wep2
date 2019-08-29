@@ -39,16 +39,16 @@ fun <I, R> identifier(reclaimableSequence: ReclaimableSequence<I, R>) = object :
 }
 
 /**
- * Identifier generating short IDs with short recycle counts.
+ * Reclaimable sequence generating short IDs with short recycle counts.
  */
-fun identifierSmall(start: Short = 0) =
-    identifier(ReclaimableSequence(generateSequence(start, Short::inc), 0, Short::inc))
+fun smallSequence(start: Short = 0) =
+    ReclaimableSequence(generateSequence(start, Short::inc), 0, Short::inc)
 
 /**
- * Identifier generating long IDs with int recycle counts.
+ * Reclaimable sequence generating long IDs with int recycle counts.
  */
-fun identifierBig(start: Long = 0L) =
-    identifier(ReclaimableSequence(generateSequence(start, Long::inc), 0, Int::inc))
+fun bigSequence(start: Long = 0L) =
+    ReclaimableSequence(generateSequence(start, Long::inc), 0, Int::inc)
 
 /**
  * Small identity.

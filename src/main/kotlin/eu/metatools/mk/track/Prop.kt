@@ -1,12 +1,8 @@
 package eu.metatools.mk.track
 
 import eu.metatools.mk.util.labeledAs
-import kotlin.properties.Delegates
 import kotlin.properties.Delegates.observable
-import kotlin.properties.ObservableProperty
-import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KMutableProperty
-import kotlin.reflect.KProperty
 
 /**
  * A variable (without receiver) partaking in undo-tracking.

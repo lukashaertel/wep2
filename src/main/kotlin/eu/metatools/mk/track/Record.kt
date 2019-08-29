@@ -26,7 +26,7 @@ inline fun rec(block: () -> Unit): () -> Unit {
     @Suppress("non_public_call_from_public_inline")
     undos.remove()
 
-    // Undoing now is performing al undo operations in reversed order.
+    // Undoing now is performing all undo operations in reversed order.
     return {
         target.asReversed().forEach {
             it()

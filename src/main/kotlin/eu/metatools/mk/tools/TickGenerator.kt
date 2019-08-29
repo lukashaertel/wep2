@@ -8,10 +8,30 @@ import eu.metatools.mk.coord.Coordinator
  * @property frequency The tick frequency.
  */
 class TickGenerator(val initial: Long, val frequency: Long) {
+    companion object {
+        /**
+         * Restores a [TickGenerator] from the defining values of another tick generator.
+         * @param initial Static or defining value of initial time.
+         * @param frequency Static value of frequency.
+         * @param lastTime Defining value of last generated tick set.
+         */
+        fun restore(initial: Long, frequency: Long, lastTime: Long): TickGenerator {
+            // Create the resulting tick generator from the base values.
+            val result = TickGenerator(initial, frequency)
+
+            // Generate ticks into void, effectively resetting the base time.
+            result.generateTicks(lastTime)
+
+            // Return the tick generator in it's effective state.
+            return result
+        }
+    }
+
     /**
      * The last time the ticks were generated for.
      */
-    private var lastTime = initial
+    var lastTime = initial
+        private set
 
     /**
      * Generates a sequence of ticks from the last generated time to this, respecting [initial] time and [frequency].

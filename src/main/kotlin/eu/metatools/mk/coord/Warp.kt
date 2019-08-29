@@ -46,6 +46,23 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
     }
 
     /**
+     * Undoes every instruction in the local instruction cache.
+     */
+    fun undoAll() {
+        instructions.descendingMap()
+            .forEach { (_, u) -> u.undo() }
+    }
+
+    /**
+     * Redoes every instruction in the local instruction cache.
+     */
+    fun redoAll() {
+        instructions.forEach { (t, u) ->
+            u.undo = evaluate(u.name, t, u.args)
+        }
+    }
+
+    /**
      * Receives a single remote invocation to be chained.
      * @param name The name of what to invoke.
      * @param time The time at which to evaluate.

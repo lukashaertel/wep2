@@ -6,8 +6,7 @@ import eu.metatools.mk.track.*
 import eu.metatools.mk.util.toComparable
 import java.lang.IllegalArgumentException
 
-class Child(context: Context<String, Time, SI>, val parent: SI? = null) :
-    Entity<String, Time, SI>(context) {
+class Child(context: Context<String, Time, SI>, val parent: SI? = null) : Entity<String, Time, SI>(context) {
     var money by prop(3)
 
 
@@ -42,7 +41,7 @@ class Child(context: Context<String, Time, SI>, val parent: SI? = null) :
 class Example : Warp<SN<String>, Time>() {
     val index = entityMap<String, Time, SI>()
 
-    val ids = identifierSmall()
+    val ids = identifier(smallSequence())
 
     /**
      * The context to use for entity creation.
