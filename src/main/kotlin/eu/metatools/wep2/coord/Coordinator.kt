@@ -1,5 +1,9 @@
 package eu.metatools.wep2.coord
 
+/**
+ * A coordinator handling equivalent state restoration based on a sequence of instructions. Registering to
+ * it will yield all instructions it generates.
+ */
 abstract class Coordinator<N, T : Comparable<T>> {
     /**
      * Registers a listener for generated name/time/argument triples.
@@ -36,8 +40,8 @@ abstract class Coordinator<N, T : Comparable<T>> {
      * Receives a list of name/time/argument triples. Default delegates to [receive], special
      * implementations may override for more efficient processing.
      */
-    open fun receiveAll(namesTimesAndArgs: Sequence<Triple<N, T, Any?>>) {
-        namesTimesAndArgs
+    open fun receiveAll(triples: Sequence<Triple<N, T, Any?>>) {
+        triples
             .sortedBy { it.second }
             .forEach { (name, time, args) ->
                 receive(name, time, args)

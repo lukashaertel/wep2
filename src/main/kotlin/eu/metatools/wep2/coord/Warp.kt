@@ -3,7 +3,16 @@ package eu.metatools.wep2.coord
 import java.util.*
 
 /**
- * Weaves in new instructions by undoing and replaying.
+ * A coordinator handling equivalent state restoration by weaving in new instructions, undoing and replaying
+ * the temporarily invalidated instructions.
+ *
+ * For example, weaving `(-, 2, -)` into `(-, 1, -), (-, 3, -)`, [Warp] will do the following.
+ *
+ * * Undo `(-, 3, -)`
+ * * Insert and do `(-, 2, -)`
+ * * Redo `(-, 3, -)`
+ *
+ * The instruction `(-, 1, -)` is left untouched.
  */
 abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
     /**
