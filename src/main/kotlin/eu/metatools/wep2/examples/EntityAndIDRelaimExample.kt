@@ -48,7 +48,9 @@ class Child(context: Context<String, Time, SI>, val parent: SI? = null) : Entity
         "(Child of $parent, money=$money)"
 }
 
-
+/**
+ * The main coordinator, dispatching instructions on it's index.
+ */
 class Example : Warp<SN<String>, Time>() {
     /**
      * The central entity index.

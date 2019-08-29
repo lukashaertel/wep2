@@ -1,8 +1,8 @@
 package eu.metatools.wep2.coord
 
 /**
- * Provides the base implementation for registration and publication mechanisms, used
- * in root nodes.
+ * Provides the base implementation for registration and publication mechanisms, leaving
+ * evaluation abstract.
  */
 abstract class BaseCoordinator<N, T : Comparable<T>> : Coordinator<N, T>() {
     /**
