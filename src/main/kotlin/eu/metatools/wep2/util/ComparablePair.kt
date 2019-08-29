@@ -1,4 +1,4 @@
-package eu.metatools.mk.util
+package eu.metatools.wep2.util
 
 /**
  * A pair of entries that are comparable and that is itself

@@ -1,9 +1,9 @@
-package eu.metatools.mk
+package eu.metatools.wep2
 
-import eu.metatools.mk.coord.Warp
-import eu.metatools.mk.tools.*
-import eu.metatools.mk.track.*
-import eu.metatools.mk.util.toComparable
+import eu.metatools.wep2.coord.Warp
+import eu.metatools.wep2.tools.*
+import eu.metatools.wep2.track.*
+import eu.metatools.wep2.util.toComparable
 import java.lang.IllegalArgumentException
 
 class Child(context: Context<String, Time, SI>, val parent: SI? = null) : Entity<String, Time, SI>(context) {

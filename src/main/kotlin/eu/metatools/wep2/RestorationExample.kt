@@ -1,9 +1,9 @@
-package eu.metatools.mk
+package eu.metatools.wep2
 
-import eu.metatools.mk.coord.Warp
-import eu.metatools.mk.tools.*
-import eu.metatools.mk.track.prop
-import eu.metatools.mk.track.rec
+import eu.metatools.wep2.coord.Warp
+import eu.metatools.wep2.tools.*
+import eu.metatools.wep2.track.prop
+import eu.metatools.wep2.track.rec
 
 class RestorationExample(initial: Int) : Warp<Int, Time>() {
     var value by prop(initial)

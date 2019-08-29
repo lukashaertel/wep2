@@ -1,6 +1,6 @@
-package eu.metatools.mk.tools
+package eu.metatools.wep2.tools
 
-import eu.metatools.mk.coord.Coordinator
+import eu.metatools.wep2.coord.Coordinator
 
 /**
  * Generates a sequence of uniform ticks in the given frequency.

@@ -1,4 +1,4 @@
-package eu.metatools.mk.coord
+package eu.metatools.wep2.coord
 
 /**
  * Provides the base implementation for registration and publication mechanisms, used

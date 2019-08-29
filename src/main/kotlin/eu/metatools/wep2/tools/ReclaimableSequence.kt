@@ -1,6 +1,6 @@
-package eu.metatools.mk.tools
+package eu.metatools.wep2.tools
 
-import eu.metatools.mk.util.labeledAs
+import eu.metatools.wep2.util.labeledAs
 import java.util.*
 
 /**

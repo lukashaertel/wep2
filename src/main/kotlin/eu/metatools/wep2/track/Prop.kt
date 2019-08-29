@@ -1,6 +1,6 @@
-package eu.metatools.mk.track
+package eu.metatools.wep2.track
 
-import eu.metatools.mk.util.labeledAs
+import eu.metatools.wep2.util.labeledAs
 import kotlin.properties.Delegates.observable
 import kotlin.reflect.KMutableProperty
 

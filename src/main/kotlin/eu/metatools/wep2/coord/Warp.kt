@@ -1,4 +1,4 @@
-package eu.metatools.mk.coord
+package eu.metatools.wep2.coord
 
 import java.util.*
 

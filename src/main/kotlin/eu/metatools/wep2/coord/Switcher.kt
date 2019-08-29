@@ -1,8 +1,8 @@
-package eu.metatools.mk.coord
+package eu.metatools.wep2.coord
 
-import eu.metatools.mk.util.Choice
-import eu.metatools.mk.util.Left
-import eu.metatools.mk.util.Right
+import eu.metatools.wep2.util.Choice
+import eu.metatools.wep2.util.Left
+import eu.metatools.wep2.util.Right
 
 /**
  * Switches a choice into two coordinators.

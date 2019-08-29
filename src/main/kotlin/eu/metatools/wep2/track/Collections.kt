@@ -1,8 +1,6 @@
-package eu.metatools.mk.track
+package eu.metatools.wep2.track
 
-import eu.metatools.mk.util.*
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
+import eu.metatools.wep2.util.*
 
 /**
  * A set partaking in change based undo-tracking. Alternatively, prop of an immutable set can be used.

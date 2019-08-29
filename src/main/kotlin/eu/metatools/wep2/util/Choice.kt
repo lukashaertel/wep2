@@ -1,4 +1,4 @@
-package eu.metatools.mk.util
+package eu.metatools.wep2.util
 
 /**
  * Choice entry.

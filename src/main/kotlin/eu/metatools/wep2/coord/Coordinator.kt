@@ -1,4 +1,4 @@
-package eu.metatools.mk.coord
+package eu.metatools.wep2.coord
 
 abstract class Coordinator<N, T : Comparable<T>> {
     /**

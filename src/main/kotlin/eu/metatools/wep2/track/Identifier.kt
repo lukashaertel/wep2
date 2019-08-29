@@ -1,7 +1,7 @@
-package eu.metatools.mk.track
+package eu.metatools.wep2.track
 
-import eu.metatools.mk.tools.ReclaimableSequence
-import eu.metatools.mk.util.labeledAs
+import eu.metatools.wep2.tools.ReclaimableSequence
+import eu.metatools.wep2.util.labeledAs
 
 /**
  * Wraps generating identities providing automated undo.
