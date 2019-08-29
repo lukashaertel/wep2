@@ -1,4 +1,4 @@
-package eu.metatools.wep2
+package eu.metatools.wep2.examples
 
 import eu.metatools.wep2.coord.Warp
 import eu.metatools.wep2.tools.*
@@ -6,13 +6,22 @@ import eu.metatools.wep2.track.*
 import eu.metatools.wep2.util.toComparable
 import java.lang.IllegalArgumentException
 
+/**
+ * An entity created by the coordinator or another entity.
+ * @param context The context that defines parent coordinator, central index and identity generator.
+ * @property parent The parent that generated this child, or null.
+ */
 class Child(context: Context<String, Time, SI>, val parent: SI? = null) : Entity<String, Time, SI>(context) {
+    /**
+     * The money of this child, needed to create another child.
+     */
     var money by prop(3)
 
 
     override fun evaluate(name: String, time: Time, args: Any?) =
         when (name) {
             "sib" -> rec {
+                // Check if money is enough.
                 if (money > 0) {
                     // Decrement.
                     money--
@@ -23,10 +32,12 @@ class Child(context: Context<String, Time, SI>, val parent: SI? = null) : Entity
             }
 
             "earn" -> rec {
+                // Increment money.
                 money++
             }
 
             "kill" -> rec {
+                // Delete this child.
                 delete()
             }
 
@@ -39,8 +50,14 @@ class Child(context: Context<String, Time, SI>, val parent: SI? = null) : Entity
 
 
 class Example : Warp<SN<String>, Time>() {
+    /**
+     * The central entity index.
+     */
     val index = entityMap<String, Time, SI>()
 
+    /**
+     * The ID generator.
+     */
     val ids = identifier(smallSequence())
 
     /**
@@ -48,32 +65,54 @@ class Example : Warp<SN<String>, Time>() {
      */
     val context = Context(this, index, ids)
 
+    /**
+     * The root, will be created equally for all coordinators.
+     */
     val root = Child(context)
 
     override fun evaluate(name: SN<String>, time: Time, args: Any?) =
+        // Dispatch via index.
         index.dispatchEvaluate(name, time, args)
 
     override fun toString() = "Index\r\n" + index.joinToString("\r\n") { "\t$it" }
 }
 
+/**
+ * This example shows how entities can be used and that identities are stable
+ * even after recycling, i.e., instructions on semantically different entities
+ * are not routed to entities with a recycled identity.
+ */
 fun main() {
     // The hosts with their respective variables.
     val hostA = Example()
 
-    // Create clock generator and time converter.
-    //val clock = TickGenerator(0, 50)
+    // Create time generator.
     val generator = TimeGenerator(10)
 
+    // Create some children, if possible.
     hostA.root.signal("sib", generator.take(0, 0), Unit)
     hostA.root.signal("sib", generator.take(10, 0), Unit)
     hostA.root.signal("sib", generator.take(20, 0), Unit)
     hostA.root.signal("sib", generator.take(30, 0), Unit)
     hostA.root.signal("sib", generator.take(40, 0), Unit)
+
+    println(hostA)
+
+    // Add money before some instructions, re-allowing some creations.
     hostA.root.signal("earn", generator.take(35, 0), Unit)
 
+    println(hostA)
+
+    // Send a kill signal before most of the creations
     hostA.root.signal("kill", generator.take(5, 0), Unit)
+
+    println(hostA)
+
+    // Create a child on another entity, expected behavior is that
+    // an ID is reclaimed, but differs in recycle count.
     hostA.index.minBy { it.key.first toComparable it.key.second }
         ?.value
         ?.signal("sib", generator.take(6, 0), Unit)
+
     println(hostA)
 }
