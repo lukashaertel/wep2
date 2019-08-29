@@ -22,7 +22,13 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
     /**
      * All instructions and their undo operations.
      */
-    private val instructions = TreeMap<T, Instruction<N, T>>()
+    private val instructionCache = TreeMap<T, Instruction<N, T>>()
+
+    /**
+     * All name/time/argument triples.
+     */
+    val instructions: List<Triple<N, T, Any?>>
+        get() = instructionCache.map { (t, i) -> Triple(i.name, t, i.args) }
 
     /**
      * Evaluates the function identified by it's [name] at [time] with the [args], returning
@@ -40,7 +46,7 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
      * time can still be undone.
      */
     open fun consolidate(time: T) {
-        instructions
+        instructionCache
             .headMap(time, false)
             .clear()
     }
@@ -49,7 +55,7 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
      * Undoes every instruction in the local instruction cache.
      */
     fun undoAll() {
-        instructions.descendingMap()
+        instructionCache.descendingMap()
             .forEach { (_, u) -> u.undo() }
     }
 
@@ -57,7 +63,7 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
      * Redoes every instruction in the local instruction cache.
      */
     fun redoAll() {
-        instructions.forEach { (t, u) ->
+        instructionCache.forEach { (t, u) ->
             u.undo = evaluate(u.name, t, u.args)
         }
     }
@@ -70,7 +76,7 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
      */
     override fun receive(name: N, time: T, args: Any?) {
         // Get instructions after the desired time.
-        val part = instructions.tailMap(time, true)
+        val part = instructionCache.tailMap(time, true)
 
         // Undo existing instructions in reverse order.
         part.descendingMap()
@@ -88,24 +94,24 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
 
     /**
      * Receives multiple remote invocations to be chained.
-     * @param namesTimesAndArgs A list of triples consisting of name, time and arguments
+     * @param triples A list of triples consisting of name, time and arguments
      * of an invocation.
      */
-    override fun receiveAll(namesTimesAndArgs: Sequence<Triple<N, T, Any?>>) {
+    override fun receiveAll(triples: Sequence<Triple<N, T, Any?>>) {
         // Associate the calls by their time, do nothing if empty.
-        val associated = namesTimesAndArgs
+        val associated = triples
             .associateByTo(TreeMap()) { it.second }
             .takeIf { it.isNotEmpty() } ?: return
 
         // Reduce instructions to those actually invalidated.
-        val part = instructions.tailMap(associated.firstKey(), true)
+        val part = instructionCache.tailMap(associated.firstKey(), true)
 
         // Undo those instructions in reverse order.
         part.descendingMap()
             .forEach { (_, u) -> u.undo() }
 
         // Fold over segments between calls to be inserted.
-        val last = namesTimesAndArgs
+        val last = triples
             .sortedBy { it.second }
             .fold(associated.firstKey()) { from, (name, time, args) ->
                 // Redo the existing instructions.
