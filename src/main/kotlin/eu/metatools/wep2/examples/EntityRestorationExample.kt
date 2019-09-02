@@ -67,7 +67,7 @@ fun main() {
     val context = Context(NonCoordinator(), index, ids)
 
     // Create the existing entity, assign the element values.
-    val first = Container(context, null).also {
+    val root = Container(context, null).also {
         // Delete the element, creating a state that would not be equal to the default.
         it.element?.delete()
 
@@ -83,9 +83,13 @@ fun main() {
     // The map that will be stored to, implementations can use files, network objects, etc.
     val map = mutableMapOf<String, Any?>()
 
-    // Store the index of the context to the map.
+    // Use map for storage.
     storeBy(map::set) {
+        // Store the index of the context to the map.
         storeIndex(context, it)
+
+        // Also put ID of the standard root object.
+        it.save("root id", root.id)
     }
 
     // Create the index to restore.
@@ -103,9 +107,16 @@ fun main() {
     // Link the context.
     val resContext = Context(NonCoordinator(), resIndex, resIds)
 
-    // Use the map with all the values to restore the index of the context.
+    // Track field where root ID is stored.
+    lateinit var resRootId: SI
+
+    // Use map for restoring.
     restoreBy(map::getValue) {
+        // Use the map with all the values to restore the index of the context.
         restoreIndex(resContext, it)
+
+        // Get the ID of the standard root object.
+        resRootId = it.load("root id")
     }
 
     // Print both indices.
@@ -113,14 +124,11 @@ fun main() {
     println(resIndex)
 
     // Get the entity corresponding to the stored one.
-    resIndex[first.id]?.let {
-        // Assert it's type.
-        it as Container
+    val resRoot = resIndex[resRootId] as Container
 
-        // Print the values.
-        println(it)
-        println(it.element)
-    }
+    // Print the values.
+    println(resRoot)
+    println(resRoot.element)
 
     // Claim to more IDs to show that no new IDs are generated from entity restoration.
     println(ids.claim())
