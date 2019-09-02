@@ -68,6 +68,13 @@ fun main() {
 
     // Create the existing entity, assign the element values.
     val first = Container(context, null).also {
+        // Delete the element, creating a state that would not be equal to the default.
+        it.element?.delete()
+
+        // Assign a new element.
+        it.element = Element(it.context, null)
+
+        // Set it's values.
         it.element?.xCoord = 2
         it.element?.yCoord = 5
     }
@@ -121,10 +128,10 @@ fun main() {
 
     // Expected output:
 
-    //{(0, 0)=(Container (0, 0), element=(1, 0)), (1, 0)=(Element (1, 0), xCoord=2, yCoord=5)}
-    //{(0, 0)=(Container (0, 0), element=(1, 0)), (1, 0)=(Element (1, 0), xCoord=2, yCoord=5)}
-    //(Container (0, 0), element=(1, 0))
-    //(Element (1, 0), xCoord=2, yCoord=5)
+    //{(0, 0)=(Container (0, 0), element=(1, 1)), (1, 1)=(Element (1, 1), xCoord=2, yCoord=5)}
+    //{(0, 0)=(Container (0, 0), element=(1, 1)), (1, 1)=(Element (1, 1), xCoord=2, yCoord=5)}
+    //(Container (0, 0), element=(1, 1))
+    //(Element (1, 1), xCoord=2, yCoord=5)
     //(2, 0)
     //(2, 0)
 }
