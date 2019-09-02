@@ -1,6 +1,7 @@
 package eu.metatools.wep2.examples
 
 import eu.metatools.wep2.coord.Warp
+import eu.metatools.wep2.entity.*
 import eu.metatools.wep2.tools.*
 import eu.metatools.wep2.track.*
 import eu.metatools.wep2.util.toComparable
@@ -8,10 +9,10 @@ import java.lang.IllegalArgumentException
 
 /**
  * An entity created by the coordinator or another entity.
- * @param context The context that defines parent coordinator, central index and identity generator.
  * @property parent The parent that generated this child, or null.
  */
-class Child(context: Context<String, Time, SI>, val parent: SI? = null) : Entity<String, Time, SI>(context) {
+class Child(context: Context<String, Time, SI>, val parent: SI? = null) :
+    TrackingEntity<String, Time, SI>(context) {
     /**
      * The money of this child, needed to create another child.
      */
@@ -28,6 +29,7 @@ class Child(context: Context<String, Time, SI>, val parent: SI? = null) : Entity
 
                     // Create sibling.
                     Child(context, id)
+
                 }
             }
 
@@ -70,7 +72,7 @@ class Example : Warp<SN<String>, Time>() {
     /**
      * The root, will be created equally for all coordinators.
      */
-    val root = Child(context)
+    val root = Child(context, null)
 
     override fun evaluate(name: SN<String>, time: Time, args: Any?) =
         // Dispatch via index.

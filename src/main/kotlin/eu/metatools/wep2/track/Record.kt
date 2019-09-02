@@ -9,9 +9,12 @@ import eu.metatools.wep2.util.labeledAs
 internal val undos = ThreadLocal<MutableList<() -> Unit>>()
 
 /**
- * Records all changes that are made to delgates that record to [undos].
+ * Records all changes that are made to delegates that record to [undos].
  */
 inline fun rec(block: () -> Unit): () -> Unit {
+    @Suppress("non_public_call_from_public_inline")
+    check(undos.get() == null) { "Already running recording" }
+
     // Generate undo stack.
     val target = mutableListOf<() -> Unit>()
 
