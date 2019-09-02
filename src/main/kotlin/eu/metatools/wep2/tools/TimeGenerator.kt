@@ -1,7 +1,6 @@
 package eu.metatools.wep2.tools
 
 import eu.metatools.wep2.coord.Coordinator
-import eu.metatools.wep2.util.compareRound
 
 /**
  * Universal time exchangeable between systems.
@@ -17,12 +16,24 @@ data class Time(
     val local: Byte
 ) : Comparable<Time> {
     override fun compareTo(other: Time): Int {
-        // Compare time and player as upper, return if not zero.
-        val compareAcross = compareRound(time, player, other.time, other.player, playerCount)
-        if (compareAcross != 0)
-            return compareAcross
+        // Compare outer time, return if not zero.
+        val compareTime = time.compareTo(other.time)
+        if (compareTime != 0)
+            return compareTime
 
-        // Same player at same time, return local.
+        // Compare player count, return if not zero.
+        val comparePlayerCount = playerCount.compareTo(other.playerCount)
+        if (comparePlayerCount != 0)
+            return comparePlayerCount
+
+        // Compare player, rotate for fair distribution.
+        val shift = (time + player) % playerCount
+        val otherShift = (other.time + other.player) % playerCount
+        val compareShift = shift.compareTo(otherShift)
+        if (compareShift != 0)
+            return compareShift
+
+        // Same player on same time, return comparison of local.
         return local.compareTo(other.local)
     }
 
@@ -36,7 +47,7 @@ data class Time(
  * @param localIDs Scoped sequence for local IDs.
  */
 class TimeGenerator(
-    val playerCount: Short,
+    var playerCount: Short,
     val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(generateSequence(Byte.MIN_VALUE, Byte::inc))
 ) {
 
