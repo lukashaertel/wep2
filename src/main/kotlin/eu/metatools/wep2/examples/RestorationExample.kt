@@ -153,11 +153,11 @@ fun main() {
 
     // Expected output:
 
-    //(value=5, items={(0, 1)=Item at 5})
-    //(value=5, items={(0, 1)=Item at 5})
-    //(value=10, items={(0, 1)=Item at 5, (1, 1)=Item at 8})
-    //(value=10, items={(0, 1)=Item at 5, (1, 1)=Item at 8})
-    //(value=-94, items={})
-    //(value=-94, items={})
+    // (value=5, items={(0, 1)=Item at 5})
+    // (value=5, items={(0, 1)=Item at 5})
+    // (value=10, items={(0, 1)=Item at 5, (1, 1)=Item at 8})
+    // (value=10, items={(0, 1)=Item at 5, (1, 1)=Item at 8})
+    // (value=-94, items={})
+    // (value=-94, items={})
 
 }

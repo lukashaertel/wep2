@@ -21,14 +21,10 @@ data class Time(
         if (compareTime != 0)
             return compareTime
 
-        // Compare player count, return if not zero.
-        val comparePlayerCount = playerCount.compareTo(other.playerCount)
-        if (comparePlayerCount != 0)
-            return comparePlayerCount
-
         // Compare player, rotate for fair distribution.
-        val shift = (time + player) % playerCount
-        val otherShift = (other.time + other.player) % playerCount
+        val mod = maxOf(playerCount, other.playerCount)
+        val shift = (time + player) % mod
+        val otherShift = (other.time + other.player) % mod
         val compareShift = shift.compareTo(otherShift)
         if (compareShift != 0)
             return compareShift
@@ -38,7 +34,7 @@ data class Time(
     }
 
     override fun toString() =
-        "$time,$local for $player/$playerCount"
+        "$time.$local for $player/$playerCount"
 }
 
 /**

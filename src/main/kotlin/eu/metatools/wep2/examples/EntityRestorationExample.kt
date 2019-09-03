@@ -108,15 +108,13 @@ fun main() {
     val resContext = Context(NonCoordinator(), resIndex, resIds)
 
     // Track field where root ID is stored.
-    lateinit var resRootId: SI
-
     // Use map for restoring.
-    restoreBy(map::getValue) {
+    val resRootId = restoreBy(map::getValue) {
         // Use the map with all the values to restore the index of the context.
         restoreIndex(resContext, it)
 
         // Get the ID of the standard root object.
-        resRootId = it.load("root id")
+        it.load<SI>("root id")
     }
 
     // Print both indices.
@@ -136,10 +134,10 @@ fun main() {
 
     // Expected output:
 
-    //{(0, 0)=(Container (0, 0), element=(1, 1)), (1, 1)=(Element (1, 1), xCoord=2, yCoord=5)}
-    //{(0, 0)=(Container (0, 0), element=(1, 1)), (1, 1)=(Element (1, 1), xCoord=2, yCoord=5)}
-    //(Container (0, 0), element=(1, 1))
-    //(Element (1, 1), xCoord=2, yCoord=5)
-    //(2, 0)
-    //(2, 0)
+    // {(0, 0)=(Container (0, 0), element=(1, 1)), (1, 1)=(Element (1, 1), xCoord=2, yCoord=5)}
+    // {(0, 0)=(Container (0, 0), element=(1, 1)), (1, 1)=(Element (1, 1), xCoord=2, yCoord=5)}
+    // (Container (0, 0), element=(1, 1))
+    // (Element (1, 1), xCoord=2, yCoord=5)
+    // (2, 0)
+    // (2, 0)
 }

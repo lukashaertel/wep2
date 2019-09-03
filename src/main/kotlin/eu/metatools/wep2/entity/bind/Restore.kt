@@ -33,7 +33,7 @@ fun Restore.path(prefix: String) = object : Restore {
  * Creates a basic restore interface that [load]s the given keys and collects post-operations. Runs the [block] with it
  * and performs all collected post-operations.
  */
-inline fun restoreBy(crossinline load: (String) -> Any?, block: (Restore) -> Unit) {
+inline fun <R> restoreBy(crossinline load: (String) -> Any?, block: (Restore) -> R): R {
     // Collect all post-operations/
     val post = mutableListOf<() -> Unit>()
 
@@ -48,11 +48,14 @@ inline fun restoreBy(crossinline load: (String) -> Any?, block: (Restore) -> Uni
     }
 
     // Invoke the block.
-    block(restore)
+    val result = block(restore)
 
     // execute post options.
     post.forEach {
         it()
     }
+
+    // Return result of the block.
+    return result
 }
 

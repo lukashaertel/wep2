@@ -24,7 +24,7 @@ fun Store.path(prefix: String) = object : Store {
 /**
  * Creates a basic store interface that [save]s the given items. Runs the [block] with it.
  */
-inline fun storeBy(crossinline save: (String, Any?) -> Unit, block: (Store) -> Unit) {
+inline fun <R> storeBy(crossinline save: (String, Any?) -> Unit, block: (Store) -> R): R {
     // Create store object, delegating to save.
     val store = object : Store {
         override fun <T> save(key: String, value: T) {
@@ -33,5 +33,5 @@ inline fun storeBy(crossinline save: (String, Any?) -> Unit, block: (Store) -> U
     }
 
     // Invoke the block.
-    block(store)
+    return block(store)
 }

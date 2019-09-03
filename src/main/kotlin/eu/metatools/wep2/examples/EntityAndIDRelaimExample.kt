@@ -122,20 +122,20 @@ fun main() {
 
     // Expected output:
 
-    //Index
-    //	(0, 0)=(Child of null, money=0)
-    //	(1, 0)=(Child of (0, 0), money=3)
-    //	(2, 0)=(Child of (0, 0), money=3)
-    //	(3, 0)=(Child of (0, 0), money=3)
-    //Index
-    //	(0, 0)=(Child of null, money=0)
-    //	(1, 0)=(Child of (0, 0), money=3)
-    //	(2, 0)=(Child of (0, 0), money=3)
-    //	(3, 0)=(Child of (0, 0), money=3)
-    //	(4, 0)=(Child of (0, 0), money=3)
-    //Index
-    //	(1, 0)=(Child of (0, 0), money=3)
-    //Index
-    //	(1, 0)=(Child of (0, 0), money=2)
-    //	(0, 1)=(Child of (1, 0), money=3)
+    // Index
+    //   (0, 0)=(Child of null, money=0)
+    //   (1, 0)=(Child of (0, 0), money=3)
+    //   (2, 0)=(Child of (0, 0), money=3)
+    //   (3, 0)=(Child of (0, 0), money=3)
+    // Index
+    //   (0, 0)=(Child of null, money=0)
+    //   (1, 0)=(Child of (0, 0), money=3)
+    //   (2, 0)=(Child of (0, 0), money=3)
+    //   (3, 0)=(Child of (0, 0), money=3)
+    //   (4, 0)=(Child of (0, 0), money=3)
+    // Index
+    //   (1, 0)=(Child of (0, 0), money=3)
+    // Index
+    //   (1, 0)=(Child of (0, 0), money=2)
+    //   (0, 1)=(Child of (1, 0), money=3)
 }
