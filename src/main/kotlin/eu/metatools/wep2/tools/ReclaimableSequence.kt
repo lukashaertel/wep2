@@ -101,3 +101,43 @@ class ReclaimableSequence<I, R>(val sequence: Sequence<I>, val zero: R, val inc:
         }
     }
 }
+
+/**
+ * Reclaimable sequence generating short natural numbers with a short recycle count.
+ */
+fun shortNat(start: Short = 0) =
+    ReclaimableSequence(generateSequence(start, Short::inc), 0, Short::inc)
+
+/**
+ * Reclaimable sequence generating short natural numbers with an integer recycle count.
+ */
+fun shortNatBusy(start: Short = 0) =
+    ReclaimableSequence(generateSequence(start, Short::inc), 0, Int::inc)
+
+/**
+ * Reclaimable sequence generating long natural numbers with a short recycle count.
+ */
+fun longNat(start: Long = 0L) =
+    ReclaimableSequence(generateSequence(start, Long::inc), 0, Short::inc)
+
+/**
+ * Reclaimable sequence generating long natural numbers with an integer recycle count.
+ */
+fun longBusy(start: Long = 0L) =
+    ReclaimableSequence(generateSequence(start, Long::inc), 0, Short::inc)
+
+/**
+ * Reclaimable sequence generating random integers with a short recycle count.
+ */
+fun intRandom(seed: Long = 0): ReclaimableSequence<Int, Short> {
+    val random = Random(seed)
+    return ReclaimableSequence(generateSequence { random.nextInt() }, 0, Short::inc)
+}
+
+/**
+ * Reclaimable sequence generating random integers with an integer recycle count.
+ */
+fun intRandomBusy(seed: Long = 0): ReclaimableSequence<Int, Int> {
+    val random = Random(seed)
+    return ReclaimableSequence(generateSequence { random.nextInt() }, 0, Int::inc)
+}

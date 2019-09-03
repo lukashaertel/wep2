@@ -12,7 +12,7 @@ class RestorationExample(idgen: ReclaimableSequence<Short, Short>) : Warp<String
     /**
      * ID generator with undo tracking.
      */
-    val ids = identifier(idgen)
+    val ids = claimer(idgen)
 
     /**
      * Current value with undo tracking.
@@ -68,7 +68,7 @@ fun main() {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     // Create main set of entries.
-    val idgen = smallSequence()
+    val idgen = shortNat()
     val coord = RestorationExample(idgen)
     val ticks = TickGenerator(0L, 1L)
     val time = TimeGenerator(1)

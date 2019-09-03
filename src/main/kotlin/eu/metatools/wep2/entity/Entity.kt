@@ -15,7 +15,7 @@ import eu.metatools.wep2.util.*
 class Context<N, T : Comparable<T>, I>(
     val parent: Coordinator<Pair<I, N>, T>,
     val index: SimpleMap<I, Entity<N, T, I>>,
-    val ids: Identifier<I>
+    val ids: Claimer<I>
 )
 
 /**

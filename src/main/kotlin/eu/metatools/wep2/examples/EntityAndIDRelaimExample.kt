@@ -62,7 +62,7 @@ class Example : Warp<SN<String>, Time>() {
     /**
      * The ID generator.
      */
-    val ids = identifier(smallSequence())
+    val ids = claimer(shortNat())
 
     /**
      * The context to use for entity creation.

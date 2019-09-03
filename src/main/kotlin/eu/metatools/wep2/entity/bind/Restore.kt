@@ -34,7 +34,7 @@ fun Restore.path(prefix: String) = object : Restore {
  * and performs all collected post-operations.
  */
 inline fun <R> restoreBy(crossinline load: (String) -> Any?, block: (Restore) -> R): R {
-    // Collect all post-operations/
+    // Collect all post-operations.
     val post = mutableListOf<() -> Unit>()
 
     // Create restore object, collecting to post and delegating to load.

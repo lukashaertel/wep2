@@ -7,11 +7,11 @@ import eu.metatools.wep2.entity.SN
 import eu.metatools.wep2.entity.bind.*
 import eu.metatools.wep2.entity.entityMap
 import eu.metatools.wep2.tools.ReclaimableSequence
+import eu.metatools.wep2.tools.shortNat
 import eu.metatools.wep2.track.SI
 import eu.metatools.wep2.track.bind.prop
 import eu.metatools.wep2.track.bind.ref
-import eu.metatools.wep2.track.identifier
-import eu.metatools.wep2.track.smallSequence
+import eu.metatools.wep2.track.claimer
 
 /**
  * Does not do anything, coordination is not the focus here, operations are never invoked.
@@ -60,8 +60,8 @@ class Element(context: Context<Int, Int, SI>, restore: Restore?) : RestoringEnti
 fun main() {
     // Generate basic status, entity map with simple names and identities.
     val index = entityMap<Int, Int, SI>()
-    val idgen = smallSequence()
-    val ids = identifier(idgen)
+    val idgen = shortNat()
+    val ids = claimer(idgen)
 
     // Create the context on the properties for construction.
     val context = Context(NonCoordinator(), index, ids)
@@ -102,7 +102,7 @@ fun main() {
     )
 
     // Restore the identifier from the restored identity genrator.
-    val resIds = identifier(resIdgen)
+    val resIds = claimer(resIdgen)
 
     // Link the context.
     val resContext = Context(NonCoordinator(), resIndex, resIds)
