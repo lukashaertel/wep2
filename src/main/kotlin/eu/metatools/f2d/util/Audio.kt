@@ -7,6 +7,9 @@ import com.badlogic.gdx.backends.lwjgl.audio.OpenALSound
 import com.badlogic.gdx.utils.LongMap
 import java.lang.IllegalStateException
 
+/**
+ * Navigates from the object to the explicitly given superclass [T]. Used for declared field access.
+ */
 private inline fun <reified T> Any.toSuperClass(): Class<*> {
     val target = T::class.java
     var current: Class<*> = this.javaClass
@@ -28,9 +31,11 @@ private inline fun <reified T> Any.toSuperClass(): Class<*> {
  * For an OpenALSound, retrieves the buffer ID.
  */
 fun Sound.bufferId(): Int? {
+    // Only work on OpenALSound.
     if (this !is OpenALSound)
         return null
 
+    // Get the bufferID field of the class, resolve it as accessible.
     this.toSuperClass<OpenALSound>().getDeclaredField("bufferID").let {
         try {
             it.isAccessible = true
@@ -47,8 +52,11 @@ fun Sound.bufferId(): Int? {
  * resolve the source from the sound ID.
  */
 fun Audio.sourceFromID(id: Long): Int? {
+    // Only work on OpenALAudio.
     if (this !is OpenALAudio)
         return null
+
+    // Get the soundIdToSource field of the class, resolve it as accessible.
     this.toSuperClass<OpenALAudio>().getDeclaredField("soundIdToSource").let {
         try {
             it.isAccessible = true

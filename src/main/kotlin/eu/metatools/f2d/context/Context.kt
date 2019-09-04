@@ -32,8 +32,8 @@ class Once {
         /**
          * Type safe delegate for draw in the [Continuous].
          */
-        fun render(continuous: Continuous, time: Double, world: Coords) {
-            continuous.draw(time, world, subject, args, coordinates)
+        fun render(continuous: Continuous, time: Double) {
+            continuous.draw(time, subject, args, coordinates)
         }
     }
 
@@ -61,8 +61,8 @@ class Once {
         /**
          * Type safe delegate for play in the [Continuous].
          */
-        fun render(continuous: Continuous, time: Double, world: Coords) {
-            continuous.play(key, time, world, subject, args, coordinates)
+        fun render(continuous: Continuous, time: Double) {
+            continuous.play(key, time, subject, args, coordinates)
         }
     }
 
@@ -115,7 +115,7 @@ class Once {
     /**
      * Sends all queued [Drawable]s and [Playable]s to the [Continuous] context.
      */
-    fun render(continuous: Continuous, time: Double, world: Coords) {
+    fun dispatch(continuous: Continuous, time: Double) {
         // Draw or remove drawable entries.
         drawable.iterator().let {
             while (it.hasNext()) {
@@ -125,7 +125,7 @@ class Once {
                 if (current.hasEnded(time))
                     it.remove()
                 else
-                    current.render(continuous, time, world)
+                    current.render(continuous, time)
             }
         }
 
@@ -138,7 +138,7 @@ class Once {
                 if (current.hasEnded(time))
                     it.remove()
                 else
-                    current.render(continuous, time, world)
+                    current.render(continuous, time)
             }
         }
     }
@@ -158,8 +158,6 @@ fun <T> Once.draw(subject: Drawable<T?>, coordinates: CoordsAt) =
 fun <T> Once.play(subject: Playable<T?>, coordinates: CoordsAt) =
     this.play(subject, null, coordinates)
 
-// TODO: Do I need world coordinates?
-
 /**
  * Methods used to draw or play a subject continuously.
  */
@@ -175,28 +173,27 @@ class Continuous {
     private val calls = sortedMapOf<Float, ZEntry>()
 
     /**
-     * Draws a visible instance [subject]  with the [time], the [world] coordinates
-     * and the [coordinates]. Passes the [args].
+     * Draws a visible instance [subject]  with the [time] and the [coordinates]. Passes the [args].
      */
-    fun <T> draw(time: Double, world: Coords, subject: Drawable<T>, args: T, coordinates: CoordsAt) {
+    fun <T> draw(time: Double, subject: Drawable<T>, args: T, coordinates: CoordsAt) {
         // Don't render subjects outside their lifetime.
         if (!subject.hasStarted(args, time) || subject.hasEnded(args, time))
             return
 
         // Create combined matrix.
-        val combined = coordinates(time).mulLeft(world)
+        val coords = coordinates(time)
 
         // Read Z-value from the matrix.
-        val z = combined.`val`[Matrix4.M23] / combined.`val`[Matrix4.M33]
+        val z = coords.`val`[Matrix4.M23] / coords.`val`[Matrix4.M33]
 
         // Get the target for the given Z entry.
         val target = calls.getOrPut(z) { ZEntry(null, mutableListOf()) }
 
         // Add setting the combined matrix.
-        if (target.lastCombined != combined) {
-            target.lastCombined = combined
+        if (target.lastCombined != coords) {
+            target.lastCombined = coords
             target.entries.add {
-                it.transformMatrix = combined
+                it.transformMatrix = coords
             }
         }
 
@@ -204,8 +201,8 @@ class Continuous {
         subject.generate(args, time) { target.entries.add(it) }
     }
 
-    fun draw(time: Double, world: Coords, subject: Drawable<Unit>, coordinates: CoordsAt) =
-        draw(time, world, subject, Unit, coordinates)
+    fun draw(time: Double, subject: Drawable<Unit>, coordinates: CoordsAt) =
+        draw(time, subject, Unit, coordinates)
 
     /**
      * Represents an active [Playable] with it's arguments.
@@ -230,16 +227,16 @@ class Continuous {
     private val soundsRenewed = mutableSetOf<ActivePlayable<*>>()
 
     /**
-     * Plays or keeps playing a sound instance [subject] for the given [key] with the [time], the [world] coordinates
-     * and the listener-relative [coordinates]. Passes the [args].
+     * Plays or keeps playing a sound instance [subject] for the given [key] with the [time] and the
+     * listener-relative [coordinates]. Passes the [args].
      */
-    fun <T> play(key: Any, time: Double, world: Coords, subject: Playable<T>, args: T, coordinates: CoordsAt) {
+    fun <T> play(key: Any, time: Double, subject: Playable<T>, args: T, coordinates: CoordsAt) {
         // Don't play subjects outside their lifetime.
         if (!subject.hasStarted(args, time) || subject.hasEnded(args, time))
             return
 
         // Create combined matrix.
-        val combined = coordinates(time).mulLeft(world)
+        val combined = coordinates(time)
 
         // Read center from the matrix.
         val x = combined.`val`[Matrix4.M03] / combined.`val`[Matrix4.M33]
@@ -257,8 +254,8 @@ class Continuous {
         subject.generate(args, id, time, x, y, z)
     }
 
-    fun play(key: Any, time: Double, world: Coords, subject: Playable<Unit>, coordinates: CoordsAt) =
-        play(key, time, world, subject, Unit, coordinates)
+    fun play(key: Any, time: Double, subject: Playable<Unit>, coordinates: CoordsAt) =
+        play(key, time, subject, Unit, coordinates)
 
     /**
      * Sends the cached calls to the sprite batch, updates outdated sounds.
@@ -292,12 +289,12 @@ class Continuous {
  * Auto-fills the nullable args with `null`.
  */
 @JvmName("drawNullArg")
-fun <T> Continuous.draw(time: Double, world: Coords, subject: Drawable<T?>, coordinates: CoordsAt) =
-    this.draw(time, world, subject, null, coordinates)
+fun <T> Continuous.draw(time: Double, subject: Drawable<T?>, coordinates: CoordsAt) =
+    this.draw(time, subject, null, coordinates)
 
 /**
  * Auto-fills the nullable args with `null`.
  */
 @JvmName("playNullArg")
-fun <T> Continuous.play(key: Any, time: Double, world: Coords, subject: Playable<T?>, coordinates: CoordsAt) =
-    this.play(key, time, world, subject, null, coordinates)
+fun <T> Continuous.play(key: Any, time: Double, subject: Playable<T?>, coordinates: CoordsAt) =
+    this.play(key, time, subject, null, coordinates)
