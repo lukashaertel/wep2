@@ -38,3 +38,11 @@ inline fun rec(block: () -> Unit): () -> Unit {
         target.asReversed().joinToString(" ; ")
     }
 }
+
+/**
+ * Adds an explicit undo-operation, should be called when the corresponding do-operation is performed.
+ */
+fun undo(block: () -> Unit) {
+    @Suppress("non_public_call_from_public_inline")
+    undos.get()?.add(block)
+}

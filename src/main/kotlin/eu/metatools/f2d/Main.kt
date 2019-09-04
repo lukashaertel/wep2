@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.context.*
 import eu.metatools.f2d.tools.SolidResource
+import eu.metatools.f2d.tools.SoundArgs
 import eu.metatools.f2d.tools.SoundResource
 import kotlin.math.sin
 
@@ -48,10 +49,16 @@ fun main() {
                     .translate(0.5f, 0f, 0f)
             }
 
-            if (n == 5)
-                continuous.play("id", time, world, soundA) {
+            if (n == 5) {
+                continuous.play(
+                    "id", time, world, soundA, SoundArgs(
+                        looping = true,
+                        pitch = if (time > 5) 0.5f else 1.0f
+                    )
+                ) {
                     Matrix4().translate(20f, 0f, 0f).translate(Vector3().sub(listener))
                 }
+            }
 
             if (n > 0) {
                 render(
@@ -104,7 +111,7 @@ fun main() {
                     .rotate(Vector3.Z, it.toFloat() * 10f)
             }
 
-            once.play(soundB) {
+            once.play(soundB, SoundArgs(looping = true)) {
                 Matrix4().translate((100f * sin(Math.toRadians(it * 10f))).toFloat(), 0f, 0f)
             }
         }
