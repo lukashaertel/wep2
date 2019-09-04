@@ -4,80 +4,16 @@ import com.badlogic.gdx.ApplicationListener
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.Pixmap
-import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.math.Vector3
-import eu.metatools.f2d.SolidColors.texture
+import eu.metatools.f2d.context.*
+import eu.metatools.f2d.tools.SolidResource
+import eu.metatools.f2d.tools.SoundResource
 import kotlin.math.sin
 
-
-val once = Once()
-
-val continuous = Continuous()
-
-
-object SolidColors : DrawableResource<Color> {
-    var texture: Texture? = null
-
-    override fun initialize() {
-        // Check if already initialized.
-        if (texture == null)
-            texture = Texture(Pixmap(1, 1, Pixmap.Format.RGBA8888).apply {
-                setColor(Color.WHITE)
-                drawPixel(0, 0)
-            })
-    }
-
-    override fun dispose() {
-        texture?.dispose()
-        texture = null
-    }
-
-    override fun instantiate(arguments: Color) =
-        object : Drawable {
-            override fun generate(time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
-                receiver {
-                    val source = it.color.cpy()
-                    it.color = arguments
-                    it.draw(texture, 0f, 0f)
-                    it.color = source
-                }
-            }
-
-            override fun hasStarted(time: Double) =
-                0.0 <= time //TODO Figure out a standard.
-
-            override fun hasEnded(time: Double) =
-                false
-        }
-
-}
-
-fun Drawable.endingAfter(endTime: Double) = object : Drawable {
-    override fun generate(time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) =
-        this@endingAfter.generate(time, receiver)
-
-    override fun hasStarted(time: Double) =
-        this@endingAfter.hasStarted(time)
-
-    override fun hasEnded(time: Double) =
-        time > endTime
-}
-
-fun Drawable.offset(offset: Double) = object : Drawable {
-    override fun generate(time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) =
-        this@offset.generate(time - offset, receiver)
-
-    override fun hasStarted(time: Double) =
-        this@offset.hasStarted(time - offset)
-
-    override fun hasEnded(time: Double) =
-        this@offset.hasEnded(time - offset)
-}
 
 fun main() {
     val config = LwjglApplicationConfiguration()
@@ -88,49 +24,55 @@ fun main() {
 
         lateinit var spriteBatch: SpriteBatch
 
-        val white = SolidColors.instantiate(Color.WHITE)
+        val once = Once()
 
-        fun render(time: Double, world: Coords, n: Int = 3) {
-            continuous.draw(time, world, white) {
+        val continuous = Continuous()
+
+        val colors = SolidResource()
+
+        val fire = SoundResource { Gdx.files.internal("ak74-fire.wav") }
+
+        val soundA = fire.refer().offset(2.0)
+
+        val soundB = fire.refer().offset(4.0)
+
+        val solid = colors.refer()
+
+
+        val listener = Vector3(100f, 100f, 0f)
+
+        fun render(time: Double, world: Coords, n: Int = 5) {
+            continuous.draw(time, world, solid, Color(1f, 1f, 1f, 0.5f)) {
                 Matrix4()
-                    .scale(10f, 10f, 10f)
+                    .scale(100f, 2f, 1f)
+                    .translate(0.5f, 0f, 0f)
             }
-            continuous.draw(time, world, white) {
-                Matrix4()
-                    .translate(-20f, 0f, 0f)
-                    .scale(10f, 10f, 10f)
-            }
-            continuous.draw(time, world, white) {
-                Matrix4()
-                    .translate(20f, 0f, 0f)
-                    .scale(10f, 10f, 10f)
-            }
-            continuous.draw(time, world, white) {
-                Matrix4()
-                    .translate(0f, -20f, 0f)
-                    .scale(10f, 10f, 10f)
-            }
-            continuous.draw(time, world, white) {
-                Matrix4()
-                    .translate(0f, 20f, 0f)
-                    .scale(10f, 10f, 10f)
-            }
+
+            if (n == 5)
+                continuous.play("id", time, world, soundA) {
+                    Matrix4().translate(20f, 0f, 0f).translate(Vector3().sub(listener))
+                }
 
             if (n > 0) {
-                render(time, world.cpy().translate(100f, 0f, 0f).rotate(Vector3.Z, 15f).scale(0.8f, 0.8f, 0.8f), n - 1)
+                render(
+                    time, world.cpy()
+                        .translate(100f, 0f, 0f)
+                        .rotate(Vector3.Z, 30f)
+                        .scale(0.5f, 1f, 1f), n - 1
+                )
             }
         }
 
         override fun render() {
             val time = (System.currentTimeMillis() - firstTime) / 1000.0
 
-            render(time, world)
-            once.send(continuous, time, world)
+            render(time, world.cpy().translate(100f, 100f, 0f))
+            once.render(continuous, time, world)
 
-            Gdx.gl.glClearColor(1f, 0f, 0f, 1f)
+            Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
             Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
             spriteBatch.begin()
-            continuous.send(spriteBatch)
+            continuous.render(spriteBatch)
             spriteBatch.end()
         }
 
@@ -148,20 +90,28 @@ fun main() {
         }
 
         override fun create() {
-
             spriteBatch = SpriteBatch()
+            spriteBatch.enableBlending()
+            spriteBatch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
 
-            SolidColors.initialize()
+            colors.initialize()
+            fire.initialize()
 
-            once.draw(white.endingAfter(5.0).offset(5.0)) {
+            once.draw(solid.limit(100.0).offset(2.0), Color(0.1f, 0.1f, 0.5f, 1.0f)) {
                 Matrix4()
-                    .translate(100f, 100f, 0f)
-                    .scale(10f, 10f, 10f)
+                    .translate(110f, 110f, -1f)
+                    .scale(200f, 200f, 1f)
+                    .rotate(Vector3.Z, it.toFloat() * 10f)
+            }
+
+            once.play(soundB) {
+                Matrix4().translate((100f * sin(Math.toRadians(it * 10f))).toFloat(), 0f, 0f)
             }
         }
 
         override fun dispose() {
-            SolidColors.dispose()
+            colors.dispose()
+            fire.dispose()
         }
 
     }, config)
