@@ -1,13 +1,11 @@
 package eu.metatools.wep2.examples
 
 import eu.metatools.wep2.coord.Coordinator
-import eu.metatools.wep2.entity.Context
-import eu.metatools.wep2.entity.RestoringEntity
-import eu.metatools.wep2.entity.SN
+import eu.metatools.wep2.entity.*
 import eu.metatools.wep2.entity.bind.*
-import eu.metatools.wep2.entity.entityMap
 import eu.metatools.wep2.tools.ReclaimableSequence
 import eu.metatools.wep2.tools.shortNat
+import eu.metatools.wep2.track.Claimer
 import eu.metatools.wep2.track.SI
 import eu.metatools.wep2.track.bind.prop
 import eu.metatools.wep2.track.bind.ref
@@ -64,7 +62,7 @@ fun main() {
     val ids = claimer(idgen)
 
     // Create the context on the properties for construction.
-    val context = Context(NonCoordinator(), index, ids)
+    val context = context(index, ids) { _, _, _, _ -> }
 
     // Create the existing entity, assign the element values.
     val root = Container(context, null).also {
@@ -105,7 +103,7 @@ fun main() {
     val resIds = claimer(resIdgen)
 
     // Link the context.
-    val resContext = Context(NonCoordinator(), resIndex, resIds)
+    val resContext = context(resIndex, resIds) { _, _, _, _ -> }
 
     // Track field where root ID is stored.
     // Use map for restoring.

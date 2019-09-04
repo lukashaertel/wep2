@@ -56,19 +56,12 @@ fun <I, E : Entity<*, *, I>> refOne(restore: Restore?, initial: () -> E) =
                 }
             }
 
-            override fun getValue(
-                thisRef: Entity<*, *, *>,
-                property: KProperty<*>
-            ) =
+            override fun getValue(thisRef: Entity<*, *, *>, property: KProperty<*>) =
                 // Return the present value of current, otherwise throw an exception, something is going wrong.
                 (current as? Just)?.item
                     ?: throw IllegalStateException("Trying to access field value while restoring")
 
-            override fun setValue(
-                thisRef: Entity<*, *, *>,
-                property: KProperty<*>,
-                value: E
-            ) {
+            override fun setValue(thisRef: Entity<*, *, *>, property: KProperty<*>, value: E) {
                 // Memorize old value before setting.
                 val oldValue = current
                 current = Just(value)

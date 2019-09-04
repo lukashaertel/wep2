@@ -8,15 +8,38 @@ import eu.metatools.wep2.util.*
 
 /**
  * A context for entity creation.
- * @property parent The coordinator that will be signalled to.
- * @property index The index containing all registrations/
- * @property ids The identity provider.
  */
-class Context<N, T : Comparable<T>, I>(
-    val parent: Coordinator<Pair<I, N>, T>,
-    val index: SimpleMap<I, Entity<N, T, I>>,
+interface Context<N, T : Comparable<T>, I> {
+    /**
+     * The index containing all registrations.
+     */
+    val index: SimpleMap<I, Entity<N, T, I>>
+
+    /**
+     * The identity provider.
+     */
     val ids: Claimer<I>
-)
+
+    /**
+     * Signals dispatched via [identity].
+     */
+    fun signal(identity: I, name: N, time: T, args: Any?)
+}
+
+inline fun <N, T : Comparable<T>, I> context(
+    index: SimpleMap<I, Entity<N, T, I>>,
+    ids: Claimer<I>,
+    crossinline signal: (I, N, T, Any?) -> Unit
+) = object : Context<N, T, I> {
+    override val index: SimpleMap<I, Entity<N, T, I>>
+        get() = index
+    override val ids: Claimer<I>
+        get() = ids
+
+    override fun signal(identity: I, name: N, time: T, args: Any?) {
+        signal(identity, name, time, args)
+    }
+}
 
 /**
  * Base class for all entities, receives a context in which registration and dispatch is performed.
@@ -70,7 +93,7 @@ sealed class Entity<N, T : Comparable<T>, I>(
      * Sends a signal on self with the given name/time/argument triple.
      */
     fun signal(name: N, time: T, args: Any?) {
-        context.parent.signal(id to name, time, args)
+        context.signal(id, name, time, args)
     }
 
     /**
@@ -84,10 +107,11 @@ sealed class Entity<N, T : Comparable<T>, I>(
  * [RestoringEntity], which skips ID generation if restoring.
  * @param context The receiver context.
  */
-abstract class TrackingEntity<N, T : Comparable<T>, I>(context: Context<N, T, I>) :
-    Entity<N, T, I>(context, {
-        id = context.ids.claim()
-    })
+abstract class TrackingEntity<N, T : Comparable<T>, I>(
+    context: Context<N, T, I>
+) : Entity<N, T, I>(context, {
+    id = context.ids.claim()
+})
 
 /**
  * Entity that skips automatic ID generation if in restore mode. When only tracking and dispatch are
@@ -95,11 +119,13 @@ abstract class TrackingEntity<N, T : Comparable<T>, I>(context: Context<N, T, I>
  * @param context The receiver context.
  * @param restore The restore context, given when this entity is reconstructed, rather then initialized.
  */
-abstract class RestoringEntity<N, T : Comparable<T>, I>(context: Context<N, T, I>, restore: Restore?) :
-    Entity<N, T, I>(context, {
-        if (restore == null)
-            id = context.ids.claim()
-    }) {
+abstract class RestoringEntity<N, T : Comparable<T>, I>(
+    context: Context<N, T, I>,
+    restore: Restore?
+) : Entity<N, T, I>(context, {
+    if (restore == null)
+        id = context.ids.claim()
+}) {
     /**
      * Collects the save-methods.
      */

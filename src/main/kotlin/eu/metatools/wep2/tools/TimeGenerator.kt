@@ -44,8 +44,11 @@ data class Time(
  */
 class TimeGenerator(
     var playerCount: Short,
-    val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(generateSequence(Byte.MIN_VALUE, Byte::inc))
+    val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(defaultLocalIDs)
 ) {
+    companion object {
+        val defaultLocalIDs = generateSequence(Byte.MIN_VALUE, Byte::inc)
+    }
 
     /**
      * Consolidates the underlying generators.

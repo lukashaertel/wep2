@@ -53,26 +53,25 @@ class Child(context: Context<String, Time, SI>, val parent: SI? = null) :
 /**
  * The main coordinator, dispatching instructions on it's index.
  */
-class Example : Warp<SN<String>, Time>() {
+class Example : Warp<SN<String>, Time>(), Context<String, Time, SI> {
     /**
      * The central entity index.
      */
-    val index = entityMap<String, Time, SI>()
+    override val index = entityMap<String, Time, SI>()
 
     /**
      * The ID generator.
      */
-    val ids = claimer(shortNat())
-
-    /**
-     * The context to use for entity creation.
-     */
-    val context = Context(this, index, ids)
+    override val ids = claimer(shortNat())
 
     /**
      * The root, will be created equally for all coordinators.
      */
-    val root = Child(context, null)
+    val root = Child(this, null)
+
+    override fun signal(identity: SI, name: String, time: Time, args: Any?) {
+        signal(identity to name, time, args)
+    }
 
     override fun evaluate(name: SN<String>, time: Time, args: Any?) =
         // Dispatch via index.

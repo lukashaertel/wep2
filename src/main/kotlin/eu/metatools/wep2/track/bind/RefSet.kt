@@ -27,8 +27,7 @@ fun <I, E : Entity<*, *, I>> refSet(restore: Restore?) =
             } labeledAs { "save ref set ${property.name}" })
         }
 
-        object :
-            ReadOnlyProperty<Entity<*, *, *>, SimpleSet<E>> {
+        object : ReadOnlyProperty<Entity<*, *, *>, SimpleSet<E>> {
             /**
              * Stores the current value, initially not assigned.
              */
@@ -58,10 +57,7 @@ fun <I, E : Entity<*, *, I>> refSet(restore: Restore?) =
                 }
             }
 
-            override fun getValue(
-                thisRef: Entity<*, *, *>,
-                property: KProperty<*>
-            ) =
+            override fun getValue(thisRef: Entity<*, *, *>, property: KProperty<*>) =
                 // Return the present value of current, otherwise throw an exception, something is going wrong.
                 (current as? Just)?.item
                     ?: throw IllegalStateException("Trying to access field value while restoring")
