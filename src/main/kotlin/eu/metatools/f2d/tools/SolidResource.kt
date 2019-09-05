@@ -10,7 +10,7 @@ import eu.metatools.f2d.context.Resource
 /**
  * Generates drawable resources with a given color. The results have the length one and are centered.
  */
-class SolidResource : Resource<Drawable<Color>> {
+class SolidResource : Resource<Unit, Drawable<Color>> {
     var texture: Texture? = null
 
     override fun initialize() {
@@ -28,7 +28,7 @@ class SolidResource : Resource<Drawable<Color>> {
         texture = null
     }
 
-    override fun refer() =
+    override fun refer(arguments: Unit) =
         object : Drawable<Color> {
             override fun generate(args: Color, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
                 receiver {

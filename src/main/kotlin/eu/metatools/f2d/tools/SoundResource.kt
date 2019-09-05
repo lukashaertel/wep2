@@ -17,7 +17,7 @@ data class SoundArgs(val looping: Boolean = false, val pitch: Float = 1.0f, val 
 /**
  * A sound resource that loads the sound from a file. The played sounds respect position, commits volume and pitch.
  */
-class SoundResource(val location: () -> FileHandle) : Resource<Playable<SoundArgs?>> {
+class SoundResource(val location: () -> FileHandle) : Resource<Unit, Playable<SoundArgs?>> {
     companion object {
         /**
          * Value that, if exceeded, will cause repositioning of a playable instance.
@@ -42,7 +42,7 @@ class SoundResource(val location: () -> FileHandle) : Resource<Playable<SoundArg
         sound = null
     }
 
-    override fun refer() =
+    override fun refer(arguments: Unit) =
         object : Playable<SoundArgs?> {
             override fun start(args: SoundArgs?, time: Double): Long {
                 // Get loaded sound.

@@ -5,7 +5,7 @@ import eu.metatools.f2d.context.*
 import eu.metatools.wep2.track.undo
 
 /**
- * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable.
+ * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable (preventing it from drawing).
  */
 fun <T> Once.recDraw(subject: Drawable<T>, args: T, coordinates: CoordsAt) {
     val closable = draw(subject, args, coordinates)
@@ -15,7 +15,7 @@ fun <T> Once.recDraw(subject: Drawable<T>, args: T, coordinates: CoordsAt) {
 }
 
 /**
- * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable.
+ * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable (preventing it from drawing).
  */
 fun Once.recDraw(subject: Drawable<Unit>, coordinates: CoordsAt) {
     val closable = draw(subject, coordinates)
@@ -25,7 +25,7 @@ fun Once.recDraw(subject: Drawable<Unit>, coordinates: CoordsAt) {
 }
 
 /**
- * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable.
+ * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable (preventing it from drawing).
  */
 @JvmName("recDrawNullArg")
 fun <T> Once.recDraw(subject: Drawable<T?>, coordinates: CoordsAt) {
@@ -36,7 +36,7 @@ fun <T> Once.recDraw(subject: Drawable<T?>, coordinates: CoordsAt) {
 }
 
 /**
- * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable.
+ * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable (preventing it from playing).
  */
 fun <T> Once.recPlay(subject: Playable<T>, args: T, coordinates: CoordsAt) {
     val closable = play(subject, args, coordinates)
@@ -46,7 +46,7 @@ fun <T> Once.recPlay(subject: Playable<T>, args: T, coordinates: CoordsAt) {
 }
 
 /**
- * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable.
+ * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable (preventing it from playing).
  */
 fun Once.recPlay(subject: Playable<Unit>, coordinates: CoordsAt) {
     val closable = play(subject, coordinates)
@@ -56,7 +56,7 @@ fun Once.recPlay(subject: Playable<Unit>, coordinates: CoordsAt) {
 }
 
 /**
- * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable.
+ * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable (preventing it from playing).
  */
 @JvmName("recPlayNullArg")
 fun <T> Once.recPlay(subject: Playable<T?>, coordinates: CoordsAt) {

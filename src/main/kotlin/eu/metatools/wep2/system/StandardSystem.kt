@@ -10,7 +10,10 @@ import eu.metatools.wep2.tools.TimeGenerator
 import eu.metatools.wep2.track.*
 import eu.metatools.wep2.util.randomInts
 import eu.metatools.wep2.util.shorts
+import eu.metatools.wep2.util.uv
+import eu.metatools.wep2.util.within
 import java.util.*
+import kotlin.reflect.KCallable
 
 /**
  * Names generated and processed by a [StandardSystem].
@@ -70,7 +73,7 @@ class StandardInitializer<N, P>(
  * @param createParameters The parameter to use if creating fresh.
  * @param standardInitializer The initializer or null if creating.
  */
-class StandardSystem<N, P>(
+open class StandardSystem<N, P>(
     createSeed: Long,
     createParameters: P,
     standardInitializer: StandardInitializer<N, P>?
@@ -304,13 +307,56 @@ class StandardSystem<N, P>(
     }
 
     /**
-     * Takes a time for the current player ([self]) and the given [generalTime] time.
+     * Takes a time for the current player ([self]) and the given [generalTime] time. If no
+     * general time is given, uses the current time millis.
      */
-    fun time(generalTime: Long) =
+    fun time(generalTime: Long = System.currentTimeMillis()) =
         time.take(generalTime, playerCount, self)
 
-    // TODO: Tick generators.
+    // TODO: Tick generators. Maybe recording map with (initial, freq) -> TG, store that value etc.
 }
 
+/**
+ * A [RestoringEntity] with the remaining parameters bound to match [StandardSystem].
+ */
 typealias StandardEntity<N> = RestoringEntity<N, Time, SI>
 
+/**
+ * Claims a random int with the given bounds.
+ *
+ * Shorthand for `randoms.claimValue().within(lower, upper)`.
+ */
+fun StandardSystem<*, *>.randomInt(lower: Int, upper: Int) =
+    randoms.claimValue().within(lower, upper)
+
+/**
+ * Claims a random double in [[0.0, 1.0]].
+ *
+ * Shorthand for `randoms.claimValue().uv()`.
+ */
+fun StandardSystem<*, *>.randomDouble() =
+    randoms.claimValue().uv()
+
+/**
+ * Gets a random element of the list.
+ */
+fun <E> StandardSystem<*, *>.randomOf(list: List<E>) =
+    list[randomInt(0, list.size)]
+
+/**
+ * Gets a random element of the array.
+ */
+inline fun <reified E> StandardSystem<*, *>.randomOf(array: Array<E>) =
+    array[randomInt(0, array.size)]
+
+/**
+ * Gets a random element of the map, keys must be sortable.
+ */
+fun <K : Comparable<K>, V> StandardSystem<*, *>.randomOf(map: Map<K, V>) =
+    map[randomOf(map.keys.sorted())]
+
+/**
+ * Finds the single root entity or throws an exception.
+ */
+inline fun <N, reified R> StandardSystem<N, *>.findRoot() =
+    index.values.filterIsInstance<R>().single()

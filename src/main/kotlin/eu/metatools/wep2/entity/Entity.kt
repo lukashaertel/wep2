@@ -98,8 +98,10 @@ sealed class Entity<N, T : Comparable<T>, I>(
 
     /**
      * Locally evaluates the instruction for an undo.
+     *
+     * Default does nothing.
      */
-    abstract fun evaluate(name: N, time: T, args: Any?): () -> Unit
+    open fun evaluate(name: N, time: T, args: Any?): () -> Unit = { }
 }
 
 /**

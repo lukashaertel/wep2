@@ -3,6 +3,7 @@ package eu.metatools.wep2.examples
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.system.StandardEntity
 import eu.metatools.wep2.system.StandardSystem
+import eu.metatools.wep2.system.randomInt
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.track.bind.prop
 import eu.metatools.wep2.track.claimValue
@@ -38,8 +39,8 @@ class StandardChild(
         when (name) {
             "inc" -> rec { value++ }
             "dec" -> rec { value-- }
-            "sar" -> rec { ar = system.randoms.claimValue().within(0, 100) }
-            "sbr" -> rec { br = system.randoms.claimValue().within(0, 100) }
+            "sar" -> rec { ar = system.randomInt(0, 100) }
+            "sbr" -> rec { br = system.randomInt(0, 100) }
             else -> { -> }
         }
 

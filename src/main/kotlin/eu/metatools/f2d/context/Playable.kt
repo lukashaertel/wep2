@@ -23,7 +23,7 @@ interface Playable<in T> : Lifetime<T> {
 /**
  * Returns a playable instance that is fixed to end after the given time.
  */
-fun <T> Playable<T>.limit(endTime: Double) = object : Playable<T> {
+infix fun <T> Playable<T>.limit(endTime: Double) = object : Playable<T> {
     override fun start(args: T, time: Double) =
         this@limit.start(args, time)
 
@@ -44,7 +44,7 @@ fun <T> Playable<T>.limit(endTime: Double) = object : Playable<T> {
 /**
  * Returns a playable instance that is offset by the given time.
  */
-fun <T> Playable<T>.offset(offset: Double) = object : Playable<T> {
+infix fun <T> Playable<T>.offset(offset: Double) = object : Playable<T> {
     override fun start(args: T, time: Double) =
         this@offset.start(args, time - offset)
 

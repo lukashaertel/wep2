@@ -13,7 +13,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     /**
      * All resource registered to the application.
      */
-    private val resources = mutableListOf<Resource<*>>()
+    private val resources = mutableListOf<Resource<*, *>>()
 
     /**
      * True if creation has happened.
@@ -28,7 +28,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     /**
      * Marks a resource as used.
      */
-    protected fun <T : Resource<*>> use(resource: T): T {
+    protected fun <T : Resource<*, *>> use(resource: T): T {
         // Add to resources to be initialized and disposed of.
         resources.add(resource)
 
@@ -48,15 +48,15 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     /**
      * The one-shot renderer.
      */
-    protected val once = Once()
+    val once = Once()
 
     /**
      * The continuous renderer.
      */
-    protected val continuous = Continuous()
+    val continuous = Continuous()
 
     /**
-     * Gets the curretn time.
+     * Gets the current time.
      */
     abstract val time: Double
 
@@ -81,7 +81,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     }
 
     /**
-     * Renders the graphis at the time.
+     * Renders the graphics at the time.
      */
     abstract fun render(time: Double)
 

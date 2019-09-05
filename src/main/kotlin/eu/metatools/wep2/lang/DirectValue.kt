@@ -3,6 +3,9 @@ package eu.metatools.wep2.lang
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
+/**
+ * Delegates to just returning [value].
+ */
 class DirectValue<T>(val value: T) : ReadOnlyProperty<Any?, T> {
     override fun getValue(thisRef: Any?, property: KProperty<*>) = value
 
