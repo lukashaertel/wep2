@@ -89,6 +89,9 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         // Reset projection.
         spriteBatch.projectionMatrix =
             Matrix4().setToOrtho2D(0f, 0f, width.toFloat(), height.toFloat(), near, far)
+
+        // Compute the boundaries.
+        continuous.computeBounds(spriteBatch.projectionMatrix)
     }
 
     override fun create() {
@@ -100,6 +103,9 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         // Initialize proper projection matrix.
         spriteBatch.projectionMatrix =
             Matrix4().setToOrtho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), near, far)
+
+        // Compute the boundaries.
+        continuous.computeBounds(spriteBatch.projectionMatrix)
 
         // Initialize all used resources.
         roots.forEach {

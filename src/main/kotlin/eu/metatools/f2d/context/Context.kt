@@ -2,6 +2,7 @@ package eu.metatools.f2d.context
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Matrix4
+import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.Coords
 import eu.metatools.f2d.CoordsAt
 import java.util.*
@@ -166,12 +167,19 @@ class Continuous {
     /**
      * Combines a list of calls with the last assigned combined matrix.
      */
-    data class ZEntry(var lastCombined: Coords?, val entries: MutableList<(SpriteBatch) -> Unit>)
+    data class Row(var lastCombined: Coords?, val entries: MutableList<(SpriteBatch) -> Unit>)
 
     /**
      * All Z-sorted calls performing visualization in the sprite-batch.
      */
-    private val calls = TreeMap<Float, ZEntry>()
+    private val calls = TreeMap<Float, Row>()
+
+    private var minX: Float = Float.NEGATIVE_INFINITY
+    private var minY: Float = Float.NEGATIVE_INFINITY
+    private var minZ: Float = Float.NEGATIVE_INFINITY
+    private var maxX: Float = Float.POSITIVE_INFINITY
+    private var maxY: Float = Float.POSITIVE_INFINITY
+    private var maxZ: Float = Float.POSITIVE_INFINITY
 
     /**
      * Draws a visible instance [subject]  with the [time] and the [coordinates]. Passes the [args].
@@ -184,11 +192,18 @@ class Continuous {
         // Create combined matrix.
         val coords = coordinates(time)
 
-        // Read Z-value from the matrix.
+        // Read center from the matrix, abort any outside of bounds.
+        val x = coords.`val`[Matrix4.M03] / coords.`val`[Matrix4.M33]
+        if (x < minX || maxX < x) return
+
+        val y = coords.`val`[Matrix4.M13] / coords.`val`[Matrix4.M33]
+        if (y < minY || maxY < y) return
+
         val z = coords.`val`[Matrix4.M23] / coords.`val`[Matrix4.M33]
+        if (z < minZ || maxZ < z) return
 
         // Get the target for the given Z entry.
-        val target = calls.getOrPut(z) { ZEntry(null, mutableListOf()) }
+        val target = calls.getOrPut(z) { Row(null, mutableListOf()) }
 
         // Add setting the combined matrix.
         if (target.lastCombined != coords) {
@@ -259,10 +274,48 @@ class Continuous {
         play(key, time, subject, Unit, coordinates)
 
     /**
+     * Computes boundary points from the given projection matrix.
+     * The [excess] specified how much a position outside of the view frustum may be without being skipped.
+     */
+    fun computeBounds(projectionMatrix: Matrix4, excess: Float = 0.25f) {
+        val edgePoints = listOf(-1f - excess, 1f + excess)
+
+        minX = Float.POSITIVE_INFINITY
+        minY = Float.POSITIVE_INFINITY
+        minZ = Float.POSITIVE_INFINITY
+        maxX = Float.NEGATIVE_INFINITY
+        maxY = Float.NEGATIVE_INFINITY
+        maxZ = Float.NEGATIVE_INFINITY
+
+        val inverse = projectionMatrix.cpy().inv()
+        for (x in edgePoints) for (y in edgePoints) for (z in edgePoints) {
+            val xyz = Vector3(x, y, z).mul(inverse)
+            minX = minOf(minX, xyz.x)
+            minY = minOf(minY, xyz.y)
+            minZ = minOf(minZ, xyz.z)
+            maxX = maxOf(maxX, xyz.x)
+            maxY = maxOf(maxY, xyz.y)
+            maxZ = maxOf(maxZ, xyz.z)
+        }
+    }
+
+    /**
+     * Resets the bound to be unbounded.
+     */
+    fun resetBounds() {
+        minX = Float.NEGATIVE_INFINITY
+        minY = Float.NEGATIVE_INFINITY
+        minZ = Float.NEGATIVE_INFINITY
+        maxX = Float.POSITIVE_INFINITY
+        maxY = Float.POSITIVE_INFINITY
+        maxZ = Float.POSITIVE_INFINITY
+    }
+
+    /**
      * Sends the cached calls to the sprite batch, updates outdated sounds.
      */
     fun render(spriteBatch: SpriteBatch) {
-        // Render all entries for the Z-sorted set (lower Z-values being rendered later.
+        // Render all entries for the Z-sorted set (lower Z-values being rendered later).
         calls.descendingMap().values.forEach { (_, entries) ->
             entries.forEach { it(spriteBatch) }
         }

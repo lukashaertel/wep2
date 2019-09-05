@@ -7,8 +7,10 @@ import com.badlogic.gdx.InputEventQueue
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Vector3
+import eu.metatools.f2d.context.Drawable
 import eu.metatools.f2d.context.offset
 import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.tools.*
@@ -203,6 +205,16 @@ object Frontend : F2DListener(-100f, 100f) {
 
         continuous.draw(time, jump, TextureArgs(keepSize = true)) {
             Matrix4().translate(100f, 100f, -10f + it.toFloat())
+        }
+
+        continuous.draw(time, object : Drawable<Unit> {
+            override fun generate(args: Unit, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+                receiver {
+                    println("I was drawn.")
+                }
+            }
+        }) {
+            Matrix4().translate(2000f, 0f, 0f)
         }
 
         // Render the entities.
