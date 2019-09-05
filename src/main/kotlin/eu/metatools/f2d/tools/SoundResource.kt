@@ -3,6 +3,8 @@ package eu.metatools.f2d.tools
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.audio.Sound
 import com.badlogic.gdx.files.FileHandle
+import eu.metatools.f2d.context.Lifecycle
+import eu.metatools.f2d.context.LifecycleResource
 import eu.metatools.f2d.context.Playable
 import eu.metatools.f2d.context.Resource
 import eu.metatools.f2d.util.bufferId
@@ -11,13 +13,18 @@ import org.lwjgl.openal.AL10
 import org.lwjgl.openal.AL11
 import kotlin.math.abs
 
-
+/**
+ * Arguments to sound
+ */
 data class SoundArgs(val looping: Boolean = false, val pitch: Float = 1.0f, val volume: Float = 1.0f)
 
 /**
- * A sound resource that loads the sound from a file. The played sounds respect position, commits volume and pitch.
+ * A sound resource that loads the sound from a file.
+ * @property location The location function.
  */
-class SoundResource(val location: () -> FileHandle) : Resource<Unit, Playable<SoundArgs?>> {
+class SoundResource(
+    val location: () -> FileHandle
+) : LifecycleResource<Unit, Playable<SoundArgs?>> {
     companion object {
         /**
          * Value that, if exceeded, will cause repositioning of a playable instance.
@@ -42,7 +49,7 @@ class SoundResource(val location: () -> FileHandle) : Resource<Unit, Playable<So
         sound = null
     }
 
-    override fun refer(arguments: Unit) =
+    override fun refer(argsResource: Unit) =
         object : Playable<SoundArgs?> {
             override fun start(args: SoundArgs?, time: Double): Long {
                 // Get loaded sound.

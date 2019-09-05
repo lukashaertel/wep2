@@ -1,0 +1,69 @@
+
+unnamed.png
+size: 512,512
+format: RGBA8888
+filter: Nearest,Nearest
+repeat: none
+cat-bump
+  rotate: false
+  xy: 2, 132
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: -1
+cat-jump
+  rotate: false
+  xy: 132, 2
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: 1
+cat-jump
+  rotate: false
+  xy: 262, 132
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: 2
+cat-jump
+  rotate: false
+  xy: 262, 2
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: 3
+cat-stand
+  rotate: false
+  xy: 132, 262
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: 1
+cat-stand
+  rotate: false
+  xy: 2, 2
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: 2
+cat-turn
+  rotate: false
+  xy: 2, 262
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: 1
+cat-walk
+  rotate: false
+  xy: 132, 132
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: 2
+cat-walk
+  rotate: false
+  xy: 262, 262
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: 1

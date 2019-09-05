@@ -4,10 +4,12 @@ interface Lifetime<in T> {
     /**
      * True if this object has started.
      */
-    fun hasStarted(args: T, time: Double): Boolean
+    fun hasStarted(args: T, time: Double): Boolean =
+        0.0 <= time
 
     /**
      * True if this object has ended for the time.
      */
-    fun hasEnded(args: T, time: Double): Boolean
+    fun hasEnded(args: T, time: Double): Boolean =
+        false
 }

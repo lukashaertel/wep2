@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Matrix4
 import eu.metatools.f2d.Coords
 import eu.metatools.f2d.CoordsAt
+import java.util.*
 
 /**
  * Methods used to draw or play a subject to it's end or until the resulting [AutoCloseable] is invoked.
@@ -170,7 +171,7 @@ class Continuous {
     /**
      * All Z-sorted calls performing visualization in the sprite-batch.
      */
-    private val calls = sortedMapOf<Float, ZEntry>()
+    private val calls = TreeMap<Float, ZEntry>()
 
     /**
      * Draws a visible instance [subject]  with the [time] and the [coordinates]. Passes the [args].
@@ -261,8 +262,8 @@ class Continuous {
      * Sends the cached calls to the sprite batch, updates outdated sounds.
      */
     fun render(spriteBatch: SpriteBatch) {
-        // Render all entries for the Z-sorted set.
-        calls.values.forEach { (_, entries) ->
+        // Render all entries for the Z-sorted set (lower Z-values being rendered later.
+        calls.descendingMap().values.forEach { (_, entries) ->
             entries.forEach { it(spriteBatch) }
         }
 

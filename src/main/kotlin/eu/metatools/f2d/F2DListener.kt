@@ -6,14 +6,14 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Matrix4
 import eu.metatools.f2d.context.Continuous
+import eu.metatools.f2d.context.Lifecycle
 import eu.metatools.f2d.context.Once
-import eu.metatools.f2d.context.Resource
 
 abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : ApplicationListener {
     /**
-     * All resource registered to the application.
+     * All root lifecycle elements.
      */
-    private val resources = mutableListOf<Resource<*, *>>()
+    private val roots = mutableListOf<Lifecycle>()
 
     /**
      * True if creation has happened.
@@ -26,18 +26,18 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     private var postDispose = false
 
     /**
-     * Marks a resource as used.
+     * Marks an element as used, will be initialized and disposed of in the corresponding methods.
      */
-    protected fun <T : Resource<*, *>> use(resource: T): T {
+    protected fun <T : Lifecycle> use(element: T): T {
         // Add to resources to be initialized and disposed of.
-        resources.add(resource)
+        roots.add(element)
 
         // If used after creation, initialize immediately.
         if (postCreate && !postDispose)
-            resource.initialize()
+            element.initialize()
 
         // Return it if chaining is wanted.
-        return resource
+        return element
     }
 
     /**
@@ -102,7 +102,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
             Matrix4().setToOrtho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), near, far)
 
         // Initialize all used resources.
-        resources.forEach {
+        roots.forEach {
             it.initialize()
         }
 
@@ -112,7 +112,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
 
     override fun dispose() {
         // Dispose of all used resources.
-        resources.forEach {
+        roots.forEach {
             it.dispose()
         }
 

@@ -11,8 +11,7 @@ import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.context.offset
 import eu.metatools.f2d.context.refer
-import eu.metatools.f2d.tools.SolidResource
-import eu.metatools.f2d.tools.SoundResource
+import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.wep2.recPlay
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.system.*
@@ -20,6 +19,8 @@ import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.tools.rec
 import eu.metatools.wep2.track.bind.map
 import eu.metatools.wep2.track.bind.prop
+import org.lwjgl.opengl.GL11
+import kotlin.math.cos
 import kotlin.math.sin
 
 // Shortened type declarations as aliases.
@@ -72,12 +73,17 @@ class Field(val system: GameSystem, restore: Restore?) : GameEntity(system, rest
     }
 
     fun render(time: Double) = with(Frontend) {
-        continuous.draw(time, solid, color) {
+        continuous.draw(time, solid.blend(GL11.GL_ONE, GL11.GL_ONE), color) {
             Matrix4()
                 .translate(x * 64f, y * 64f, 0f)
                 .scale(64f, 64f, 1f)
                 .translate(0.5f, 0.5f, 0f)
-                .rotate(Vector3.Z, sin((it * 5).toFloat()) * 3f)
+                .rotate(Vector3.Z, cos((it * 5).toFloat()) * 3f)
+                .scale(
+                    1.25f + sin(it.toFloat()) * 0.25f,
+                    1.25f + sin(it.toFloat()) * 0.25f,
+                    1f
+                )
         }
     }
 }
@@ -118,7 +124,7 @@ class Root(val system: GameSystem, restore: Restore?) : GameEntity(system, resto
 // Initializer, set if restore is wanted.
 val gameInitializer: GameInitializer? = null
 
-object Frontend : F2DListener(0f, 100f) {
+object Frontend : F2DListener(-100f, 100f) {
     /**
      * Time when the object was initialized.
      */
@@ -160,6 +166,12 @@ object Frontend : F2DListener(0f, 100f) {
      */
     val solid = solids.refer()
 
+    val atlas = use(AnimatedAtlasResource { Gdx.files.internal("unnamed.atlas") })
+
+    val jump = atlas.refer(AnimatedAtlasResourceArgs("cat-jump", 1.2))
+
+    val stand = atlas.refer(AnimatedAtlasResourceArgs("cat-stand", 2.0))
+
     /**
      * Resource of an AK74 firing (?)
      */
@@ -188,6 +200,10 @@ object Frontend : F2DListener(0f, 100f) {
     override fun render(time: Double) {
         // Drain the input processor as an input event queue.
         (Gdx.input.inputProcessor as InputEventQueue).drain()
+
+        continuous.draw(time, jump, TextureArgs(keepSize = true)) {
+            Matrix4().translate(100f, 100f, -10f + it.toFloat())
+        }
 
         // Render the entities.
         root.render(time)
