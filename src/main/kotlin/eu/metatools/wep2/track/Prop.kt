@@ -41,4 +41,6 @@ fun <T> prop(initialValue: T) = object : ReadWriteProperty<Any?, T> {
             }
         }
     }
+
+    override fun toString() = current.toString()
 }

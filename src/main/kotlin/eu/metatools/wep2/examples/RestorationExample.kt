@@ -71,17 +71,17 @@ fun main() {
     val idgen = shortNat()
     val coord = RestorationExample(idgen)
     val ticks = TickGenerator(0L, 1L)
-    val time = TimeGenerator(1)
+    val time = TimeGenerator()
 
     // Do some ticking.
-    ticks.tickToWith(time, coord, "inc", 5)
+    ticks.tickToWith(time, coord, "inc", 5, 1, 0)
 
     // Consolidate some parts.
-    coord.consolidate(time.take(2, 0))
+    coord.consolidate(time.take(2, 1, 0))
     time.consolidate(2)
 
     // Call another signal.
-    coord.signal("spawn", time.take(4, 0), Unit)
+    coord.signal("spawn", time.take(4, 1, 0), Unit)
 
     // Here, the second coordinator will be restored by restoring all components.
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,7 +116,6 @@ fun main() {
 
     // Restore time generator from "parcelled" scopes.
     val resTime = TimeGenerator(
-        time.playerCount,
         ScopedSequence.restore(time.localIDs.sequence, time.localIDs.scopes)
     )
 
@@ -132,12 +131,12 @@ fun main() {
 
 
     // Call another signal on restored coordinator.
-    resCoord.signal("spawn", time.take(8, 0), Unit)
+    resCoord.signal("spawn", time.take(8, 1, 0), Unit)
 
 
     // Tick on both ends.
-    ticks.tickToWith(time, coord, "inc", 10)
-    resTicks.tickToWith(resTime, resCoord, "inc", 10)
+    ticks.tickToWith(time, coord, "inc", 10, 1, 0)
+    resTicks.tickToWith(resTime, resCoord, "inc", 10, 1, 0)
 
     // Show values again.
     println(coord)
@@ -145,7 +144,7 @@ fun main() {
 
     // Run a signal on the main coordinator, without undoing and redoing, this would
     // lead to inconsistent instruction caches.
-    coord.signal("set", time.take(3, 0), -100)
+    coord.signal("set", time.take(3, 1, 0), -100)
 
     // Show values.
     println(coord)

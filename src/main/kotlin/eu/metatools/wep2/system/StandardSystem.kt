@@ -1,4 +1,4 @@
-package eu.metatools.wep2.process
+package eu.metatools.wep2.system
 
 import eu.metatools.wep2.coord.Warp
 import eu.metatools.wep2.entity.*
@@ -8,21 +8,29 @@ import eu.metatools.wep2.tools.ScopedSequence
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.tools.TimeGenerator
 import eu.metatools.wep2.track.*
-import eu.metatools.wep2.track.bind.prop
 import eu.metatools.wep2.util.randomInts
 import eu.metatools.wep2.util.shorts
-import eu.metatools.wep2.util.within
-import org.lwjgl.Sys
+import java.util.*
 
 /**
  * Names generated and processed by a [StandardSystem].
  */
-sealed class StandardName<N>
+sealed class StandardName<in N>
 
 /**
  * Type for management messages.
  */
 sealed class ManagementName<N> : StandardName<N>()
+
+/**
+ * Claim player.
+ */
+object ClaimPlayer : ManagementName<Any?>()
+
+/**
+ * Release player
+ */
+object ReleasePlayer : ManagementName<Any?>()
 
 /**
  * Type for actual messages.
@@ -36,16 +44,19 @@ data class ActiveName<N>(val name: SN<N>) : StandardName<N>()
  * @property randomSeed The seed of the random.
  * @property randomsHead The head of the random generation process.
  * @property idsRecycled The currently recycled randoms.
- * @property playerCount The player count of the system.
+ *
  * @property scopes The currently used scopes in the time generation process.
  * @property instructions The set of instructions.
  */
 class StandardInitializer<N, P>(
+    val playerHead: Short?,
+    val playerRecycled: List<Pair<Short, Short>>,
     val idsHead: Short?,
     val idsRecycled: List<Pair<Short, Short>>,
     val randomSeed: Long,
     val randomsHead: Int?,
     val randomsRecycled: List<Pair<Int, Short>>,
+    val playerSelf: Pair<Short, Short>,
     val playerCount: Short,
     val scopes: Map<Long, Byte>,
     val instructions: List<Triple<StandardName<N>, Time, Any?>>,
@@ -59,40 +70,79 @@ class StandardInitializer<N, P>(
  * @param createParameters The parameter to use if creating fresh.
  * @param standardInitializer The initializer or null if creating.
  */
-abstract class StandardSystem<N, P>(
+class StandardSystem<N, P>(
     createSeed: Long,
     createParameters: P,
     standardInitializer: StandardInitializer<N, P>?
 ) : Warp<StandardName<N>, Time>(), Context<N, Time, SI> {
+    /**
+     * A value that can be exchanged but marks local referral.
+     */
+    private val serialSelf = UUID.randomUUID()
 
     companion object {
         /**
+         * The player used for ticks etc.
+         */
+        const val playerGaia = (-1).toShort()
+
+        /**
+         * The starting player number.
+         */
+        const val playerZero = 0.toShort()
+
+        /**
+         * The recycler zero value for player numbers.
+         */
+        const val playerRecycleZero = 0.toShort()
+
+        /**
          * The starting ID.
          */
-        val idZero = 0.toShort()
+        const val idZero = 0.toShort()
 
         /**
          * The recycler zero value for IDs.
          */
-        val idRecycleZero = 0.toShort()
+        const val idRecycleZero = 0.toShort()
 
         /**
          * The recycler zero value for randoms.
          */
-        val randomRecycleZero = 0.toShort()
+        const val randomRecycleZero = 0.toShort()
     }
 
     /**
-     * Amount of players.
+     * Generates the player numbers, if `standardInitializer` is passed, it is restored.
      */
-    var playerCount: Short = 1
+    private val playerReclaimableSequence =
+        standardInitializer?.let {
+            // Restore from package.
+            ReclaimableSequence.restore(
+                shorts(playerZero), playerRecycleZero, Short::inc,
+                it.playerHead, it.playerRecycled
+            )
+        } ?: ReclaimableSequence(shorts(playerZero), playerRecycleZero, Short::inc)
 
     /**
-     * Local player identity, should be unique if running across systems.
+     * Claims player numbers.
      */
-    var self: Short = 0
+    private val players = claimer(playerReclaimableSequence)
 
-    // TODO: Player management.
+    /**
+     * The current player with recycle count.
+     */
+    private var playerSelf by prop(standardInitializer?.playerSelf ?: players.claim())
+
+    /**
+     * The current player count.
+     */
+    private var playerCount by prop(standardInitializer?.playerCount ?: 1)
+
+    /**
+     * The current player number, claim new with [claimNewPlayer].
+     */
+    val self get() = playerSelf.first
 
     /**
      * Generates the identities, if `standardInitializer` is passed, it is restored.
@@ -138,8 +188,8 @@ abstract class StandardSystem<N, P>(
      */
     val time =
         standardInitializer?.let {
-            TimeGenerator(it.playerCount, ScopedSequence.restore(TimeGenerator.defaultLocalIDs, it.scopes))
-        } ?: TimeGenerator(playerCount)
+            TimeGenerator(ScopedSequence.restore(TimeGenerator.defaultLocalIDs, it.scopes))
+        } ?: TimeGenerator(ScopedSequence(TimeGenerator.defaultLocalIDs))
 
     /**
      * Central entity index.
@@ -182,11 +232,14 @@ abstract class StandardSystem<N, P>(
         }
 
         val result = StandardInitializer(
+            playerReclaimableSequence.generatorHead,
+            playerReclaimableSequence.recycled,
             idReclaimableSequence.generatorHead,
             idReclaimableSequence.recycled,
             randomSeed,
             randomReclaimableSequence.generatorHead,
             randomReclaimableSequence.recycled,
+            playerSelf,
             playerCount,
             time.localIDs.scopes,
             instructions,
@@ -203,13 +256,46 @@ abstract class StandardSystem<N, P>(
      * Consolidates the coordinator and the time generator.
      */
     fun consolidate(upTo: Long) {
-        consolidate(time.take(upTo, Short.MIN_VALUE))
+        consolidate(time.take(upTo, playerCount, Short.MIN_VALUE))
         time.consolidate(upTo)
     }
 
-    private fun evaluateManagement(name: ManagementName<N>, time: Time, args: Any?): () -> Unit {
-        // TODO: Management actions.
-        return { -> }
+    /**
+     * Sends a claim player signal for [playerGaia] and on evaluation, assigns the value.
+     */
+    fun claimNewPlayer(generalTime: Long) {
+        signal(ClaimPlayer, time.take(generalTime, playerCount, playerGaia), serialSelf)
+    }
+
+    /**
+     * Releases the current player number.
+     */
+    fun releasePlayer(generalTime: Long) {
+        signal(ReleasePlayer, time.take(generalTime, playerCount, playerGaia), playerSelf)
+    }
+
+    private fun evaluateManagement(name: ManagementName<N>, time: Time, args: Any?) = when (name) {
+        ClaimPlayer -> rec {
+            // Assert type of args.
+            args as UUID
+
+            // Claim new player and increment player count.
+            val next = players.claim()
+            playerCount++
+
+            // If claiming for this local player, assign self.
+            if (args == serialSelf)
+                playerSelf = next
+        }
+        ReleasePlayer -> rec {
+            // Assert type of args.
+            @Suppress("unchecked_cast")
+            args as Pair<Short, Short>
+
+            // Release player and decrement player count.
+            players.release(args)
+            playerCount--
+        }
     }
 
     override fun evaluate(name: StandardName<N>, time: Time, args: Any?) = when (name) {
@@ -218,67 +304,13 @@ abstract class StandardSystem<N, P>(
     }
 
     /**
-     * Takes a time for the current player ([self]) and the given [outer] time.
+     * Takes a time for the current player ([self]) and the given [generalTime] time.
      */
-    fun time(outer: Long) =
-        time.take(outer, self)
+    fun time(generalTime: Long) =
+        time.take(generalTime, playerCount, self)
 
     // TODO: Tick generators.
 }
 
 typealias StandardEntity<N> = RestoringEntity<N, Time, SI>
 
-class X(
-    createSeed: Long,
-    createParameters: Int,
-    standardInitializer: StandardInitializer<String, Int>?
-) : StandardSystem<String, Int>(createSeed, createParameters, standardInitializer)
-
-class E(
-    context: X,
-    restore: Restore?
-) : StandardEntity<String>(context, restore) {
-    // TODO: Nicer variant of this.
-    val x get() = context as X
-
-    var value by prop(restore) { 0 }
-    var ar by prop(restore) { 0 }
-    var br by prop(restore) { 0 }
-    override fun evaluate(name: String, time: Time, args: Any?) =
-        when (name) {
-            "inc" -> rec { value++ }
-            "dec" -> rec { value-- }
-            "sar" -> rec { ar = x.randoms.claimValue().within(0, 100) }
-            "sbr" -> rec { br = x.randoms.claimValue().within(0, 100) }
-            else -> { -> }
-        }
-
-}
-
-fun main() {
-    val a = X(0L, 123, null)
-    a.playerCount = 2
-    a.self = 0
-
-    val e = E(a, null)
-    e.signal("inc", a.time(System.currentTimeMillis()), Unit)
-    e.signal("inc", a.time(System.currentTimeMillis()), Unit)
-    e.signal("inc", a.time(System.currentTimeMillis()), Unit)
-    a.consolidate(System.currentTimeMillis())
-
-    val b = X(0L, 432, a.save().also {
-        println(it)
-    })
-    a.self = 1
-
-    a.register(b::receive)
-    b.register(a::receive)
-
-    val f = b.index.mapNotNull { (_, e) -> e as E? }.first()
-    f.signal("dec", b.time(System.currentTimeMillis()), Unit)
-
-    e.signal("sar", a.time(System.currentTimeMillis()), Unit)
-    f.signal("sbr", b.time(System.currentTimeMillis()), Unit)
-
-    println(e)
-}

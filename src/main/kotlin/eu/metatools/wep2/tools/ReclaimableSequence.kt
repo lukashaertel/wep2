@@ -24,13 +24,8 @@ class ReclaimableSequence<I, R>(val sequence: Sequence<I>, val zero: R, val inc:
          * @param head Defining value of where source was at.
          * @param recycled Defining value of all recycled items.
          */
-        fun <I, R> restore(
-            sequence: Sequence<I>,
-            zero: R,
-            inc: (R) -> R,
-            head: I?,
-            recycled: List<Pair<I, R>>
-        ): ReclaimableSequence<I, R> {
+        fun <I, R> restore(sequence: Sequence<I>, zero: R, inc: (R) -> R, head: I?, recycled: List<Pair<I, R>>)
+                : ReclaimableSequence<I, R> {
             // Create the result sequence from the basic parameters.
             val result = ReclaimableSequence(sequence, zero, inc)
 

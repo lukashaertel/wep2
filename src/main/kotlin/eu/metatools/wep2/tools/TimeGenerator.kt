@@ -42,10 +42,7 @@ data class Time(
  * @param playerCount The player count to use for time generation.
  * @param localIDs Scoped sequence for local IDs.
  */
-class TimeGenerator(
-    var playerCount: Short,
-    val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(defaultLocalIDs)
-) {
+class TimeGenerator(val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(defaultLocalIDs)) {
     companion object {
         val defaultLocalIDs = generateSequence(Byte.MIN_VALUE, Byte::inc)
     }
@@ -60,20 +57,22 @@ class TimeGenerator(
     /**
      * Takes a time usable to exchange.
      */
-    fun take(time: Long, player: Short) =
+    fun take(time: Long, playerCount: Short, player: Short) =
         Time(playerCount, time, player, localIDs.take(time))
 
 }
 
 /**
- * Uses the passed [timeGenerator] to send _gaia_ time elements to the [coordinator],
+ * Uses the passed [timeGenerator] to send [player] time elements to the [coordinator],
  * using the last player number possible as player.
  */
 fun <N> TickGenerator.tickToWith(
     timeGenerator: TimeGenerator,
     coordinator: Coordinator<N, Time>,
     name: N,
-    time: Long
+    time: Long,
+    playerCount: Short,
+    player: Short
 ) = tickTo(coordinator, name, time) {
-    timeGenerator.take(it, timeGenerator.playerCount.dec())
+    timeGenerator.take(it, playerCount, player)
 }

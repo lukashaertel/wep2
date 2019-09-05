@@ -32,6 +32,16 @@ abstract class ObservableMap<K, V> : SimpleMap<K, V> {
     private val backing = mutableMapOf<K, V>()
 
     /**
+     * The keys as a set.
+     */
+    val keys get() = backing.keys.toSet()
+
+    /**
+     * The values as a list.
+     */
+    val values get() = backing.values.toList()
+
+    /**
      * Blocks calls to the change listeners.
      */
     val silent by lazy {

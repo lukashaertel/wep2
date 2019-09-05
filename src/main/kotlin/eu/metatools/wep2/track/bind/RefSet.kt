@@ -61,6 +61,10 @@ fun <I, E : Entity<*, *, I>> refSet(restore: Restore?) =
                 // Return the present value of current, otherwise throw an exception, something is going wrong.
                 (current as? Just)?.item
                     ?: throw IllegalStateException("Trying to access field value while restoring")
+
+            override fun toString() =
+                (current as? Just)?.item?.toString()
+                    ?: "Ref set, restore queued"
         }
     }
 

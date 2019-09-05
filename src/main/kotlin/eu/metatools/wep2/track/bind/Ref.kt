@@ -74,6 +74,10 @@ fun <I, E : Entity<*, *, I>> ref(restore: Restore?, initial: () -> E? = { null }
                         })
                     }
             }
+
+            override fun toString() =
+                (current as? Just)?.item?.toString()
+                    ?: "Ref, restore queued"
         }
     }
 
