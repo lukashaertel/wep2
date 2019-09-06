@@ -3,12 +3,12 @@ package eu.metatools.wep2.examples
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.system.StandardEntity
 import eu.metatools.wep2.system.StandardSystem
-import eu.metatools.wep2.system.randomInt
 import eu.metatools.wep2.tools.Time
+import eu.metatools.wep2.track.bind.claimer
 import eu.metatools.wep2.track.bind.prop
-import eu.metatools.wep2.track.claimValue
+import eu.metatools.wep2.track.randomInt
 import eu.metatools.wep2.track.rec
-import eu.metatools.wep2.util.within
+import eu.metatools.wep2.util.randomInts
 
 /**
  * A child in a [StandardSystem].
@@ -20,6 +20,8 @@ class StandardChild(
     val system: StandardSystem<String, Int>,
     restore: Restore?
 ) : StandardEntity<String>(system, restore) {
+    val rnd by claimer(restore, randomInts(0L))
+
     /**
      * A restored or initialized value.
      */
@@ -39,8 +41,8 @@ class StandardChild(
         when (name) {
             "inc" -> rec { value++ }
             "dec" -> rec { value-- }
-            "sar" -> rec { ar = system.randomInt(0, 100) }
-            "sbr" -> rec { br = system.randomInt(0, 100) }
+            "sar" -> rec { ar = rnd.randomInt(0, 100) }
+            "sbr" -> rec { br = rnd.randomInt(0, 100) }
             else -> { -> }
         }
 

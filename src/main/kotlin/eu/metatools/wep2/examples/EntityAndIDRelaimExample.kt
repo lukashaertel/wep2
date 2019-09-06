@@ -59,15 +59,22 @@ class Example : Warp<SN<String>, Time>(), Context<String, Time, SI> {
      */
     override val index = entityMap<String, Time, SI>()
 
+
     /**
      * The ID generator.
      */
-    override val ids = claimer(shortNat())
+    val ids = Claimer(shortNat())
 
     /**
      * The root, will be created equally for all coordinators.
      */
     val root = Child(this, null)
+
+    override fun newId() =
+        ids.claim()
+
+    override fun releaseId(id: SI) =
+        ids.release(id)
 
     override fun signal(identity: SI, name: String, time: Time, args: Any?) {
         signal(identity to name, time, args)

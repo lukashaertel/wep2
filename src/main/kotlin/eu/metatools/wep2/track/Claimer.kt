@@ -4,36 +4,17 @@ import eu.metatools.wep2.tools.ReclaimableSequence
 import eu.metatools.wep2.tools.intRandom
 import eu.metatools.wep2.util.labeledAs
 import eu.metatools.wep2.util.uv
+import eu.metatools.wep2.util.within
 import java.util.*
 
 /**
  * Wraps generating elements of a [ReclaimableSequence] providing automated undo.
  */
-interface Claimer<T> {
+class Claimer<I, R>(val reclaimableSequence: ReclaimableSequence<I, R>) {
     /**
      * Claims a value.
      */
-    fun claim(): T
-
-    /**
-     * Releases a value.
-     */
-    fun release(value: T)
-}
-
-/**
- * Claims a value of a [Claimer], returns the first component without the recycle count.
- */
-fun <I, R> Claimer<Pair<I, R>>.claimValue() =
-    claim().first
-
-// TODO: Not happy with the introduction of pair at this point.
-
-/**
- * Marks a [Claimer] that wraps a [ReclaimableSequence] partakes in undo-tracking.
- */
-fun <I, R> claimer(reclaimableSequence: ReclaimableSequence<I, R>) = object : Claimer<Pair<I, R>> {
-    override fun claim(): Pair<I, R> {
+    fun claim(): Pair<I, R> {
         val (value, undo) = reclaimableSequence.claim()
         undos.get()?.add(undo labeledAs {
             "releasing $value"
@@ -41,13 +22,70 @@ fun <I, R> claimer(reclaimableSequence: ReclaimableSequence<I, R>) = object : Cl
         return value
     }
 
-    override fun release(value: Pair<I, R>) {
+    /**
+     * Releases a value.
+     */
+    fun release(value: Pair<I, R>) {
         val undo = reclaimableSequence.release(value)
         undos.get()?.add(undo labeledAs {
             "reclaiming $value"
         })
     }
 }
+
+/**
+ * Creates a [Claimer] on a reclaimable sequence on [sequence], [zero] and [inc].
+ */
+fun <I, R> claimer(sequence: Sequence<I>, zero: R, inc: (R) -> R) =
+    Claimer(ReclaimableSequence(sequence, zero, inc))
+
+/**
+ * Creates a [claimer] with short recycle counts.
+ */
+fun <I> claimer(sequence: Sequence<I>) =
+    Claimer(ReclaimableSequence(sequence, 0, Short::inc))
+
+
+/**
+ * Claims a value of a [Claimer], returns the first component without the recycle count.
+ */
+fun <I> Claimer<I, *>.claimValue() =
+    claim().first
+
+/**
+ * Claims a random int with the given bounds.
+ *
+ * Shorthand for `claimValue().within(lower, upper)`.
+ */
+fun Claimer<Int, *>.randomInt(lower: Int, upper: Int) =
+    claimValue().within(lower, upper)
+
+/**
+ * Claims a random double in [[0.0, 1.0]].
+ *
+ * Shorthand for `claimValue().uv()`.
+ */
+fun Claimer<Int, *>.randomDouble() =
+    claimValue().uv()
+
+/**
+ * Gets a random element of the list.
+ */
+fun <E> Claimer<Int, *>.randomOf(list: List<E>) =
+    list[randomInt(0, list.size)]
+
+/**
+ * Gets a random element of the array.
+ */
+inline fun <reified E> Claimer<Int, *>.randomOf(array: Array<E>) =
+    array[randomInt(0, array.size)]
+
+/**
+ * Gets a random element of the map, keys must be sortable.
+ */
+fun <K : Comparable<K>, V> Claimer<Int, *>.randomOf(map: Map<K, V>) =
+    map[randomOf(map.keys.sorted())]
+
 
 /**
  * Small identity.

@@ -9,7 +9,6 @@ import eu.metatools.wep2.track.Claimer
 import eu.metatools.wep2.track.SI
 import eu.metatools.wep2.track.bind.prop
 import eu.metatools.wep2.track.bind.ref
-import eu.metatools.wep2.track.claimer
 
 /**
  * Does not do anything, coordination is not the focus here, operations are never invoked.
@@ -59,10 +58,10 @@ fun main() {
     // Generate basic status, entity map with simple names and identities.
     val index = entityMap<Int, Int, SI>()
     val idgen = shortNat()
-    val ids = claimer(idgen)
+    val ids = Claimer(idgen)
 
     // Create the context on the properties for construction.
-    val context = context(index, ids) { _, _, _, _ -> }
+    val context = context(index, ids::claim, ids::release) { _, _, _, _ -> }
 
     // Create the existing entity, assign the element values.
     val root = Container(context, null).also {
@@ -100,10 +99,10 @@ fun main() {
     )
 
     // Restore the identifier from the restored identity genrator.
-    val resIds = claimer(resIdgen)
+    val resIds = Claimer(resIdgen)
 
     // Link the context.
-    val resContext = context(resIndex, resIds) { _, _, _, _ -> }
+    val resContext = context(resIndex, resIds::claim, resIds::release) { _, _, _, _ -> }
 
     // Track field where root ID is stored.
     // Use map for restoring.

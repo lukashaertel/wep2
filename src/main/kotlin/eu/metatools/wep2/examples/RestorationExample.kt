@@ -12,7 +12,7 @@ class RestorationExample(idgen: ReclaimableSequence<Short, Short>) : Warp<String
     /**
      * ID generator with undo tracking.
      */
-    val ids = claimer(idgen)
+    val ids = Claimer(idgen)
 
     /**
      * Current value with undo tracking.

@@ -2,18 +2,28 @@ package eu.metatools.wep2.system
 
 import eu.metatools.wep2.coord.Warp
 import eu.metatools.wep2.entity.*
-import eu.metatools.wep2.entity.bind.*
+import eu.metatools.wep2.entity.bind.restoreBy
+import eu.metatools.wep2.entity.bind.restoreIndex
+import eu.metatools.wep2.entity.bind.storeBy
+import eu.metatools.wep2.entity.bind.storeIndex
 import eu.metatools.wep2.tools.ReclaimableSequence
 import eu.metatools.wep2.tools.ScopedSequence
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.tools.TimeGenerator
-import eu.metatools.wep2.track.*
-import eu.metatools.wep2.util.randomInts
+import eu.metatools.wep2.track.Claimer
+import eu.metatools.wep2.track.SI
+import eu.metatools.wep2.track.prop
+import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.shorts
-import eu.metatools.wep2.util.uv
-import eu.metatools.wep2.util.within
 import java.util.*
-import kotlin.reflect.KCallable
+import kotlin.collections.List
+import kotlin.collections.Map
+import kotlin.collections.asSequence
+import kotlin.collections.filterIsInstance
+import kotlin.collections.getValue
+import kotlin.collections.mutableMapOf
+import kotlin.collections.set
+import kotlin.collections.single
 
 /**
  * Names generated and processed by a [StandardSystem].
@@ -56,9 +66,6 @@ class StandardInitializer<N, P>(
     val playerRecycled: List<Pair<Short, Short>>,
     val idsHead: Short?,
     val idsRecycled: List<Pair<Short, Short>>,
-    val randomSeed: Long,
-    val randomsHead: Int?,
-    val randomsRecycled: List<Pair<Int, Short>>,
     val playerSelf: Pair<Short, Short>,
     val playerCount: Short,
     val scopes: Map<Long, Byte>,
@@ -66,6 +73,14 @@ class StandardInitializer<N, P>(
     val parameter: P,
     val saveData: Map<String, Any?>
 )
+
+// TODO: Restored times after a load will greatly differ, save. Maybe save and restore a delta?
+
+
+/**
+ * A context for a [StandardSystem].
+ */
+typealias StandardContext<N> = Context<N, Time, SI>
 
 /**
  * Creates a standard system, initializing or restoring all components from an optional [StandardInitializer].
@@ -77,7 +92,7 @@ open class StandardSystem<N, P>(
     createSeed: Long,
     createParameters: P,
     standardInitializer: StandardInitializer<N, P>?
-) : Warp<StandardName<N>, Time>(), Context<N, Time, SI> {
+) : Warp<StandardName<N>, Time>(), StandardContext<N> {
     /**
      * A value that can be exchanged but marks local referral.
      */
@@ -130,7 +145,7 @@ open class StandardSystem<N, P>(
     /**
      * Claims player numbers.
      */
-    private val players = claimer(playerReclaimableSequence)
+    private val players = Claimer(playerReclaimableSequence)
 
     /**
      * The current player with recycle count.
@@ -162,29 +177,7 @@ open class StandardSystem<N, P>(
     /**
      * Claims identities for entities.
      */
-    override val ids = claimer(idReclaimableSequence)
-
-    /**
-     * The used random seed, if `standardInitializer` is passed, it is restored.
-     */
-    val randomSeed = standardInitializer?.randomSeed ?: createSeed
-
-    /**
-     * Generates the random values, if `standardInitializer` is passed, it is restored.
-     */
-    private val randomReclaimableSequence =
-        standardInitializer?.let {
-            // Restore from package.
-            ReclaimableSequence.restore(
-                randomInts(it.randomSeed), randomRecycleZero, Short::inc,
-                it.randomsHead, it.randomsRecycled
-            )
-        } ?: ReclaimableSequence(randomInts(randomSeed), randomRecycleZero, Short::inc)
-
-    /**
-     * Claims random numbers.
-     */
-    val randoms = claimer(randomReclaimableSequence)
+    val ids = Claimer(idReclaimableSequence)
 
     /**
      * Generates the time values.
@@ -216,6 +209,12 @@ open class StandardSystem<N, P>(
         }
     }
 
+    override fun newId() =
+        ids.claim()
+
+    override fun releaseId(id: SI) =
+        ids.release(id)
+
     override fun signal(identity: SI, name: N, time: Time, args: Any?) {
         signal(ActiveName(identity to name), time, args)
     }
@@ -239,9 +238,6 @@ open class StandardSystem<N, P>(
             playerReclaimableSequence.recycled,
             idReclaimableSequence.generatorHead,
             idReclaimableSequence.recycled,
-            randomSeed,
-            randomReclaimableSequence.generatorHead,
-            randomReclaimableSequence.recycled,
             playerSelf,
             playerCount,
             time.localIDs.scopes,
@@ -320,40 +316,6 @@ open class StandardSystem<N, P>(
  * A [RestoringEntity] with the remaining parameters bound to match [StandardSystem].
  */
 typealias StandardEntity<N> = RestoringEntity<N, Time, SI>
-
-/**
- * Claims a random int with the given bounds.
- *
- * Shorthand for `randoms.claimValue().within(lower, upper)`.
- */
-fun StandardSystem<*, *>.randomInt(lower: Int, upper: Int) =
-    randoms.claimValue().within(lower, upper)
-
-/**
- * Claims a random double in [[0.0, 1.0]].
- *
- * Shorthand for `randoms.claimValue().uv()`.
- */
-fun StandardSystem<*, *>.randomDouble() =
-    randoms.claimValue().uv()
-
-/**
- * Gets a random element of the list.
- */
-fun <E> StandardSystem<*, *>.randomOf(list: List<E>) =
-    list[randomInt(0, list.size)]
-
-/**
- * Gets a random element of the array.
- */
-inline fun <reified E> StandardSystem<*, *>.randomOf(array: Array<E>) =
-    array[randomInt(0, array.size)]
-
-/**
- * Gets a random element of the map, keys must be sortable.
- */
-fun <K : Comparable<K>, V> StandardSystem<*, *>.randomOf(map: Map<K, V>) =
-    map[randomOf(map.keys.sorted())]
 
 /**
  * Finds the single root entity or throws an exception.

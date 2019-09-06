@@ -15,10 +15,9 @@ interface Context<N, T : Comparable<T>, I> {
      */
     val index: SimpleMap<I, Entity<N, T, I>>
 
-    /**
-     * The identity provider.
-     */
-    val ids: Claimer<I>
+    fun newId(): I
+
+    fun releaseId(id: I)
 
     /**
      * Signals dispatched via [identity].
@@ -26,19 +25,30 @@ interface Context<N, T : Comparable<T>, I> {
     fun signal(identity: I, name: N, time: T, args: Any?)
 }
 
+/**
+ * Creates a context from the given implementations.
+ * @param index The index to locate and store entities in.
+ * @param newId The method of generating a new ID.
+ * @param releaseId The method of releasing an ID.
+ * @param signal The dispatch method, per entity ID and local name.
+ */
 inline fun <N, T : Comparable<T>, I> context(
     index: SimpleMap<I, Entity<N, T, I>>,
-    ids: Claimer<I>,
+    crossinline newId: () -> I,
+    crossinline releaseId: (I) -> Unit,
     crossinline signal: (I, N, T, Any?) -> Unit
 ) = object : Context<N, T, I> {
     override val index: SimpleMap<I, Entity<N, T, I>>
         get() = index
-    override val ids: Claimer<I>
-        get() = ids
 
-    override fun signal(identity: I, name: N, time: T, args: Any?) {
+    override fun newId() =
+        newId()
+
+    override fun releaseId(id: I) =
+        releaseId(id)
+
+    override fun signal(identity: I, name: N, time: T, args: Any?) =
         signal(identity, name, time, args)
-    }
 }
 
 /**
@@ -86,7 +96,7 @@ sealed class Entity<N, T : Comparable<T>, I>(
     fun delete() {
         // Delete is a semantic action, it has nothing to do with how IDs are assigned and values are restored.
         context.index.remove(id)
-        context.ids.release(id)
+        context.releaseId(id)
     }
 
     /**
@@ -112,7 +122,7 @@ sealed class Entity<N, T : Comparable<T>, I>(
 abstract class TrackingEntity<N, T : Comparable<T>, I>(
     context: Context<N, T, I>
 ) : Entity<N, T, I>(context, {
-    id = context.ids.claim()
+    id = context.newId()
 })
 
 /**
@@ -126,7 +136,7 @@ abstract class RestoringEntity<N, T : Comparable<T>, I>(
     restore: Restore?
 ) : Entity<N, T, I>(context, {
     if (restore == null)
-        id = context.ids.claim()
+        id = context.newId()
 }) {
     /**
      * Collects the save-methods.

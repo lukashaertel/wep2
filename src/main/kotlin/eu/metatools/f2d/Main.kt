@@ -15,12 +15,18 @@ import eu.metatools.f2d.context.offset
 import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.wep2.recPlay
+import eu.metatools.wep2.entity.Context
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.system.*
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.tools.rec
+import eu.metatools.wep2.track.SI
+import eu.metatools.wep2.track.bind.claimer
 import eu.metatools.wep2.track.bind.map
 import eu.metatools.wep2.track.bind.prop
+import eu.metatools.wep2.track.randomInt
+import eu.metatools.wep2.track.randomOf
+import eu.metatools.wep2.util.randomInts
 import org.lwjgl.opengl.GL11
 import kotlin.math.cos
 import kotlin.math.sin
@@ -33,11 +39,12 @@ typealias GameParam = Unit
 typealias GameSystem = StandardSystem<GameName, GameParam>
 typealias GameInitializer = StandardInitializer<GameName, GameParam>
 typealias GameEntity = StandardEntity<GameName>
+typealias GameContext = StandardContext<GameName>
 
 // Child entity.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Field(val system: GameSystem, restore: Restore?) : GameEntity(system, restore) {
+class Field(context: GameContext, restore: Restore?) : GameEntity(context, restore) {
     var x by prop(restore) { 0 }
 
     var y by prop(restore) { 0 }
@@ -46,13 +53,13 @@ class Field(val system: GameSystem, restore: Restore?) : GameEntity(system, rest
 
     private fun paintNext(time: Time) = with(Frontend) {
         // Get random offset.
-        val xo = system.randomInt(-1, 2)
-        val yo = system.randomInt(-1, 2)
+        val xo = root.rnd.randomInt(-1, 2)
+        val yo = root.rnd.randomInt(-1, 2)
 
         // Get the corresponding field.
         root.fields[(x + xo) to (y + yo)]?.let {
             // Get a new random color.
-            val rc = system.randomOf(Root.randomColors)
+            val rc = root.rnd.randomOf(Root.randomColors)
 
             // Only if different, change it.
             if (rc != it.color) {
@@ -93,20 +100,22 @@ class Field(val system: GameSystem, restore: Restore?) : GameEntity(system, rest
 // Root entity.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Root(val system: GameSystem, restore: Restore?) : GameEntity(system, restore) {
+class Root(context: GameContext, restore: Restore?) : GameEntity(context, restore) {
     companion object {
         val randomColors = listOf(Color.RED, Color.GREEN, Color.BLUE, Color.PURPLE)
     }
+
+    val rnd by claimer(restore, randomInts(0L))
 
     val fields by map<Pair<Int, Int>, Field>(restore)
 
     private fun initialize(time: Time) {
         for (x in 0..2)
             for (y in 0..2)
-                fields[x to y] = Field(system, null).also {
+                fields[x to y] = Field(context, null).also {
                     it.x = x
                     it.y = y
-                    it.color = system.randomOf(randomColors)
+                    it.color = rnd.randomOf(randomColors)
                 }
     }
 
