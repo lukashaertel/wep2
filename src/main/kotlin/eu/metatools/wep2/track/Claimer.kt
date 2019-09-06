@@ -1,11 +1,9 @@
 package eu.metatools.wep2.track
 
 import eu.metatools.wep2.tools.ReclaimableSequence
-import eu.metatools.wep2.tools.intRandom
 import eu.metatools.wep2.util.labeledAs
 import eu.metatools.wep2.util.uv
 import eu.metatools.wep2.util.within
-import java.util.*
 
 /**
  * Wraps generating elements of a [ReclaimableSequence] providing automated undo.
@@ -57,8 +55,8 @@ fun <I> Claimer<I, *>.claimValue() =
  *
  * Shorthand for `claimValue().within(lower, upper)`.
  */
-fun Claimer<Int, *>.randomInt(lower: Int, upper: Int) =
-    claimValue().within(lower, upper)
+fun Claimer<Int, *>.randomInt(lower: Int, upper: Int, upperInclusive: Boolean = false) =
+    claimValue().within(lower, if (upperInclusive) upper + 1 else upper)
 
 /**
  * Claims a random double in [[0.0, 1.0]].

@@ -20,18 +20,6 @@ class Once {
         val coordinates: CoordsAt
     ) {
         /**
-         * Type safe delegate for lifetime check.
-         */
-        fun hasStarted(time: Double) =
-            subject.hasStarted(args, time)
-
-        /**
-         * Type safe delegate for lifetime check.
-         */
-        fun hasEnded(time: Double) =
-            subject.hasEnded(args, time)
-
-        /**
          * Type safe delegate for draw in the [Continuous].
          */
         fun render(continuous: Continuous, time: Double) {
@@ -48,18 +36,6 @@ class Once {
         val args: T,
         val coordinates: CoordsAt
     ) {
-        /**
-         * Type safe delegate for lifetime check.
-         */
-        fun hasStarted(time: Double) =
-            subject.hasStarted(args, time)
-
-        /**
-         * Type safe delegate for lifetime check.
-         */
-        fun hasEnded(time: Double) =
-            subject.hasEnded(args, time)
-
         /**
          * Type safe delegate for play in the [Continuous].
          */
@@ -80,7 +56,7 @@ class Once {
 
     /**
      * Adds a drawable [subject] with the given [coordinates] function to the queue, returns a method to remove it
-     * before it [Lifetime.hasEnded].
+     * before it [Timed.hasEnded].
      */
     fun <T> draw(subject: Drawable<T>, args: T, coordinates: CoordsAt): AutoCloseable {
         val element = PendingDrawable(subject, args, coordinates)
@@ -98,7 +74,7 @@ class Once {
 
     /**
      * Adds a playable [subject] with the given [coordinates] function to the queue, returns a method to remove it
-     * before it [Lifetime.hasEnded].
+     * before it [Timed.hasEnded].
      */
     fun <T> play(subject: Playable<T>, args: T, coordinates: CoordsAt): AutoCloseable {
         val element = PendingPlayable(Any(), subject, args, coordinates)
@@ -122,9 +98,9 @@ class Once {
         drawable.iterator().let {
             while (it.hasNext()) {
                 val current = it.next()
-                if (!current.hasStarted(time))
+                if (time < current.subject.start)
                     continue
-                if (current.hasEnded(time))
+                if (current.subject.end <= time)
                     it.remove()
                 else
                     current.render(continuous, time)
@@ -135,9 +111,9 @@ class Once {
         playable.iterator().let {
             while (it.hasNext()) {
                 val current = it.next()
-                if (!current.hasStarted(time))
+                if (time < current.subject.start)
                     continue
-                if (current.hasEnded(time))
+                if (current.subject.end <= time)
                     it.remove()
                 else
                     current.render(continuous, time)
@@ -186,7 +162,7 @@ class Continuous {
      */
     fun <T> draw(time: Double, subject: Drawable<T>, args: T, coordinates: CoordsAt) {
         // Don't render subjects outside their lifetime.
-        if (!subject.hasStarted(args, time) || subject.hasEnded(args, time))
+        if (time < subject.start || subject.end <= time)
             return
 
         // Create combined matrix.
@@ -248,7 +224,7 @@ class Continuous {
      */
     fun <T> play(key: Any, time: Double, subject: Playable<T>, args: T, coordinates: CoordsAt) {
         // Don't play subjects outside their lifetime.
-        if (!subject.hasStarted(args, time) || subject.hasEnded(args, time))
+        if (time < subject.start || subject.end <= time)
             return
 
         // Create combined matrix.

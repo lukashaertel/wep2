@@ -5,7 +5,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 /**
  * A drawable instance.
  */
-interface Drawable<in T> : Lifetime<T> {
+interface Drawable<in T> : Timed {
     /**
      * Generates calls to the sprite batch.
      */
@@ -15,27 +15,45 @@ interface Drawable<in T> : Lifetime<T> {
 /**
  * Returns a drawable instance that is fixed to end after the given time.
  */
-fun <T> Drawable<T>.limit(endTime: Double) = object : Drawable<T> {
+infix fun <T> Drawable<T>.limit(duration: Double) = object : Drawable<T> {
     override fun generate(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) =
         this@limit.generate(args, time, receiver)
 
-    override fun hasStarted(args: T, time: Double) =
-        this@limit.hasStarted(args, time)
+    override val start: Double
+        get() = this@limit.start
 
-    override fun hasEnded(args: T, time: Double) =
-        time > endTime
+    override val duration: Double
+        get() = minOf(this@limit.duration, duration)
 }
 
 /**
  * Returns a drawable instance that is offset by the given time.
  */
-fun <T> Drawable<T>.offset(offset: Double) = object : Drawable<T> {
+infix fun <T> Drawable<T>.offset(offset: Double) = object : Drawable<T> {
     override fun generate(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) =
         this@offset.generate(args, time - offset, receiver)
 
-    override fun hasStarted(args: T, time: Double) =
-        this@offset.hasStarted(args, time - offset)
+    override val start: Double
+        get() = this@offset.start + offset
 
-    override fun hasEnded(args: T, time: Double) =
-        this@offset.hasEnded(args, time - offset)
+    override val duration: Double
+        get() = this@offset.duration
+}
+
+/**
+ * Chains the receiver with the next [Drawable]. If receiver does not end, [next] will never draw.
+ */
+infix fun <T> Drawable<T>.then(next: Drawable<T>) = object : Drawable<T> {
+    override fun generate(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+        if (time < this@then.end)
+            this@then.generate(args, time, receiver)
+        else
+            next.generate(args, time - this@then.duration, receiver)
+    }
+
+    override val duration: Double
+        get() = this@then.duration + next.duration
+
+    override val start: Double
+        get() = this@then.start
 }

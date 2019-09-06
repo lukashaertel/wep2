@@ -29,7 +29,7 @@ abstract class AtlasResource<A, I : LifecycleDrawable<*>>(
 /**
  * Arguments to create an animated atlas resource.
  */
-data class AnimatedAtlasResourceArgs(val name: String, val length: Double)
+data class AnimatedAtlasResourceArgs(val name: String, val length: Double, val looping: Boolean = true)
 
 /**
  * Uses a texture atlas to create a set of animated drawables.
@@ -66,12 +66,23 @@ class AnimatedAtlasResource(
         override fun generate(args: TextureArgs?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
             val activeArgs = args ?: defaultArgs
 
+            // Generate when regions are assigned.
             regions?.let { regions ->
-                val regionIndex = (time / (argsResource.length / regions.size)).toInt() % regions.size
+                // Ge region index from time, divided by time-per-frame.
+                val regionIndex = (time / (argsResource.length / regions.size)).toInt().let {
+                    // If looping, wrap by modulo, otherwise stop at last index.
+                    if (argsResource.looping)
+                        it % regions.size
+                    else
+                        minOf(it, regions.size - 1)
+                }
+
+                // Get the region for the index.
                 val region = regions[regionIndex]
 
                 if (activeArgs.keepSize)
                     receiver {
+                        // Keeping size, use region size to display.
                         val source = it.color.cpy()
                         it.color = activeArgs.tint
                         it.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
@@ -79,6 +90,7 @@ class AnimatedAtlasResource(
                     }
                 else
                     receiver {
+                        // Uniform, render to 1 by 1 field.
                         val source = it.color.cpy()
                         it.color = activeArgs.tint
                         it.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
@@ -86,6 +98,13 @@ class AnimatedAtlasResource(
                     }
             }
         }
+
+        override val duration: Double
+            get() =
+                if (argsResource.looping)
+                    Double.POSITIVE_INFINITY
+                else
+                    argsResource.length
     }
 
 }

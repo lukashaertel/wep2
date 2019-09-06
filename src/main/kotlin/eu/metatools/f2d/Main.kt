@@ -13,6 +13,7 @@ import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.context.Drawable
 import eu.metatools.f2d.context.offset
 import eu.metatools.f2d.context.refer
+import eu.metatools.f2d.context.then
 import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.wep2.recPlay
 import eu.metatools.wep2.entity.Context
@@ -66,7 +67,7 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
                 it.color = rc
 
                 // Play sound when actually changed.
-                once.recPlay(fire offset toLocal(time.time)) {
+                once.recPlay(fire then fire offset toLocal(time.time)) {
                     // Translation of field, relative to listener at center.
                     Matrix4()
                         .translate((x + xo).toFloat(), (y + yo).toFloat(), 0f)
@@ -179,7 +180,7 @@ object Frontend : F2DListener(-100f, 100f) {
 
     val atlas = use(AnimatedAtlasResource { Gdx.files.internal("unnamed.atlas") })
 
-    val jump = atlas.refer(AnimatedAtlasResourceArgs("cat-jump", 1.2))
+    val jump = atlas.refer(AnimatedAtlasResourceArgs("cat-jump", 3.0, false))
 
     val stand = atlas.refer(AnimatedAtlasResourceArgs("cat-stand", 2.0))
 
@@ -212,7 +213,7 @@ object Frontend : F2DListener(-100f, 100f) {
         // Drain the input processor as an input event queue.
         (Gdx.input.inputProcessor as InputEventQueue).drain()
 
-        continuous.draw(time, jump, TextureArgs(keepSize = true)) {
+        continuous.draw(time, jump then stand, TextureArgs(keepSize = true)) {
             Matrix4().translate(100f, 100f, -10f + it.toFloat())
         }
 
