@@ -10,10 +10,7 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Vector3
-import eu.metatools.f2d.context.Drawable
-import eu.metatools.f2d.context.offset
-import eu.metatools.f2d.context.refer
-import eu.metatools.f2d.context.then
+import eu.metatools.f2d.context.*
 import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.wep2.recPlay
 import eu.metatools.wep2.entity.Context

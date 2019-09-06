@@ -42,13 +42,18 @@ infix fun <T> Drawable<T>.offset(offset: Double) = object : Drawable<T> {
 
 /**
  * Chains the receiver with the next [Drawable]. If receiver does not end, [next] will never draw.
+ * The argument type is generic and arguments are extracted via [firstArg] and [secondArg].
  */
-infix fun <T> Drawable<T>.then(next: Drawable<T>) = object : Drawable<T> {
+fun <T, A, B> Drawable<A>.then(
+    next: Drawable<B>,
+    firstArg: (T) -> A,
+    secondArg: (T) -> B
+) = object : Drawable<T> {
     override fun generate(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
         if (time < this@then.end)
-            this@then.generate(args, time, receiver)
+            this@then.generate(firstArg(args), time, receiver)
         else
-            next.generate(args, time - this@then.duration, receiver)
+            next.generate(secondArg(args), time - this@then.duration, receiver)
     }
 
     override val duration: Double
@@ -57,3 +62,23 @@ infix fun <T> Drawable<T>.then(next: Drawable<T>) = object : Drawable<T> {
     override val start: Double
         get() = this@then.start
 }
+
+
+/**
+ * Concatenates two [Drawable]s with equal argument types, using the same argument.
+ */
+infix fun <T> Drawable<T>.then(next: Drawable<T>) = then<T, T, T>(next, { it }, { it })
+
+
+/**
+ * Concatenates two [Drawable]s with different argument types, resulting in a pair.
+ */
+infix fun <T, U> Drawable<T>.thenPair(next: Drawable<U>) = then<Pair<T, U>, T, U>(next, { it.first }, { it.second })
+
+
+/**
+ * Concatenates two [Drawable]s with different argument types, resulting in a pair.
+ */
+@JvmName("thenPairNullable")
+infix fun <T : Any, U : Any> Drawable<T?>.thenPair(next: Drawable<U?>) =
+    then<Pair<T, U>?, T?, U?>(next, { it?.first }, { it?.second })
