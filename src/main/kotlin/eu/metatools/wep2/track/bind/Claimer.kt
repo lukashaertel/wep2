@@ -26,7 +26,7 @@ fun <I, R> claimer(restore: Restore?, sequence: Sequence<I>, zero: R, inc: (R) -
 
             thisRef.saveWith({ store: Store ->
                 store.saveClaimer(property.name, property.get(thisRef))
-            } labeledAs { "Save set ${property.name}" })
+            } labeledAs { "Save claimer ${property.name}" })
         }
 
         // Check if currently restoring.

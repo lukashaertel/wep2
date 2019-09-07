@@ -10,14 +10,7 @@ import eu.metatools.f2d.context.LifecycleResource
 /**
  * Generates drawable resources with a given color. The results have the length one and are centered.
  */
-class SolidResource : LifecycleResource<Unit, Drawable<Color?>> {
-    companion object {
-        /**
-         * The default arguments to [Drawable.generate].
-         */
-        val defaultArgs: Color = Color.WHITE
-    }
-
+class SolidResource : LifecycleResource<Unit, Drawable<Variation?>> {
     private var texture: Texture? = null
 
     override fun initialize() {
@@ -36,14 +29,15 @@ class SolidResource : LifecycleResource<Unit, Drawable<Color?>> {
     }
 
     override fun refer(argsResource: Unit) =
-        object : Drawable<Color?> {
-            override fun generate(args: Color?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
-                val activeArgs = args ?: defaultArgs
+        object : Drawable<Variation?> {
+            override fun upload(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+                val activeArgs = args ?: Variation.DEFAULT
 
+                // Keeping size has no effect, as it will result in the same call.
                 receiver {
                     val source = it.color.cpy()
-                    it.color = activeArgs
-                    it.draw(texture, -0.5f, -0.5f)
+                    it.color = activeArgs.tint
+                    it.draw(texture, -0.5f, -0.5f, 1f, 1f)
                     it.color = source
                 }
             }

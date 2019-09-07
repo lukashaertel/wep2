@@ -20,7 +20,7 @@ sealed class Region {
 /**
  * Returns the entire texture.
  */
-object EntireRegion : Region() {
+object Entire : Region() {
     override fun apply(texture: Texture?) =
         TextureRegion(texture)
 }
@@ -28,7 +28,7 @@ object EntireRegion : Region() {
 /**
  * Returns an absolutely selected region.
  */
-data class AbsoluteRegion(val x: Int, val y: Int, val width: Int, val height: Int) : Region() {
+data class Absolute(val x: Int, val y: Int, val width: Int, val height: Int) : Region() {
     override fun apply(texture: Texture?) =
         TextureRegion(texture, x, y, width, height)
 }
@@ -36,20 +36,34 @@ data class AbsoluteRegion(val x: Int, val y: Int, val width: Int, val height: In
 /**
  * Returns a relatively selected region.
  */
-data class UVRegion(val u: Float, val v: Float, val u2: Float, val v2: Float) : Region() {
+data class UV(val u: Float, val v: Float, val u2: Float, val v2: Float) : Region() {
     override fun apply(texture: Texture?) =
         TextureRegion(texture, u, v, u2, v2)
 }
 
 /**
- * Arguments for creating a [Drawable] from a [TextureResource].
+ * Arguments to refer a [TextureResource].
  */
-data class TextureResourceArgs(val region: Region = EntireRegion)
+data class ReferTexture(val region: Region = DEFAULT.region) {
+    companion object {
+        /**
+         * The default value of referring to a texture.
+         */
+        val DEFAULT = ReferTexture(Entire)
+    }
+}
 
 /**
- * Arguments for rendering a [Drawable] from a [TextureResource].
+ * Variation of how to draw something to a sprite batch.
  */
-data class TextureArgs(val tint: Color = Color.WHITE, val keepSize: Boolean = false)
+data class Variation(val tint: Color = DEFAULT.tint, val keepSize: Boolean = DEFAULT.keepSize) {
+    companion object {
+        /**
+         * The default variation.
+         */
+        val DEFAULT = Variation(Color.WHITE, false)
+    }
+}
 
 /**
  * A texture resource on a file location.
@@ -57,19 +71,7 @@ data class TextureArgs(val tint: Color = Color.WHITE, val keepSize: Boolean = fa
  */
 class TextureResource(
     val location: () -> FileHandle
-) : NotifyingResource<TextureResourceArgs?, LifecycleDrawable<TextureArgs?>>() {
-
-    companion object {
-        /**
-         * The default arguments to [refer].
-         */
-        val defaultArgsResource = TextureResourceArgs()
-
-        /**
-         * The default arguments to [Drawable.generate].
-         */
-        val defaultArgs = TextureArgs()
-    }
+) : NotifyingResource<ReferTexture?, LifecycleDrawable<Variation?>>() {
 
     /**
      * The texture that is active.
@@ -87,8 +89,8 @@ class TextureResource(
         texture = null
     }
 
-    override fun referNew(argsResource: TextureResourceArgs?) = object : LifecycleDrawable<TextureArgs?> {
-        val activeArgsResource = argsResource ?: defaultArgsResource
+    override fun referNew(argsResource: ReferTexture?) = object : LifecycleDrawable<Variation?> {
+        val activeArgsResource = argsResource ?: ReferTexture.DEFAULT
 
         var textureRegion: TextureRegion? = null
 
@@ -101,8 +103,8 @@ class TextureResource(
             textureRegion = null
         }
 
-        override fun generate(args: TextureArgs?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
-            val activeArgs = args ?: defaultArgs
+        override fun upload(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+            val activeArgs = args ?: Variation.DEFAULT
 
             val textureRegion = activeArgsResource.region.apply(texture)
             if (activeArgs.keepSize)

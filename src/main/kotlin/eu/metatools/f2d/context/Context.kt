@@ -40,7 +40,7 @@ class Once {
          * Type safe delegate for play in the [Continuous].
          */
         fun render(continuous: Continuous, time: Double) {
-            continuous.play(key, time, subject, args, coordinates)
+            continuous.play(time, subject, key, args, coordinates)
         }
     }
 
@@ -190,39 +190,31 @@ class Continuous {
         }
 
         // Generate calls for the subject.
-        subject.generate(args, time) { target.entries.add(it) }
-    }
-
-    fun draw(time: Double, subject: Drawable<Unit>, coordinates: CoordsAt) =
-        draw(time, subject, Unit, coordinates)
-
-    /**
-     * Represents an active [Playable] with it's arguments.
-     */
-    private data class ActivePlayable<T>(val key: Any, val subject: Playable<T>, val args: T) {
-        /**
-         * Type safe delegate to stopping the playable with arguments.
-         */
-        fun stop(id: Long) {
-            subject.stop(args, id)
-        }
+        subject.upload(args, time) { target.entries.add(it) }
     }
 
     /**
-     * All sounds that are active, mapped to their sound identities.
+     * Auto-fills the nullable args with `null`.
      */
-    private val sounds = mutableMapOf<ActivePlayable<*>, Long>()
+    fun <T> draw(time: Double, subject: Drawable<T?>, coordinates: CoordsAt) =
+        draw(time, subject, null, coordinates)
+
 
     /**
-     * All sounds that were touched between two calls to [render]. Untouched entries are stopped on calling [render].
+     * Set of active sounds. Tracked to reset the [outdated] set.
      */
-    private val soundsRenewed = mutableSetOf<ActivePlayable<*>>()
+    private val active = mutableMapOf<Playable<*>, MutableSet<Any>>()
 
     /**
-     * Plays or keeps playing a sound instance [subject] for the given [key] with the [time] and the
+     * Set of outdated sounds that will be cancelled in the next render.
+     */
+    private val outdated = mutableMapOf<Playable<*>, MutableSet<Any>>()
+
+    /**
+     * Plays or keeps playing a sound instance [subject] for the given [handle] with the [time] and the
      * listener-relative [coordinates]. Passes the [args].
      */
-    fun <T> play(key: Any, time: Double, subject: Playable<T>, args: T, coordinates: CoordsAt) {
+    fun <T> play(time: Double, subject: Playable<T>, handle: Any, args: T, coordinates: CoordsAt) {
         // Don't play subjects outside their lifetime.
         if (time < subject.start || subject.end <= time)
             return
@@ -235,19 +227,23 @@ class Continuous {
         val y = combined.`val`[Matrix4.M13] / combined.`val`[Matrix4.M33]
         val z = combined.`val`[Matrix4.M23] / combined.`val`[Matrix4.M33]
 
-        // Compute active sound key.
-        val active = ActivePlayable(key, subject, args)
+        // Get or create active bank, add handle.
+        active.getOrPut(subject, ::mutableSetOf).add(handle)
 
-        // Mark key as touched so that it is not collected.
-        soundsRenewed.add(active)
+        // If outdated contained the sound, remove it, clean up if necessary.
+        outdated[subject]?.let {
+            if (it.remove(handle) && it.isEmpty()) outdated.remove(subject, it)
+        }
 
-        // Get ID of the sound or start playing a new one.
-        val id = sounds.getOrPut(active) { subject.start(args, time) }
-        subject.generate(args, id, time, x, y, z)
+        // Upload soudn with the given handle
+        subject.upload(args, handle, time, x, y, z)
     }
 
-    fun play(key: Any, time: Double, subject: Playable<Unit>, coordinates: CoordsAt) =
-        play(key, time, subject, Unit, coordinates)
+    /**
+     * Auto-fills the nullable args with `null`.
+     */
+    fun <T> play(time: Double, subject: Playable<T?>, handle: Any, coordinates: CoordsAt) =
+        play(time, subject, handle, null, coordinates)
 
     /**
      * Computes boundary points from the given projection matrix.
@@ -299,32 +295,17 @@ class Continuous {
         // Reset the call list.
         calls.clear()
 
-        // Stop all sounds that have not been renewed in this frame.
-        sounds.iterator().let {
-            while (it.hasNext()) {
-                val (key, id) = it.next()
-                if (key !in soundsRenewed) {
-                    key.stop(id)
-                    it.remove()
-                }
+        // Cancel outdated instances.
+        outdated.forEach { (p, hs) ->
+            hs.forEach { h ->
+                p.cancel(h)
             }
         }
 
-        // Clear touched sounds.
-        soundsRenewed.clear()
+        // Offer active as potentially outdated instances.
+        outdated.clear()
+        active.forEach { (p, hs) ->
+            outdated.getOrPut(p, ::mutableSetOf).addAll(hs)
+        }
     }
 }
-
-/**
- * Auto-fills the nullable args with `null`.
- */
-@JvmName("drawNullArg")
-fun <T> Continuous.draw(time: Double, subject: Drawable<T?>, coordinates: CoordsAt) =
-    this.draw(time, subject, null, coordinates)
-
-/**
- * Auto-fills the nullable args with `null`.
- */
-@JvmName("playNullArg")
-fun <T> Continuous.play(key: Any, time: Double, subject: Playable<T?>, coordinates: CoordsAt) =
-    this.play(key, time, subject, null, coordinates)

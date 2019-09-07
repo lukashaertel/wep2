@@ -115,6 +115,12 @@ sealed class Entity<N, T : Comparable<T>, I>(
 }
 
 /**
+ * Returns an entity relative name.
+ */
+fun <N, I> Entity<N, *, I>.name(name: N) =
+    id to name
+
+/**
  * Entity always generating an ID for itself. For entities that can be restored from a [Restore], use
  * [RestoringEntity], which skips ID generation if restoring.
  * @param context The receiver context.

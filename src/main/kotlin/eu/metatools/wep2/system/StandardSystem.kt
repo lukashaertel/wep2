@@ -6,10 +6,7 @@ import eu.metatools.wep2.entity.bind.restoreBy
 import eu.metatools.wep2.entity.bind.restoreIndex
 import eu.metatools.wep2.entity.bind.storeBy
 import eu.metatools.wep2.entity.bind.storeIndex
-import eu.metatools.wep2.tools.ReclaimableSequence
-import eu.metatools.wep2.tools.ScopedSequence
-import eu.metatools.wep2.tools.Time
-import eu.metatools.wep2.tools.TimeGenerator
+import eu.metatools.wep2.tools.*
 import eu.metatools.wep2.track.Claimer
 import eu.metatools.wep2.track.SI
 import eu.metatools.wep2.track.prop
@@ -75,6 +72,7 @@ class StandardInitializer<N, P>(
 )
 
 // TODO: Restored times after a load will greatly differ, save. Maybe save and restore a delta?
+//  Probably to be done in the frontend, creating a difference based time.
 
 
 /**
@@ -123,11 +121,6 @@ open class StandardSystem<N, P>(
          * The recycler zero value for IDs.
          */
         const val idRecycleZero = 0.toShort()
-
-        /**
-         * The recycler zero value for randoms.
-         */
-        const val randomRecycleZero = 0.toShort()
     }
 
     /**
@@ -150,12 +143,14 @@ open class StandardSystem<N, P>(
     /**
      * The current player with recycle count.
      */
-    private var playerSelf by prop(standardInitializer?.playerSelf ?: players.claim())
+    var playerSelf by prop(standardInitializer?.playerSelf ?: players.claim())
+        private set
 
     /**
      * The current player count.
      */
-    private var playerCount by prop(standardInitializer?.playerCount ?: 1)
+    var playerCount by prop(standardInitializer?.playerCount ?: 1)
+        private set
 
     /**
      * The current player number, claim new with [claimNewPlayer].
@@ -308,8 +303,6 @@ open class StandardSystem<N, P>(
      */
     fun time(generalTime: Long = System.currentTimeMillis()) =
         time.take(generalTime, playerCount, self)
-
-    // TODO: Tick generators. Maybe recording map with (initial, freq) -> TG, store that value etc.
 }
 
 /**
@@ -322,3 +315,14 @@ typealias StandardEntity<N> = RestoringEntity<N, Time, SI>
  */
 inline fun <N, reified R> StandardSystem<N, *>.findRoot() =
     index.values.filterIsInstance<R>().single()
+
+/**
+ * Generates ticks to the element identified by [name] at the given [time]. The coordinator, player
+ * count and time generator are taken from the [standardSystem].
+ */
+fun <N> TickGenerator.tickToWith(standardSystem: StandardSystem<N, *>, name: SN<N>, time: Long) = tickToWith(
+    standardSystem.time, standardSystem,
+    ActiveName(name),
+    time,
+    standardSystem.playerCount, StandardSystem.playerGaia
+)

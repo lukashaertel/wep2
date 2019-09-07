@@ -11,14 +11,28 @@ import org.lwjgl.openal.AL11
 import kotlin.math.abs
 
 /**
- * Arguments for creating a [Playable] from a [SoundResource].
+ *  Arguments to refer a [SoundResource].
  */
-data class SoundResourceArgs(val looping: Boolean = false)
+data class ReferSound(val looping: Boolean = DEFAULT.looping) {
+    companion object {
+        /**
+         * The default value of referring to a sound.
+         */
+        val DEFAULT = ReferSound(false)
+    }
+}
 
 /**
- * Arguments for rendering a [Playable] from a [SoundResource].
+ * Modulation of how to play a sound.
  */
-data class SoundArgs(val pitch: Float = 1.0f, val volume: Float = 1.0f)
+data class Modulation(val pitch: Float = DEFAULT.pitch, val volume: Float = DEFAULT.volume) {
+    companion object {
+        /**
+         * The default modulation.
+         */
+        val DEFAULT = Modulation(1.0f, 1.0f)
+    }
+}
 
 /**
  * A sound resource that loads the sound from a file.
@@ -26,23 +40,12 @@ data class SoundArgs(val pitch: Float = 1.0f, val volume: Float = 1.0f)
  */
 class SoundResource(
     val location: () -> FileHandle
-) : LifecycleResource<SoundResourceArgs?, Playable<SoundArgs?>> {
+) : LifecycleResource<ReferSound?, Playable<Modulation?>> {
     companion object {
         /**
          * Value that, if exceeded, will cause repositioning of a playable instance.
          */
         private const val REPOSITION_EPSILON = 0.1
-
-        /**
-         * The default arguments to [refer].
-         */
-        val defaultArgsResource = SoundResourceArgs()
-
-
-        /**
-         * The default arguments to [Playable.generate].
-         */
-        val defaultArgs = SoundArgs()
     }
 
     /**
@@ -84,48 +87,30 @@ class SoundResource(
         sound = null
     }
 
-    override fun refer(argsResource: SoundResourceArgs?) =
-        object : Playable<SoundArgs?> {
-            val activeArgsResource = argsResource ?: defaultArgsResource
+    override fun refer(argsResource: ReferSound?) =
+        object : Playable<Modulation?> {
+            private val activeArgsResource = argsResource ?: ReferSound.DEFAULT
 
-            override fun start(args: SoundArgs?, time: Double): Long {
-                val activeArgs = args ?: defaultArgs
+            private val plays = mutableMapOf<Any, Long>()
 
-                // Get loaded sound.
-                val useSound = sound
-                    ?: throw IllegalStateException("Sound not loaded")
+            override fun upload(args: Modulation?, handle: Any, time: Double, x: Float, y: Float, z: Float) {
+                val activeArgs = args ?: Modulation.DEFAULT
 
-                // Play sound.
-                val id = useSound.play()
+                // Get or create handle, assign looping property once.
+                val sound = sound ?: throw IllegalStateException("Sound not loaded")
+                val id = plays.getOrPut(handle) {
+                    sound.play().also {
+                        sound.setLooping(it, activeArgsResource.looping)
+                    }
+                }
 
-                // Loop if arguments demand it.
-                useSound.setLooping(id, activeArgsResource.looping)
-
-
-                // Get the source value from the audio system.
-                val source = Gdx.audio.sourceFromID(id)
-                    ?: throw IllegalStateException("Cannot retrieve source, audio system not OpenAL")
-
-                // Set offset in seconds.
-                AL10.alSourcef(source, AL11.AL_SEC_OFFSET, time.toFloat())
-
-                // Set extra arguments.
-                AL10.alSourcef(source, AL10.AL_PITCH, activeArgs.pitch)
-                AL10.alSourcef(source, AL10.AL_GAIN, activeArgs.volume)
-
-                return id
-            }
-
-            override fun generate(args: SoundArgs?, id: Long, time: Double, x: Float, y: Float, z: Float) {
-                val activeArgs = args ?: defaultArgs
-
-                // Get the source value from the audio system.
+                // Get sound source to use in OpenAL.
                 val source = Gdx.audio.sourceFromID(id)
                     ?: throw IllegalStateException("Cannot retrieve source, audio system not OpenAL")
 
                 // Get play time, check if in boundaries, otherwise reposition.
-                val playTime = AL10.alGetSourcef(source, AL11.AL_SEC_OFFSET)
-                if (abs(time - playTime) >= REPOSITION_EPSILON)
+                val current = AL10.alGetSourcef(source, AL11.AL_SEC_OFFSET)
+                if (abs(time - current) >= REPOSITION_EPSILON)
                     AL10.alSourcef(source, AL11.AL_SEC_OFFSET, time.toFloat())
 
                 // Set audio position.
@@ -136,8 +121,9 @@ class SoundResource(
                 AL10.alSourcef(source, AL10.AL_GAIN, activeArgs.volume)
             }
 
-            override fun stop(args: SoundArgs?, id: Long) {
-                sound?.stop(id)
+            override fun cancel(handle: Any) {
+                val sound = sound ?: throw IllegalStateException("Sound not loaded")
+                plays.remove(handle)?.let(sound::stop)
             }
 
             override val duration

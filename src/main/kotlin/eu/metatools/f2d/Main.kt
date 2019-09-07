@@ -7,18 +7,19 @@ import com.badlogic.gdx.InputEventQueue
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.context.*
 import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.wep2.recPlay
-import eu.metatools.wep2.entity.Context
+import eu.metatools.wep2.entity.SN
 import eu.metatools.wep2.entity.bind.Restore
+import eu.metatools.wep2.entity.name
 import eu.metatools.wep2.system.*
 import eu.metatools.wep2.tools.Time
+import eu.metatools.wep2.tools.bind.ticker
 import eu.metatools.wep2.tools.rec
-import eu.metatools.wep2.track.SI
+import eu.metatools.wep2.tools.tickToWith
 import eu.metatools.wep2.track.bind.claimer
 import eu.metatools.wep2.track.bind.map
 import eu.metatools.wep2.track.bind.prop
@@ -80,7 +81,7 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
     }
 
     fun render(time: Double) = with(Frontend) {
-        continuous.draw(time, solid.blend(GL11.GL_ONE, GL11.GL_ONE), color) {
+        continuous.draw(time, solid.blend(GL11.GL_ONE, GL11.GL_ONE), Variation(color)) {
             Matrix4()
                 .translate(x * 64f, y * 64f, 0f)
                 .scale(64f, 64f, 1f)
@@ -103,6 +104,10 @@ class Root(context: GameContext, restore: Restore?) : GameEntity(context, restor
         val randomColors = listOf(Color.RED, Color.GREEN, Color.BLUE, Color.PURPLE)
     }
 
+    val ticker by ticker(restore, 250L) {
+        Frontend.created
+    }
+
     val rnd by claimer(restore, randomInts(0L))
 
     val fields by map<Pair<Int, Int>, Field>(restore)
@@ -117,8 +122,12 @@ class Root(context: GameContext, restore: Restore?) : GameEntity(context, restor
                 }
     }
 
+    private fun tick(time: Time) {
+    }
+
     override fun evaluate(name: GameName, time: Time, args: Any?) = when (name) {
         "initialize" -> rec(time, this::initialize)
+        "tick" -> rec(time, this::tick)
         else -> throw IllegalArgumentException("$name unrecognized")
     }
 
@@ -135,9 +144,9 @@ val gameInitializer: GameInitializer? = null
 
 object Frontend : F2DListener(-100f, 100f) {
     /**
-     * Time when the object was initialized.
+     * Time when the resource were created.
      */
-    private val initialized = System.currentTimeMillis()
+    val created = System.currentTimeMillis()
 
     /**
      * The current local time, current system time milliseconds, passed through [toLocal]
@@ -149,7 +158,7 @@ object Frontend : F2DListener(-100f, 100f) {
      * Converts the wall-clock time to a local time.
      */
     fun toLocal(long: Long) =
-        (long - initialized) / 1000.0
+        (long - created) / 1000.0
 
     /**
      * The game system.
@@ -175,11 +184,11 @@ object Frontend : F2DListener(-100f, 100f) {
      */
     val solid = solids.refer()
 
-    val atlas = use(AnimatedAtlasResource { Gdx.files.internal("unnamed.atlas") })
+    val atlas = use(AtlasResource { Gdx.files.internal("trees.atlas") })
 
-    val jump = atlas.refer(AnimatedAtlasResourceArgs("cat-jump", 3.0, false))
+    val treeA = atlas.refer(Animated("tree1", 2.0, false))
 
-    val stand = atlas.refer(AnimatedAtlasResourceArgs("cat-stand", 2.0))
+    val treeB = atlas.refer(Animated("tree3", 2.0, false))
 
     /**
      * Resource of an AK74 firing (?)
@@ -210,19 +219,8 @@ object Frontend : F2DListener(-100f, 100f) {
         // Drain the input processor as an input event queue.
         (Gdx.input.inputProcessor as InputEventQueue).drain()
 
-        continuous.draw(time, jump then stand, TextureArgs(keepSize = true)) {
-            Matrix4().translate(100f, 100f, -10f + it.toFloat())
-        }
-
-        continuous.draw(time, object : Drawable<Unit> {
-            override fun generate(args: Unit, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
-                receiver {
-                    println("I was drawn.")
-                }
-            }
-        }) {
-            Matrix4().translate(2000f, 0f, 0f)
-        }
+        // Create ticks.
+        root.ticker.tickToWith(system, root.name("tick"), System.currentTimeMillis())
 
         // Render the entities.
         root.render(time)
