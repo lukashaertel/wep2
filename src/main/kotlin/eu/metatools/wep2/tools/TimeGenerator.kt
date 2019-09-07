@@ -44,7 +44,7 @@ data class Time(
  */
 class TimeGenerator(val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(defaultLocalIDs)) {
     companion object {
-        val defaultLocalIDs = generateSequence(Byte.MIN_VALUE, Byte::inc)
+        val defaultLocalIDs = generateSequence(0, Byte::inc)
     }
 
     /**

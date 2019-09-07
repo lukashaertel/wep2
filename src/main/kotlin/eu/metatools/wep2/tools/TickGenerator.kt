@@ -40,6 +40,9 @@ class TickGenerator(val initial: Long, val frequency: Long) {
         // Check that time is linear.
         check(lastTime <= time) { "Time is not linear, last time was $lastTime, trying to generate ticks for $time" }
 
+        // Todo: Verify this code, time discrepancies are not fun, might even need a dedicated data type to
+        //  untangle this.
+
         // Compute components.
         val lastRelative = lastTime - initial
         val timeRelative = time - initial
@@ -50,7 +53,7 @@ class TickGenerator(val initial: Long, val frequency: Long) {
         lastTime = time
 
         // Return the progression.
-        return firstTime until timeRelative step frequency
+        return initial + firstTime until initial + timeRelative step frequency
     }
 }
 

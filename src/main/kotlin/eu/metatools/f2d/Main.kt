@@ -1,9 +1,6 @@
 package eu.metatools.f2d
 
-import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.Input
-import com.badlogic.gdx.InputAdapter
-import com.badlogic.gdx.InputEventQueue
+import com.badlogic.gdx.*
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
@@ -20,13 +17,16 @@ import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.tools.bind.ticker
 import eu.metatools.wep2.tools.rec
 import eu.metatools.wep2.tools.tickToWith
+import eu.metatools.wep2.track.SI
 import eu.metatools.wep2.track.bind.claimer
 import eu.metatools.wep2.track.bind.map
 import eu.metatools.wep2.track.bind.prop
+import eu.metatools.wep2.track.bind.refMap
 import eu.metatools.wep2.track.randomInt
 import eu.metatools.wep2.track.randomOf
 import eu.metatools.wep2.util.randomInts
 import org.lwjgl.opengl.GL11
+import java.io.ObjectOutputStream
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -110,7 +110,7 @@ class Root(context: GameContext, restore: Restore?) : GameEntity(context, restor
 
     val rnd by claimer(restore, randomInts(0L))
 
-    val fields by map<Pair<Int, Int>, Field>(restore)
+    val fields by refMap<SI, Pair<Int, Int>, Field>(restore)
 
     private fun initialize(time: Time) {
         for (x in 0..2)
@@ -163,7 +163,7 @@ object Frontend : F2DListener(-100f, 100f) {
     /**
      * The game system.
      */
-    val system = GameSystem(0L, Unit, gameInitializer)
+    val system = GameSystem(Unit, gameInitializer)
 
     /**
      * Get or create the root entity.
@@ -210,6 +210,11 @@ object Frontend : F2DListener(-100f, 100f) {
                     root.fields[1 to 1]?.signal("paintNext", system.time(), Unit)
                     true
                 }
+                Input.Keys.ESCAPE -> {
+                    Gdx.app.exit()
+
+                    true
+                }
                 else -> false
             }
         })
@@ -224,11 +229,21 @@ object Frontend : F2DListener(-100f, 100f) {
 
         // Render the entities.
         root.render(time)
+
+        system.consolidate(System.currentTimeMillis() - 2000L)
     }
 
     override fun pause() = Unit
 
     override fun resume() = Unit
+
+    override fun dispose() {
+        super.dispose()
+
+        ObjectOutputStream(Gdx.files.external("sg").write(false)).use {
+            system.save().summarize().let(::println)
+        }
+    }
 }
 
 fun main() {

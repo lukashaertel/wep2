@@ -13,8 +13,6 @@ import eu.metatools.wep2.track.prop
 import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.shorts
 import java.util.*
-import kotlin.collections.List
-import kotlin.collections.Map
 import kotlin.collections.asSequence
 import kotlin.collections.filterIsInstance
 import kotlin.collections.getValue
@@ -47,30 +45,6 @@ object ReleasePlayer : ManagementName<Any?>()
  */
 data class ActiveName<N>(val name: SN<N>) : StandardName<N>()
 
-/**
- * A standard initializer.
- * @property idsHead The current head of the ID generation process.
- * @property idsRecycled The currently recycled IDs.
- * @property randomSeed The seed of the random.
- * @property randomsHead The head of the random generation process.
- * @property idsRecycled The currently recycled randoms.
- *
- * @property scopes The currently used scopes in the time generation process.
- * @property instructions The set of instructions.
- */
-class StandardInitializer<N, P>(
-    val playerHead: Short?,
-    val playerRecycled: List<Pair<Short, Short>>,
-    val idsHead: Short?,
-    val idsRecycled: List<Pair<Short, Short>>,
-    val playerSelf: Pair<Short, Short>,
-    val playerCount: Short,
-    val scopes: Map<Long, Byte>,
-    val instructions: List<Triple<StandardName<N>, Time, Any?>>,
-    val parameter: P,
-    val saveData: Map<String, Any?>
-)
-
 // TODO: Restored times after a load will greatly differ, save. Maybe save and restore a delta?
 //  Probably to be done in the frontend, creating a difference based time.
 
@@ -82,12 +56,10 @@ typealias StandardContext<N> = Context<N, Time, SI>
 
 /**
  * Creates a standard system, initializing or restoring all components from an optional [StandardInitializer].
- * @param createSeed The seed to use if creating fresh.
  * @param createParameters The parameter to use if creating fresh.
  * @param standardInitializer The initializer or null if creating.
  */
 open class StandardSystem<N, P>(
-    createSeed: Long,
     createParameters: P,
     standardInitializer: StandardInitializer<N, P>?
 ) : Warp<StandardName<N>, Time>(), StandardContext<N> {
