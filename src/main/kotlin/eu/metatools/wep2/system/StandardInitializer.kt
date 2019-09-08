@@ -1,7 +1,7 @@
 package eu.metatools.wep2.system
 
-import eu.metatools.wep2.coord.Instruction
 import eu.metatools.wep2.tools.Time
+import java.io.Serializable
 
 /**
  * A standard initializer.
@@ -14,12 +14,10 @@ data class StandardInitializer<N, P>(
     val playerSelf: Pair<Short, Short>,
     val playerCount: Short,
     val scopes: Map<Long, Byte>,
-    val instructions: List<Instruction<StandardName<N>, Time>>,
+    val instructions: List<Triple<StandardName<N>, Time, Any?>>,
     val parameter: P,
     val saveData: Map<String, Any?>
-) {
-
-
+) : Serializable {
     /**
      * Creates a summary string.
      */

@@ -1,37 +1,11 @@
 package eu.metatools.nw
 
-import eu.metatools.wep2.system.StandardInitializer
-import eu.metatools.wep2.system.StandardName
+import eu.metatools.nw.encoding.Encoding
 import eu.metatools.wep2.system.StandardSystem
-import eu.metatools.wep2.tools.Time
 import org.jgroups.JChannel
 import org.jgroups.Message
 import org.jgroups.Receiver
-import java.io.InputStream
-import java.io.OutputStream
-
-interface Encoding<N, P> {
-    /**
-     * Writes the initializer.
-     */
-    fun writeInitializer(standardInitializer: StandardInitializer<N, P>): ByteArray
-
-    /**
-     * Reads the initializer.
-     */
-    fun readInitializer(byteArray: ByteArray): StandardInitializer<N, P>
-
-    /**
-     * Writes the instruction.
-     */
-    fun writeInstruction(instruction: Triple<StandardName<N>, Time, Any?>): ByteArray
-
-    /**
-     * Reads the instruction.
-     */
-    fun readInstruction(byteArray: ByteArray): Triple<StandardName<N>, Time, Any?>
-}
-
+import java.io.*
 
 fun <N, P> enter(
     encoding: Encoding<N, P>,
@@ -53,28 +27,35 @@ fun <N, P> enter(
             if (msg.src == channel.address)
                 return
 
-            // Read instruction.
-            val (name, time, args) = encoding.readInstruction(msg.buffer)
-
-            // Receive it.
-            target.receive(name, time, args)
+            // Create input stream from buffer.
+            ByteArrayInputStream(msg.rawBuffer, msg.offset, msg.length).use {
+                // Read instruction from stream.
+                encoding.readInstruction(it).let { (name, time, args) ->
+                    // Feed into target.
+                    target.receive(name, time, args)
+                }
+            }
         }
 
         override fun setState(input: InputStream) {
-            // Read initializer.
-            val initializer = input.use {
-                encoding.readInitializer(it.readAllBytes())
+            // Use input stream.
+            input.use {
+                // Read initializer.
+                val initializer = encoding.readInitializer(it)
+
+                // Create target from state exchange.
+                target = StandardSystem(parameter, initializer)
             }
-
-            // Create target from state exchange.
-            target = StandardSystem(parameter, initializer)
-
         }
 
         override fun getState(output: OutputStream) {
             // Write initializer from save.
             output.use {
-                it.write(encoding.writeInitializer(target.save()))
+                // Save initializer.
+                val initializer = target.save()
+
+                // Write initializer to state exchange.
+                encoding.writeInitializer(it, initializer)
             }
         }
     })
@@ -88,8 +69,17 @@ fun <N, P> enter(
 
     // Connect outgoing messages of the cluster.
     target.register { name, time, args ->
-        // Create output, send it to everyone.
-        channel.send(null, encoding.writeInstruction(Triple(name, time, args)))
+        // Create output stream to write to.
+        val data = ByteArrayOutputStream().use {
+            // Write instruction to buffer.
+            encoding.writeInstruction(it, Triple(name, time, args))
+
+            // Return the byte array from the given
+            it.toByteArray()
+        }
+
+        // Send data to all addresses..
+        channel.send(null, data)
     }
 
     // Return target and closing method.

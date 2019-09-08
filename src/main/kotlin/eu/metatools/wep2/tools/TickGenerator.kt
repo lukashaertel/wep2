@@ -1,7 +1,6 @@
 package eu.metatools.wep2.tools
 
 import eu.metatools.wep2.coord.Coordinator
-import eu.metatools.wep2.coord.Instruction
 
 /**
  * Generates a sequence of uniform ticks in the given frequency.
@@ -68,7 +67,7 @@ inline fun <N, T : Comparable<T>> TickGenerator.tickTo(
     time: Long,
     crossinline convert: (Long) -> T
 ) = coordinator.receiveAll(generateTicks(time).asSequence().map {
-    Instruction(name, convert(it), Unit)
+    Triple(name, convert(it), Unit)
 })
 
 /**

@@ -12,6 +12,7 @@ import eu.metatools.wep2.track.SI
 import eu.metatools.wep2.track.prop
 import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.shorts
+import java.io.Serializable
 import java.util.*
 import kotlin.collections.asSequence
 import kotlin.collections.filterIsInstance
@@ -23,27 +24,27 @@ import kotlin.collections.single
 /**
  * Names generated and processed by a [StandardSystem].
  */
-sealed class StandardName<in N>
+sealed class StandardName<in N> : Serializable
 
 /**
  * Type for management messages.
  */
-sealed class ManagementName<N> : StandardName<N>()
+sealed class ManagementName<N> : StandardName<N>(), Serializable
 
 /**
  * Claim player.
  */
-object ClaimPlayer : ManagementName<Any?>()
+object ClaimPlayer : ManagementName<Any?>(), Serializable
 
 /**
  * Release player
  */
-object ReleasePlayer : ManagementName<Any?>()
+object ReleasePlayer : ManagementName<Any?>(), Serializable
 
 /**
  * Type for actual messages.
  */
-data class ActiveName<N>(val name: SN<N>) : StandardName<N>()
+data class ActiveName<N>(val name: SN<N>) : StandardName<N>(), Serializable
 
 // TODO: Restored times after a load will greatly differ, save. Maybe save and restore a delta?
 //  Probably to be done in the frontend, creating a difference based time.

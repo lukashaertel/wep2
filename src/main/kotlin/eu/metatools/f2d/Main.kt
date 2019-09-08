@@ -8,8 +8,9 @@ import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.context.*
 import eu.metatools.f2d.tools.*
+import eu.metatools.f2d.wep2.encoding.GdxEncoding
 import eu.metatools.f2d.wep2.recPlay
-import eu.metatools.nw.Encoding
+import eu.metatools.nw.encoding.Encoding
 import eu.metatools.nw.enter
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.name
@@ -38,6 +39,7 @@ typealias GameSystem = StandardSystem<GameName, GameParam>
 typealias GameInitializer = StandardInitializer<GameName, GameParam>
 typealias GameEntity = StandardEntity<GameName>
 typealias GameContext = StandardContext<GameName>
+
 
 // Child entity.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +137,7 @@ class Root(context: GameContext, restore: Restore?) : GameEntity(context, restor
     }
 }
 
-lateinit var encoding: Encoding<GameName, GameParam> // TODO UNFUCK
+val encoding: Encoding<GameName, GameParam> = GdxEncoding()
 
 // Frontend object.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

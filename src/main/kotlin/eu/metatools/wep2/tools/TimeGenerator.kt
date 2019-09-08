@@ -1,6 +1,7 @@
 package eu.metatools.wep2.tools
 
 import eu.metatools.wep2.coord.Coordinator
+import java.io.Serializable
 
 /**
  * Universal time exchangeable between systems.
@@ -14,7 +15,7 @@ data class Time(
     val time: Long,
     val player: Short,
     val local: Byte
-) : Comparable<Time> {
+) : Comparable<Time>, Serializable {
     override fun compareTo(other: Time): Int {
         // Compare outer time, return if not zero.
         val compareTime = time.compareTo(other.time)
