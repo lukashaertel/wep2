@@ -17,12 +17,20 @@ fun <N, T : Comparable<T>, I> restoreIndex(
     restore: Restore
 ) {
     // Retrieve the list of all IDs associated to the constructors.
-    val allEntities = restore.load<List<Pair<I, KFunction<RestoringEntity<*, *, I>>>>>("allEntities")
+    val constructors = restore.load<List<Pair<I, String>>>("allEntities")
+
+    // Store all already resolved constructors.
+    val resolved = mutableMapOf<String, KFunction<RestoringEntity<*, *, I>>>()
 
     // Restore all entities individually.
-    for ((i, c) in allEntities) {
+    for ((i, c) in constructors) {
+        val constructor = resolved.getOrPut(c) {
+            @Suppress("unchecked_cast")
+            Class.forName(c).kotlin.primaryConstructor as? KFunction<RestoringEntity<*, *, I>>?
+                ?: throw IllegalArgumentException("No primary constructor for $c")
+        }
         // Call the constructor with a local restore object.
-        val entity = c.call(context, restore.path(i.toString()))
+        val entity = constructor.call(context, restore.path(i.toString()))
 
         // Assign the ID of the entity.
         entity.id = i
@@ -41,16 +49,16 @@ fun <N, T : Comparable<T>, I> storeIndex(
     store: Store
 ) {
     // Create the allEntities field from IDs and primary constructors.
-    val allEntities = context.index.mapNotNull { (id, e) ->
+    val constructors = context.index.mapNotNull { (id, e) ->
         // Check that only restoring entities are saved (should be the norm).
         if (e is RestoringEntity)
-            id to e::class.primaryConstructor
+            id to e::class.java.name
         else
             null
     }
 
     // Save that field.
-    store.save("allEntities", allEntities)
+    store.save("allEntities", constructors)
 
     // Save all restoring entities to the store.
     for ((i, e) in context.index)

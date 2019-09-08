@@ -56,13 +56,18 @@ typealias StandardContext<N> = Context<N, Time, SI>
 
 /**
  * Creates a standard system, initializing or restoring all components from an optional [StandardInitializer].
- * @param createParameters The parameter to use if creating fresh.
+ * @param parameters The parameter to use if creating fresh.
  * @param standardInitializer The initializer or null if creating.
  */
 open class StandardSystem<N, P>(
-    createParameters: P,
-    standardInitializer: StandardInitializer<N, P>?
+    val parameters: P,
+    val standardInitializer: StandardInitializer<N, P>?
 ) : Warp<StandardName<N>, Time>(), StandardContext<N> {
+    /**
+     * True if the system was restored.
+     */
+    val wasRestored = standardInitializer != null
+
     /**
      * A value that can be exchanged but marks local referral.
      */
@@ -162,7 +167,7 @@ open class StandardSystem<N, P>(
     /**
      * The used parameter, if `standardInitializer` is passed, it is restored.
      */
-    var parameter = standardInitializer?.parameter ?: createParameters
+    var parameter = standardInitializer?.parameter ?: parameters
 
     init {
         standardInitializer?.let {

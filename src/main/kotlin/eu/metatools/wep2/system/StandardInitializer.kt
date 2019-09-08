@@ -1,17 +1,10 @@
 package eu.metatools.wep2.system
 
+import eu.metatools.wep2.coord.Instruction
 import eu.metatools.wep2.tools.Time
 
 /**
  * A standard initializer.
- * @property idsHead The current head of the ID generation process.
- * @property idsRecycled The currently recycled IDs.
- * @property randomSeed The seed of the random.
- * @property randomsHead The head of the random generation process.
- * @property idsRecycled The currently recycled randoms.
- *
- * @property scopes The currently used scopes in the time generation process.
- * @property instructions The set of instructions.
  */
 data class StandardInitializer<N, P>(
     val playerHead: Short?,
@@ -21,10 +14,12 @@ data class StandardInitializer<N, P>(
     val playerSelf: Pair<Short, Short>,
     val playerCount: Short,
     val scopes: Map<Long, Byte>,
-    val instructions: List<Triple<StandardName<N>, Time, Any?>>,
+    val instructions: List<Instruction<StandardName<N>, Time>>,
     val parameter: P,
     val saveData: Map<String, Any?>
 ) {
+
+
     /**
      * Creates a summary string.
      */

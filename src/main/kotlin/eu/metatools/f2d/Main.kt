@@ -9,17 +9,16 @@ import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.context.*
 import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.wep2.recPlay
-import eu.metatools.wep2.entity.SN
+import eu.metatools.nw.Encoding
+import eu.metatools.nw.enter
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.name
 import eu.metatools.wep2.system.*
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.tools.bind.ticker
 import eu.metatools.wep2.tools.rec
-import eu.metatools.wep2.tools.tickToWith
 import eu.metatools.wep2.track.SI
 import eu.metatools.wep2.track.bind.claimer
-import eu.metatools.wep2.track.bind.map
 import eu.metatools.wep2.track.bind.prop
 import eu.metatools.wep2.track.bind.refMap
 import eu.metatools.wep2.track.randomInt
@@ -136,11 +135,10 @@ class Root(context: GameContext, restore: Restore?) : GameEntity(context, restor
     }
 }
 
+lateinit var encoding: Encoding<GameName, GameParam> // TODO UNFUCK
+
 // Frontend object.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Initializer, set if restore is wanted.
-val gameInitializer: GameInitializer? = null
 
 object Frontend : F2DListener(-100f, 100f) {
     /**
@@ -163,16 +161,32 @@ object Frontend : F2DListener(-100f, 100f) {
     /**
      * The game system.
      */
-    val system = GameSystem(Unit, gameInitializer)
+    val system: GameSystem
+
+    /**
+     * The cluster exit method.
+     */
+    val exit: AutoCloseable
+
+    init {
+        enter(encoding, "game", Unit).let {
+            system = it.first
+            exit = it.second
+        }
+
+        // TODO: fix
+        //system.claimNewPlayer(System.currentTimeMillis())
+    }
 
     /**
      * Get or create the root entity.
      */
-    val root = gameInitializer?.let {
-        system.findRoot<GameName, Root>()
-    } ?: Root(system, null).apply {
-        signal("initialize", system.time(), Unit)
-    }
+    val root = if (system.wasRestored)
+        system.findRoot()
+    else
+        Root(system, null).also {
+            it.signal("initialize", system.time(), Unit)
+        }
 
     /**
      * Solid colors resource.
@@ -239,6 +253,8 @@ object Frontend : F2DListener(-100f, 100f) {
 
     override fun dispose() {
         super.dispose()
+
+        exit.close()
 
         ObjectOutputStream(Gdx.files.external("sg").write(false)).use {
             system.save().summarize().let(::println)

@@ -16,13 +16,14 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     compile(kotlin("reflect"))
-    compile("org.jgroups:jgroups:4.1.2.Final")
-    testImplementation("junit:junit:4.12")
 
+    compile("org.jgroups:jgroups:4.1.2.Final")
 
     compile("com.badlogicgames.gdx:gdx:$gdxVersion")
     compile("com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion")
     compile("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
+
+    testImplementation("junit:junit:4.12")
 }
 
 tasks.withType<KotlinCompile> {

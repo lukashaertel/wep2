@@ -64,7 +64,7 @@ class TimeGenerator(val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(de
 
 /**
  * Uses the passed [timeGenerator] to send [player] time elements to the [coordinator],
- * using the last player number possible as player.
+ * using the given [player].
  */
 fun <N> TickGenerator.tickToWith(
     timeGenerator: TimeGenerator,

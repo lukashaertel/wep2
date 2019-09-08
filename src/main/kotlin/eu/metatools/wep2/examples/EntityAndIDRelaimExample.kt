@@ -4,7 +4,6 @@ import eu.metatools.wep2.coord.Warp
 import eu.metatools.wep2.entity.*
 import eu.metatools.wep2.tools.*
 import eu.metatools.wep2.track.*
-import eu.metatools.wep2.util.toComparable
 import java.lang.IllegalArgumentException
 
 /**
@@ -120,7 +119,7 @@ fun main() {
 
     // Create a child on another entity, expected behavior is that
     // an ID is reclaimed, but differs in recycle count.
-    hostA.index.minBy { it.key.first toComparable it.key.second }
+    hostA.index.minBy { it.key.first * Short.MAX_VALUE + it.key.second }
         ?.value
         ?.signal("sib", generator.take(6, 10, 0), Unit)
 
