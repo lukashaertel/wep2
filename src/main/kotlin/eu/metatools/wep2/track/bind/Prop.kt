@@ -3,7 +3,7 @@ package eu.metatools.wep2.track.bind
 import eu.metatools.wep2.entity.RestoringEntity
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.bind.Store
-import eu.metatools.wep2.lang.ReadWritePropertyProvider
+import eu.metatools.wep2.util.ReadWritePropertyProvider
 import eu.metatools.wep2.track.prop
 import eu.metatools.wep2.util.labeledAs
 import kotlin.reflect.KProperty0

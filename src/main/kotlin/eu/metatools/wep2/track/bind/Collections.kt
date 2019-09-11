@@ -3,8 +3,8 @@ package eu.metatools.wep2.track.bind
 import eu.metatools.wep2.entity.RestoringEntity
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.bind.Store
-import eu.metatools.wep2.lang.DirectValue
-import eu.metatools.wep2.lang.ReadOnlyPropertyProvider
+import eu.metatools.wep2.util.DirectValue
+import eu.metatools.wep2.util.ReadOnlyPropertyProvider
 import eu.metatools.wep2.track.set
 import eu.metatools.wep2.track.map
 import eu.metatools.wep2.util.SimpleMap

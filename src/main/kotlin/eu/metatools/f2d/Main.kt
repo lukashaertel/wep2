@@ -41,6 +41,8 @@ typealias GameEntity = StandardEntity<GameName>
 typealias GameContext = StandardContext<GameName>
 
 
+val Long.sec get() = this / 1000.0
+
 // Child entity.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -66,7 +68,7 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
                 it.color = rc
 
                 // Play sound when actually changed.
-                once.recPlay(fire then fire offset toLocal(time.time)) {
+                once.recPlay(fire then fire offset time.time.sec) {
                     // Translation of field, relative to listener at center.
                     Matrix4()
                         .translate((x + xo).toFloat(), (y + yo).toFloat(), 0f)
@@ -106,7 +108,7 @@ class Root(context: GameContext, restore: Restore?) : GameEntity(context, restor
     }
 
     val ticker by ticker(restore, 250L) {
-        Frontend.created
+        0
     }
 
     val rnd by claimer(restore, randomInts(0L))
@@ -144,41 +146,23 @@ val encoding: Encoding<GameName, GameParam> = GdxEncoding()
 
 object Frontend : F2DListener(-100f, 100f) {
     /**
-     * Time when the resource were created.
+     * Cluster contribution methods.
      */
-    val created = System.currentTimeMillis()
-
-    /**
-     * The current local time, current system time milliseconds, passed through [toLocal]
-     */
-    override val time: Double
-        get() = toLocal(System.currentTimeMillis())
-
-    /**
-     * Converts the wall-clock time to a local time.
-     */
-    fun toLocal(long: Long) =
-        (long - created) / 1000.0
+    val net = enter(encoding, "game", Unit).also {
+        it.system.claimNewPlayer(System.currentTimeMillis())
+    }
 
     /**
      * The game system.
      */
-    val system: GameSystem
+    val system get() = net.system
+
 
     /**
-     * The cluster exit method.
+     * The current time of the connected system.
      */
-    val exit: AutoCloseable
-
-    init {
-        enter(encoding, "game", Unit).let {
-            system = it.first
-            exit = it.second
-        }
-
-        // TODO: fix
-        //system.claimNewPlayer(System.currentTimeMillis())
-    }
+    override val time: Double
+        get() = system.toSystemTime(System.currentTimeMillis()).sec
 
     /**
      * Get or create the root entity.
@@ -237,16 +221,21 @@ object Frontend : F2DListener(-100f, 100f) {
     }
 
     override fun render(time: Double) {
+
         // Drain the input processor as an input event queue.
         (Gdx.input.inputProcessor as InputEventQueue).drain()
 
-        // Create ticks.
+        Gdx.graphics.setTitle(time.toString())
+
+        // Process the next messages and ticks.
+        net.update()
         root.ticker.tickToWith(system, root.name("tick"), System.currentTimeMillis())
 
         // Render the entities.
         root.render(time)
 
-        system.consolidate(System.currentTimeMillis() - 2000L)
+        // Consolidate instruction cache.
+        system.consolidate(System.currentTimeMillis() - 5000L)
     }
 
     override fun pause() = Unit
@@ -256,7 +245,9 @@ object Frontend : F2DListener(-100f, 100f) {
     override fun dispose() {
         super.dispose()
 
-        exit.close()
+        system.releasePlayer(System.currentTimeMillis())
+
+        net.stop()
 
         ObjectOutputStream(Gdx.files.external("sg").write(false)).use {
             system.save().summarize().let(::println)

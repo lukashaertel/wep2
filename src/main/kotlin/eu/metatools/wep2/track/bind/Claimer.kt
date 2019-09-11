@@ -3,8 +3,8 @@ package eu.metatools.wep2.track.bind
 import eu.metatools.wep2.entity.RestoringEntity
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.bind.Store
-import eu.metatools.wep2.lang.DirectValue
-import eu.metatools.wep2.lang.ReadOnlyPropertyProvider
+import eu.metatools.wep2.util.DirectValue
+import eu.metatools.wep2.util.ReadOnlyPropertyProvider
 import eu.metatools.wep2.tools.ReclaimableSequence
 import eu.metatools.wep2.track.Claimer
 import eu.metatools.wep2.util.SimpleSet
@@ -35,7 +35,17 @@ fun <I, R> claimer(restore: Restore?, sequence: Sequence<I>, zero: R, inc: (R) -
             val (head, recycled) = restore.load<Pair<I?, List<Pair<I, R>>>>(property.name)
 
             // Return claimer with values.
-            DirectValue(Claimer(ReclaimableSequence.restore(sequence, zero, inc, head, recycled)))
+            DirectValue(
+                Claimer(
+                    ReclaimableSequence.restore(
+                        sequence,
+                        zero,
+                        inc,
+                        head,
+                        recycled
+                    )
+                )
+            )
         } else {
             // Otherwise, just create new claimer.
             DirectValue(Claimer(ReclaimableSequence(sequence, zero, inc)))

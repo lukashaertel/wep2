@@ -4,7 +4,7 @@ import eu.metatools.wep2.entity.Entity
 import eu.metatools.wep2.entity.RestoringEntity
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.bind.Store
-import eu.metatools.wep2.lang.ReadWritePropertyProvider
+import eu.metatools.wep2.util.ReadWritePropertyProvider
 import eu.metatools.wep2.track.undos
 import eu.metatools.wep2.util.*
 import kotlin.properties.ReadWriteProperty

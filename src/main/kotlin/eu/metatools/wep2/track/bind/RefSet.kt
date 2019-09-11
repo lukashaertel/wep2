@@ -4,7 +4,7 @@ import eu.metatools.wep2.entity.Entity
 import eu.metatools.wep2.entity.RestoringEntity
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.bind.Store
-import eu.metatools.wep2.lang.ReadOnlyPropertyProvider
+import eu.metatools.wep2.util.ReadOnlyPropertyProvider
 import eu.metatools.wep2.util.*
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
@@ -28,9 +28,6 @@ fun <I, E : Entity<*, *, I>> refSet(restore: Restore?) =
         }
 
         object : ReadOnlyProperty<Entity<*, *, *>, SimpleSet<E>> {
-            /**
-             * Stores the current value, initially not assigned.
-             */
             /**
              * Stores the current value, initially not assigned.
              */

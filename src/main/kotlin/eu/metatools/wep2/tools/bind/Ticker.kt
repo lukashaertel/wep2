@@ -3,11 +3,9 @@ package eu.metatools.wep2.tools.bind
 import eu.metatools.wep2.entity.RestoringEntity
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.bind.Store
-import eu.metatools.wep2.lang.DirectValue
-import eu.metatools.wep2.lang.ReadOnlyPropertyProvider
+import eu.metatools.wep2.util.DirectValue
+import eu.metatools.wep2.util.ReadOnlyPropertyProvider
 import eu.metatools.wep2.tools.TickGenerator
-import eu.metatools.wep2.track.bind.saveSet
-import eu.metatools.wep2.util.SimpleSet
 import eu.metatools.wep2.util.labeledAs
 import kotlin.reflect.KProperty0
 import kotlin.reflect.KProperty1

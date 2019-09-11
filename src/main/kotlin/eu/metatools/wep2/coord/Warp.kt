@@ -64,7 +64,8 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
      * Undoes every instruction in the local instruction cache.
      */
     fun undoAll() {
-        instructionCache.descendingMap()
+        instructionCache
+            .descendingMap()
             .forEach { (_, u) -> u.undo() }
     }
 

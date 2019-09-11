@@ -52,7 +52,7 @@ class StandardChild(
 
 fun main() {
     // The first standard system with some parameters.
-    val a = StandardSystem<String, Int>(123, null)
+    val a = StandardSystem.create<String, Int>(123, null)
 
     // A standard child in the system, do not restore here.
     val e = StandardChild(a, null)
@@ -66,7 +66,7 @@ fun main() {
     a.consolidate(System.currentTimeMillis())
 
     // The second standard system, has it's own parameters but they will be restored.
-    val b = StandardSystem(432, a.save())
+    val b = StandardSystem.create(432, a.save())
 
     // Connect systems before running instructions.
     a.register(b::receive)

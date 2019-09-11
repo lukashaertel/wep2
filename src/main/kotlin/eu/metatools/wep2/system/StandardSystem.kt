@@ -11,9 +11,13 @@ import eu.metatools.wep2.track.Claimer
 import eu.metatools.wep2.track.SI
 import eu.metatools.wep2.track.prop
 import eu.metatools.wep2.track.rec
+import eu.metatools.wep2.util.None
 import eu.metatools.wep2.util.shorts
 import java.io.Serializable
+import java.lang.IllegalStateException
 import java.util.*
+import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.locks.Lock
 import kotlin.collections.asSequence
 import kotlin.collections.filterIsInstance
 import kotlin.collections.getValue
@@ -34,12 +38,16 @@ sealed class ManagementName<N> : StandardName<N>(), Serializable
 /**
  * Claim player.
  */
-object ClaimPlayer : ManagementName<Any?>(), Serializable
+object ClaimPlayer : ManagementName<Any?>(), Serializable {
+    private fun readResolve(): Any? = ClaimPlayer
+}
 
 /**
  * Release player
  */
-object ReleasePlayer : ManagementName<Any?>(), Serializable
+object ReleasePlayer : ManagementName<Any?>(), Serializable {
+    private fun readResolve(): Any? = ReleasePlayer
+}
 
 /**
  * Type for actual messages.
@@ -56,13 +64,17 @@ data class ActiveName<N>(val name: SN<N>) : StandardName<N>(), Serializable
 typealias StandardContext<N> = Context<N, Time, SI>
 
 /**
- * Creates a standard system, initializing or restoring all components from an optional [StandardInitializer].
- * @param parameters The parameter to use if creating fresh.
- * @param standardInitializer The initializer or null if creating.
+ * A standard system, initializing or restoring all components from an optional [StandardInitializer].
+ *
+ * Create a new instance with [create].
+ * @property parameters The parameter to use if creating fresh.
+ * @property standardInitializer The initializer or null if creating.
+ * @property toSystemTime The conversion from external to system time.
  */
-open class StandardSystem<N, P>(
+class StandardSystem<N, P> private constructor(
     val parameters: P,
-    val standardInitializer: StandardInitializer<N, P>?
+    val standardInitializer: StandardInitializer<N, P>?,
+    val toSystemTime: (Long) -> Long
 ) : Warp<StandardName<N>, Time>(), StandardContext<N> {
     /**
      * True if the system was restored.
@@ -75,6 +87,30 @@ open class StandardSystem<N, P>(
     private val serialSelf = UUID.randomUUID()
 
     companion object {
+        /**
+         * Creates or restores a standard system with optional initializer argument.
+         *
+         * @param parameters The parameter to use if creating fresh.
+         * @param standardInitializer The initializer or null if creating.
+         * @param toSystemTime The conversion from external to system time.
+         */
+        fun <N, P> create(
+            parameters: P,
+            standardInitializer: StandardInitializer<N, P>?,
+            toSystemTime: (Long) -> Long = { it }
+        ) = StandardSystem(parameters, standardInitializer, toSystemTime).apply {
+            // If initializer is given, restore from it and receive all instructions.
+            standardInitializer?.let {
+                // Restore all entities from the saved data.
+                restoreBy(it.saveData::getValue) { restore ->
+                    restoreIndex(this, restore)
+                }
+
+                // Receive all instructions.
+                receiveAll(it.instructions.asSequence())
+            }
+        }
+
         /**
          * The player used for ticks etc.
          */
@@ -170,18 +206,6 @@ open class StandardSystem<N, P>(
      */
     var parameter = standardInitializer?.parameter ?: parameters
 
-    init {
-        standardInitializer?.let {
-            // Restore all entities from the saved data.
-            restoreBy(it.saveData::getValue) { restore ->
-                restoreIndex(this, restore)
-            }
-
-            // Receive all instructions.
-            receiveAll(it.instructions.asSequence())
-        }
-    }
-
     override fun newId() =
         ids.claim()
 
@@ -227,23 +251,26 @@ open class StandardSystem<N, P>(
     /**
      * Consolidates the coordinator and the time generator.
      */
-    fun consolidate(upTo: Long) {
-        consolidate(time.take(upTo, playerCount, Short.MIN_VALUE))
-        time.consolidate(upTo)
+    fun consolidate(local: Long) {
+        val actual = toSystemTime(local)
+        consolidate(time.take(actual, playerCount, Short.MIN_VALUE))
+        time.consolidate(actual)
     }
 
     /**
      * Sends a claim player signal for [playerGaia] and on evaluation, assigns the value.
      */
-    fun claimNewPlayer(generalTime: Long) {
-        signal(ClaimPlayer, time.take(generalTime, playerCount, playerGaia), serialSelf)
+    fun claimNewPlayer(local: Long) {
+        val actual = toSystemTime(local)
+        signal(ClaimPlayer, time.take(actual, playerCount, playerGaia), serialSelf)
     }
 
     /**
      * Releases the current player number.
      */
-    fun releasePlayer(generalTime: Long) {
-        signal(ReleasePlayer, time.take(generalTime, playerCount, playerGaia), playerSelf)
+    fun releasePlayer(local: Long) {
+        val actual = toSystemTime(local)
+        signal(ReleasePlayer, time.take(actual, playerCount, playerGaia), playerSelf)
     }
 
     private fun evaluateManagement(name: ManagementName<N>, time: Time, args: Any?) = when (name) {
@@ -279,8 +306,8 @@ open class StandardSystem<N, P>(
      * Takes a time for the current player ([self]) and the given [generalTime] time. If no
      * general time is given, uses the current time millis.
      */
-    fun time(generalTime: Long = System.currentTimeMillis()) =
-        time.take(generalTime, playerCount, self)
+    fun time(local: Long = System.currentTimeMillis()) =
+        time.take(toSystemTime(local), playerCount, self)
 }
 
 /**
@@ -301,6 +328,6 @@ inline fun <N, reified R> StandardSystem<N, *>.findRoot() =
 fun <N> TickGenerator.tickToWith(standardSystem: StandardSystem<N, *>, name: SN<N>, time: Long) = tickToWith(
     standardSystem.time, standardSystem,
     ActiveName(name),
-    time,
+    standardSystem.toSystemTime(time),
     standardSystem.playerCount, StandardSystem.playerGaia
 )

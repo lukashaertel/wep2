@@ -10,7 +10,9 @@ sealed class Option<in V> : Serializable
 /**
  * No value for the option.
  */
-object None : Option<Any?>(), Serializable
+object None : Option<Any?>(), Serializable {
+    private fun readResolve(): Any? = None
+}
 
 /**
  * A present value for the option.

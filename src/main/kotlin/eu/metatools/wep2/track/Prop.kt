@@ -7,6 +7,7 @@ import kotlin.reflect.KMutableProperty
 import kotlin.reflect.KMutableProperty0
 import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty
+import kotlin.reflect.jvm.isAccessible
 
 /**
  * A variable partaking in undo-tracking.
@@ -19,27 +20,21 @@ fun <T> prop(initialValue: T) = object : ReadWriteProperty<Any?, T> {
         current
 
     override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+        // Don't act if no change of value.
         if (current == value)
             return
 
+        // Store old value, assign new value.
         val oldValue = current
         current = value
 
-        when (property) {
-            // If mutable property without receiver, set value.
-            is KMutableProperty0<*> -> undos.get()?.let {
-                it.add({ property.setter.call(oldValue) } labeledAs {
-                    "reset ${property.name} to $oldValue"
-                })
-            }
-
-            // If mutable property with receiver, set value on this reference.
-            is KMutableProperty1<*, *> -> undos.get()?.let {
-                it.add({ property.setter.call(thisRef, oldValue) } labeledAs {
-                    "reset $thisRef.${property.name} to $oldValue"
-                })
-            }
-        }
+        undos.get()?.add({
+            // Set current value to old value.
+            current = oldValue
+        } labeledAs {
+            // Label as resetting.
+            "reset ${property.name} to $oldValue"
+        })
     }
 
     override fun toString() = current.toString()
