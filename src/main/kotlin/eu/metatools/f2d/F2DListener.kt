@@ -46,6 +46,11 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     private lateinit var spriteBatch: SpriteBatch
 
     /**
+     * The projection matrix of the sprite batch.
+     */
+    protected val projectionMatrix get() = spriteBatch.projectionMatrix
+
+    /**
      * The one-shot renderer.
      */
     val once = Once()
@@ -64,11 +69,14 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         // Bind the current time.
         val time = time
 
+        // Begin continuous captures.
+        continuous.begin()
+
         // Render to once and continuous.
         render(time)
 
         // Dispatch generated calls from the one-shot renderer.
-        once.dispatch(continuous, time)
+        once.send(continuous, time)
 
         // Clear the screen properly.
         Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
@@ -76,8 +84,11 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
 
         // Run the sprite batch with the calls generated in the continuous renderer.
         spriteBatch.begin()
-        continuous.render(spriteBatch)
+        continuous.send(spriteBatch)
         spriteBatch.end()
+
+        // Consolidate status of continuous.
+        continuous.end()
     }
 
     /**

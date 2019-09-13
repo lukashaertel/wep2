@@ -5,9 +5,11 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.math.Matrix4
+import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.context.*
 import eu.metatools.f2d.tools.*
+import eu.metatools.f2d.util.uniformMouseCoords
 import eu.metatools.f2d.wep2.encoding.GdxEncoding
 import eu.metatools.f2d.wep2.recPlay
 import eu.metatools.nw.encoding.Encoding
@@ -84,7 +86,7 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
     }
 
     fun render(time: Double) = with(Frontend) {
-        continuous.draw(time, solid.blend(GL11.GL_ONE, GL11.GL_ONE), Variation(color)) {
+        val coords: CoordsAt = {
             Matrix4()
                 .translate(x * 64f, y * 64f, 0f)
                 .scale(64f, 64f, 1f)
@@ -96,6 +98,8 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
                     1f
                 )
         }
+        continuous.draw(time, solid.blend(GL11.GL_ONE, GL11.GL_ONE), Variation(color), coords)
+        continuous.capture(time, x to y, Cube, coords)
     }
 }
 
@@ -204,7 +208,7 @@ object Frontend : F2DListener(-100f, 100f) {
         super.create()
 
         // After creation, also connect the input processor.
-        Gdx.input.inputProcessor = InputEventQueue(object : InputAdapter() {
+        Gdx.input.inputProcessor = object : InputAdapter() {
             override fun keyUp(keycode: Int) = when (keycode) {
                 Input.Keys.SPACE -> {
                     root.fields[1 to 1]?.signal("paintNext", system.time(), Unit)
@@ -217,25 +221,27 @@ object Frontend : F2DListener(-100f, 100f) {
                 }
                 else -> false
             }
-        })
+        }
     }
 
     override fun render(time: Double) {
-
-        // Drain the input processor as an input event queue.
-        (Gdx.input.inputProcessor as InputEventQueue).drain()
-
-        Gdx.graphics.setTitle(time.toString())
-
-        // Process the next messages and ticks.
+        // Process the next messages.
         net.update()
+
+        // Generate root ticks.
         root.ticker.tickToWith(system, root.name("tick"), System.currentTimeMillis())
+
+        // Consolidate instruction cache.
+        system.consolidate(System.currentTimeMillis() - 5000L)
 
         // Render the entities.
         root.render(time)
 
-        // Consolidate instruction cache.
-        system.consolidate(System.currentTimeMillis() - 5000L)
+        // Capture via mouse pointer.
+        continuous.collect(
+            projectionMatrix,
+            Gdx.input.uniformMouseCoords
+        )?.let { println(it.first) }
     }
 
     override fun pause() = Unit

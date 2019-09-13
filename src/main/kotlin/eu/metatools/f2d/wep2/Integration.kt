@@ -17,17 +17,6 @@ fun <T> Once.recDraw(subject: Drawable<T>, args: T, coordinates: CoordsAt) {
 /**
  * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable (preventing it from drawing).
  */
-fun Once.recDraw(subject: Drawable<Unit>, coordinates: CoordsAt) {
-    val closable = draw(subject, coordinates)
-    undo {
-        closable.close()
-    }
-}
-
-/**
- * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable (preventing it from drawing).
- */
-@JvmName("recDrawNullArg")
 fun <T> Once.recDraw(subject: Drawable<T?>, coordinates: CoordsAt) {
     val closable = draw(subject, coordinates)
     undo {
@@ -48,7 +37,7 @@ fun <T> Once.recPlay(subject: Playable<T>, args: T, coordinates: CoordsAt) {
 /**
  * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable (preventing it from playing).
  */
-fun Once.recPlay(subject: Playable<Unit>, coordinates: CoordsAt) {
+fun <T> Once.recPlay(subject: Playable<T?>, coordinates: CoordsAt) {
     val closable = play(subject, coordinates)
     undo {
         closable.close()
@@ -56,11 +45,20 @@ fun Once.recPlay(subject: Playable<Unit>, coordinates: CoordsAt) {
 }
 
 /**
- * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable (preventing it from playing).
+ * Queues a [Capturable] in the [Once], undoes by closing the resulting auto-closable (preventing it from capturing).
  */
-@JvmName("recPlayNullArg")
-fun <T> Once.recPlay(subject: Playable<T?>, coordinates: CoordsAt) {
-    val closable = play(subject, coordinates)
+fun <T> Once.recCapture(result: Any?, subject: Capturable<T>, args: T, coordinates: CoordsAt) {
+    val closable = capture(result, subject, args, coordinates)
+    undo {
+        closable.close()
+    }
+}
+
+/**
+ * Queues a [Capturable] in the [Once], undoes by closing the resulting auto-closable (preventing it from capturing).
+ */
+fun <T> Once.recCapture(result: Any?, subject: Capturable<T?>, coordinates: CoordsAt) {
+    val closable = capture(result, subject, coordinates)
     undo {
         closable.close()
     }
