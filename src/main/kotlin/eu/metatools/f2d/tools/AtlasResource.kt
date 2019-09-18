@@ -67,7 +67,7 @@ class AtlasResource(
                 region = null
             }
 
-            override fun upload(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+            override fun draw(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
                 val activeArgs = args ?: Variation.DEFAULT
 
                 // Generate when region is assigned.
@@ -119,7 +119,7 @@ class AtlasResource(
                 regions = null
             }
 
-            override fun upload(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+            override fun draw(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
                 val activeArgs = args ?: Variation.DEFAULT
 
                 // Generate when regions are assigned.

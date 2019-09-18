@@ -9,15 +9,15 @@ interface Drawable<in T> : Timed {
     /**
      * Generates calls to the sprite batch.
      */
-    fun upload(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit)
+    fun draw(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit)
 }
 
 /**
  * Returns a drawable instance that is fixed to end after the given time.
  */
 infix fun <T> Drawable<T>.limit(duration: Double) = object : Drawable<T> {
-    override fun upload(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) =
-        this@limit.upload(args, time, receiver)
+    override fun draw(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) =
+        this@limit.draw(args, time, receiver)
 
     override val start: Double
         get() = this@limit.start
@@ -30,8 +30,8 @@ infix fun <T> Drawable<T>.limit(duration: Double) = object : Drawable<T> {
  * Returns a drawable instance that is offset by the given time.
  */
 infix fun <T> Drawable<T>.offset(offset: Double) = object : Drawable<T> {
-    override fun upload(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) =
-        this@offset.upload(args, time - offset, receiver)
+    override fun draw(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) =
+        this@offset.draw(args, time - offset, receiver)
 
     override val start: Double
         get() = this@offset.start + offset
@@ -49,11 +49,11 @@ fun <T, A, B> Drawable<A>.then(
     firstArg: (T) -> A,
     secondArg: (T) -> B
 ) = object : Drawable<T> {
-    override fun upload(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+    override fun draw(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
         if (time < this@then.end)
-            this@then.upload(firstArg(args), time, receiver)
+            this@then.draw(firstArg(args), time, receiver)
         else
-            next.upload(secondArg(args), time - this@then.duration, receiver)
+            next.draw(secondArg(args), time - this@then.duration, receiver)
     }
 
     override val duration: Double

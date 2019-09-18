@@ -5,9 +5,9 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.math.Matrix4
-import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.math.Vector3
 import eu.metatools.f2d.context.*
+import eu.metatools.f2d.math.*
 import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.util.uniformMouseCoords
 import eu.metatools.f2d.wep2.encoding.GdxEncoding
@@ -86,20 +86,19 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
     }
 
     fun render(time: Double) = with(Frontend) {
-        val coords: CoordsAt = {
-            Matrix4()
-                .translate(x * 64f, y * 64f, 0f)
-                .scale(64f, 64f, 1f)
-                .translate(0.5f, 0.5f, 0f)
-                .rotate(Vector3.Z, cos((it * 5).toFloat()) * 3f)
-                .scale(
-                    1.25f + sin(it.toFloat()) * 0.25f,
-                    1.25f + sin(it.toFloat()) * 0.25f,
-                    1f
-                )
-        }
+        val coords = Coords()
+            .translate(x * 64f, y * 64f, 0f)
+            .scale(64f, 64f, 1f)
+            .translate(0.5f, 0.5f, 0f)
+            .rotate(Vector3.Z, cos((time * 5).toFloat()) * 3f)
+            .scale(
+                1.25f + sin(time.toFloat()) * 0.25f,
+                1.25f + sin(time.toFloat()) * 0.25f,
+                1f
+            )
+
         continuous.draw(time, solid.blend(GL11.GL_ONE, GL11.GL_ONE), Variation(color), coords)
-        continuous.capture(time, x to y, Cube, coords)
+        continuous.capture(time, this@Field, Cube, coords)
     }
 }
 
@@ -207,6 +206,28 @@ object Frontend : F2DListener(-100f, 100f) {
     override fun create() {
         super.create()
 
+
+        val m = Mat()
+            .translate(10f, 0f, 5f)
+            .rotateX(90.deg)
+            .scale(10f)
+
+        val vs = Vecs(
+            Vec.zero,
+            Vec.x, Vec.y, Vec.z,
+            Vec.one,
+            Vec(10f, 5f, 0f)
+        )
+
+        val tvs = m * vs
+        val itvs = m.inv * tvs
+
+        vs.toVecs().forEach(::println)
+        println()
+        tvs.toVecs().forEach(::println)
+        println()
+        itvs.toVecs().forEach(::println)
+
         // After creation, also connect the input processor.
         Gdx.input.inputProcessor = object : InputAdapter() {
             override fun keyUp(keycode: Int) = when (keycode) {
@@ -241,7 +262,11 @@ object Frontend : F2DListener(-100f, 100f) {
         continuous.collect(
             projectionMatrix,
             Gdx.input.uniformMouseCoords
-        )?.let { println(it.first) }
+        )?.let { (r, _) ->
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT) && r is Field)
+                r.signal("paintNext", system.time(), Unit)
+
+        }
     }
 
     override fun pause() = Unit

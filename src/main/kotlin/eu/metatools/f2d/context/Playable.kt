@@ -7,7 +7,7 @@ interface Playable<in T> : Timed {
     /**
      * Starts or updates the instance with the given [handle].
      */
-    fun upload(args: T, handle: Any, time: Double, x: Float, y: Float, z: Float)
+    fun play(args: T, handle: Any, time: Double, x: Float, y: Float, z: Float)
 
     /**
      * Cancels the instance with the given internal handle.
@@ -19,8 +19,8 @@ interface Playable<in T> : Timed {
  * Returns a playable instance that is fixed to end after the given time.
  */
 infix fun <T> Playable<T>.limit(duration: Double) = object : Playable<T> {
-    override fun upload(args: T, handle: Any, time: Double, x: Float, y: Float, z: Float) =
-        this@limit.upload(args, handle, time, x, y, z)
+    override fun play(args: T, handle: Any, time: Double, x: Float, y: Float, z: Float) =
+        this@limit.play(args, handle, time, x, y, z)
 
     override fun cancel(handle: Any) =
         this@limit.cancel(handle)
@@ -36,8 +36,8 @@ infix fun <T> Playable<T>.limit(duration: Double) = object : Playable<T> {
  * Returns a playable instance that is offset by the given time.
  */
 infix fun <T> Playable<T>.offset(offset: Double) = object : Playable<T> {
-    override fun upload(args: T, handle: Any, time: Double, x: Float, y: Float, z: Float) =
-        this@offset.upload(args, handle, time - offset, x, y, z)
+    override fun play(args: T, handle: Any, time: Double, x: Float, y: Float, z: Float) =
+        this@offset.play(args, handle, time - offset, x, y, z)
 
     override fun cancel(handle: Any) =
         this@offset.cancel(handle)
@@ -62,11 +62,11 @@ fun <T, A, B> Playable<A>.then(
     secondArg: (T) -> B
 ) = object : Playable<T> {
 
-    override fun upload(args: T, handle: Any, time: Double, x: Float, y: Float, z: Float) {
+    override fun play(args: T, handle: Any, time: Double, x: Float, y: Float, z: Float) {
         if (time < this@then.end)
-            this@then.upload(firstArg(args), handle to thenLeftHandle, time, x, y, z)
+            this@then.play(firstArg(args), handle to thenLeftHandle, time, x, y, z)
         else
-            next.upload(secondArg(args), handle to thenRightHandle, time - this@then.duration, x, y, z)
+            next.play(secondArg(args), handle to thenRightHandle, time - this@then.duration, x, y, z)
     }
 
     override fun cancel(handle: Any) {

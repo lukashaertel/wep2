@@ -30,7 +30,7 @@ class SolidResource : LifecycleResource<Unit, Drawable<Variation?>> {
 
     override fun refer(argsResource: Unit) =
         object : Drawable<Variation?> {
-            override fun upload(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+            override fun draw(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
                 val activeArgs = args ?: Variation.DEFAULT
 
                 // Keeping size has no effect, as it will result in the same call.

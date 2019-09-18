@@ -5,7 +5,7 @@ import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.math.collision.Ray
-import eu.metatools.f2d.CoordsAt
+import eu.metatools.f2d.math.Coords
 import java.util.*
 
 /**
@@ -30,13 +30,10 @@ class Continuous {
     /**
      * Draws a visible instance [subject]  with the [time] and the [coordinates]. Passes the [args].
      */
-    fun <T> draw(time: Double, subject: Drawable<T>, args: T, coordinates: CoordsAt) {
+    fun <T> draw(time: Double, subject: Drawable<T>, args: T, coords: Coords) {
         // Don't render subjects outside their lifetime.
         if (time < subject.start || subject.end <= time)
             return
-
-        // Create combined matrix.
-        val coords = coordinates(time)
 
         // Read center from the matrix, abort any outside of bounds.
         val x = coords.`val`[Matrix4.M03] / coords.`val`[Matrix4.M33]
@@ -57,22 +54,19 @@ class Continuous {
         }
 
         // Generate calls for the subject.
-        subject.upload(args, time) { target.add(it) }
+        subject.draw(args, time) { target.add(it) }
     }
 
     /**
      * Auto-fills the nullable args with `null`.
      */
-    fun <T> draw(time: Double, subject: Drawable<T?>, coordinates: CoordsAt) =
-        draw(time, subject, null, coordinates)
+    fun <T> draw(time: Double, subject: Drawable<T?>, transform: Coords) =
+        draw(time, subject, null, transform)
 
-    fun <T> capture(time: Double, result: Any?, subject: Capturable<T>, args: T, coordinates: CoordsAt) {
+    fun <T> capture(time: Double, result: Any?, subject: Capturable<T>, args: T, coords: Coords) {
         // Don't render subjects outside their lifetime.
         if (time < subject.start || subject.end <= time)
             return
-
-        // Create combined matrix.
-        val coords = coordinates(time)
 
         // Read center from the matrix, abort any outside of bounds.
         val x = coords.`val`[Matrix4.M03] / coords.`val`[Matrix4.M33]
@@ -84,18 +78,18 @@ class Continuous {
         val z = coords.`val`[Matrix4.M23] / coords.`val`[Matrix4.M33]
         if (z < minZ || maxZ < z) return
 
-        // Invert system.
-        val invCoords = coords.cpy().inv()
+        // Invert transformatuion.
+        val inverse = coords.cpy().inv()
 
         // Get the target for the given Z entry.
         val target = captureRows.getOrPut(z, ::mutableListOf)
 
         // Generate calls for the subject.
-        subject.upload(args, time) { f ->
+        subject.capture(args, time) { f ->
             target.add(result to { ray, intersection ->
                 // Multiply a copy of the ray in the inverted coordinate system, creating
                 // a uniform representation.
-                f(ray.cpy().mul(invCoords), intersection).also {
+                f(ray.cpy().mul(inverse), intersection).also {
                     // If actually intersected, transform the uniform coordinate back into the world coordinate.
                     if (it)
                         intersection.mul(coords)
@@ -104,8 +98,8 @@ class Continuous {
         }
     }
 
-    fun <T> capture(time: Double, result: Any?, subject: Capturable<T?>, coordinates: CoordsAt) =
-        capture(time, result, subject, null, coordinates)
+    fun <T> capture(time: Double, result: Any?, subject: Capturable<T?>, transform: Coords) =
+        capture(time, result, subject, null, transform)
 
     private val playLast = mutableMapOf<Playable<*>, MutableSet<Any>>()
     private val playCurrent = mutableMapOf<Playable<*>, MutableSet<Any>>()
@@ -114,18 +108,15 @@ class Continuous {
      * Plays or keeps playing a sound instance [subject] for the given [handle] with the [time] and the
      * listener-relative [coordinates]. Passes the [args].
      */
-    fun <T> play(time: Double, subject: Playable<T>, handle: Any, args: T, coordinates: CoordsAt) {
+    fun <T> play(time: Double, subject: Playable<T>, handle: Any, args: T, coords: Coords) {
         // Don't play subjects outside their lifetime.
         if (time < subject.start || subject.end <= time)
             return
 
-        // Create combined matrix.
-        val combined = coordinates(time)
-
         // Read center from the matrix.
-        val x = combined.`val`[Matrix4.M03] / combined.`val`[Matrix4.M33]
-        val y = combined.`val`[Matrix4.M13] / combined.`val`[Matrix4.M33]
-        val z = combined.`val`[Matrix4.M23] / combined.`val`[Matrix4.M33]
+        val x = coords.`val`[Matrix4.M03] / coords.`val`[Matrix4.M33]
+        val y = coords.`val`[Matrix4.M13] / coords.`val`[Matrix4.M33]
+        val z = coords.`val`[Matrix4.M23] / coords.`val`[Matrix4.M33]
 
         // Remove from last play.
         playLast[subject]?.let { if (it.remove(handle) && it.isEmpty()) playLast.remove(subject) }
@@ -134,14 +125,14 @@ class Continuous {
         playCurrent.getOrPut(subject, ::mutableSetOf).add(handle)
 
         // Upload sound with the given handle
-        subject.upload(args, handle, time, x, y, z)
+        subject.play(args, handle, time, x, y, z)
     }
 
     /**
      * Auto-fills the nullable args with `null`.
      */
-    fun <T> play(time: Double, subject: Playable<T?>, handle: Any, coordinates: CoordsAt) =
-        play(time, subject, handle, null, coordinates)
+    fun <T> play(time: Double, subject: Playable<T?>, handle: Any, coords: Coords) =
+        play(time, subject, handle, null, coords)
 
     /**
      * Computes boundary points from the given projection matrix.
@@ -181,28 +172,6 @@ class Continuous {
         maxZ = Float.POSITIVE_INFINITY
     }
 
-    fun begin() {
-        // Clear buffers.
-        drawRows.clear()
-        captureRows.clear()
-    }
-
-    fun send(spriteBatch: SpriteBatch) {
-        // Remember previous transformation.
-        val previousTransform = spriteBatch.transformMatrix.cpy()
-
-        // Render all entries for the Z-sorted set (lower Z-values being rendered later).
-        drawRows.descendingMap().values.forEach {
-            it.forEach {
-                it(spriteBatch)
-            }
-        }
-
-        // Reset transformation.
-        spriteBatch.transformMatrix = previousTransform
-    }
-
-
     /**
      * Collects the first hit in the captures, returns the associated result and the intersection vector.
      */
@@ -227,7 +196,23 @@ class Continuous {
         return null
     }
 
-    fun end() {
+    /**
+     * Sends all the calls to the sprite batch, clear the capture buffers, stops untouched continuous sounds.
+     */
+    fun apply(spriteBatch: SpriteBatch) {
+        // Remember previous transformation.
+        val previousTransform = spriteBatch.transformMatrix.cpy()
+
+        // Render all entries for the Z-sorted set (lower Z-values being rendered later).
+        drawRows.descendingMap().values.forEach {
+            it.forEach {
+                it(spriteBatch)
+            }
+        }
+
+        // Reset transformation.
+        spriteBatch.transformMatrix = previousTransform
+
         // Cancel outdated instances.
         playLast.forEach { (p, hs) ->
             hs.forEach { h ->
@@ -238,5 +223,9 @@ class Continuous {
         // Clear outdated set.
         playLast.putAll(playCurrent)
         playCurrent.clear()
+
+        // Clear buffers.
+        drawRows.clear()
+        captureRows.clear()
     }
 }

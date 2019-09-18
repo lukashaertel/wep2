@@ -69,14 +69,12 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         // Bind the current time.
         val time = time
 
-        // Begin continuous captures.
-        continuous.begin()
 
         // Render to once and continuous.
         render(time)
 
         // Dispatch generated calls from the one-shot renderer.
-        once.send(continuous, time)
+        once.apply(continuous, time)
 
         // Clear the screen properly.
         Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
@@ -84,15 +82,12 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
 
         // Run the sprite batch with the calls generated in the continuous renderer.
         spriteBatch.begin()
-        continuous.send(spriteBatch)
+        continuous.apply(spriteBatch)
         spriteBatch.end()
-
-        // Consolidate status of continuous.
-        continuous.end()
     }
 
     /**
-     * Renders the graphics at the time.
+     * Renders the graphics, sound and capturables at the time.
      */
     abstract fun render(time: Double)
 

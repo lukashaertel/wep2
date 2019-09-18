@@ -4,7 +4,7 @@ import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.math.collision.Ray
 
 interface Capturable<in T> : Timed {
-    fun upload(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit)
+    fun capture(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit)
 }
 
 
@@ -12,8 +12,8 @@ interface Capturable<in T> : Timed {
  * Returns a capturable instance that is fixed to end after the given time.
  */
 infix fun <T> Capturable<T>.limit(duration: Double) = object : Capturable<T> {
-    override fun upload(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) =
-        this@limit.upload(args, time, receiver)
+    override fun capture(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) =
+        this@limit.capture(args, time, receiver)
 
     override val start: Double
         get() = this@limit.start
@@ -26,8 +26,8 @@ infix fun <T> Capturable<T>.limit(duration: Double) = object : Capturable<T> {
  * Returns a capturable instance that is offset by the given time.
  */
 infix fun <T> Capturable<T>.offset(offset: Double) = object : Capturable<T> {
-    override fun upload(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) =
-        this@offset.upload(args, time - offset, receiver)
+    override fun capture(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) =
+        this@offset.capture(args, time - offset, receiver)
 
     override val start: Double
         get() = this@offset.start + offset
@@ -45,11 +45,11 @@ fun <T, A, B> Capturable<A>.then(
     firstArg: (T) -> A,
     secondArg: (T) -> B
 ) = object : Capturable<T> {
-    override fun upload(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
+    override fun capture(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
         if (time < this@then.end)
-            this@then.upload(firstArg(args), time, receiver)
+            this@then.capture(firstArg(args), time, receiver)
         else
-            next.upload(secondArg(args), time - this@then.duration, receiver)
+            next.capture(secondArg(args), time - this@then.duration, receiver)
     }
 
     override val duration: Double

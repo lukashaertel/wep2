@@ -7,7 +7,7 @@ import com.badlogic.gdx.math.collision.Ray
 import eu.metatools.f2d.context.Capturable
 
 object Sphere : Capturable<Unit?> {
-    override fun upload(args: Unit?, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
+    override fun capture(args: Unit?, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
         receiver { ray, intersection ->
             Intersector.intersectRaySphere(ray, Vector3.Zero, 0.5f, intersection)
         }
@@ -20,7 +20,7 @@ object Cube : Capturable<Unit?> {
         Vector3(0.5f, 0.5f, 0.5f)
     )
 
-    override fun upload(args: Unit?, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
+    override fun capture(args: Unit?, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
         receiver { ray, intersection ->
             if (Intersector.intersectRayBoundsFast(ray, boundingBox))
                 Intersector.intersectRayBounds(ray, boundingBox, intersection)

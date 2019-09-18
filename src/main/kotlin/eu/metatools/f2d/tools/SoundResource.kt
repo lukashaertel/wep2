@@ -93,7 +93,7 @@ class SoundResource(
 
             private val plays = mutableMapOf<Any, Long>()
 
-            override fun upload(args: Modulation?, handle: Any, time: Double, x: Float, y: Float, z: Float) {
+            override fun play(args: Modulation?, handle: Any, time: Double, x: Float, y: Float, z: Float) {
                 val activeArgs = args ?: Modulation.DEFAULT
 
                 // Get or create handle, assign looping property once.

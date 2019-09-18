@@ -1,6 +1,6 @@
 package eu.metatools.f2d.context
 
-import eu.metatools.f2d.CoordsAt
+import eu.metatools.f2d.math.CoordsAt
 
 /**
  * Methods used to draw or play a subject to it's end or until the resulting [AutoCloseable] is invoked.
@@ -25,7 +25,7 @@ class Once {
          * Type safe delegate for draw in the [Continuous].
          */
         override fun send(continuous: Continuous, time: Double) {
-            continuous.draw(time, subject, args, coordinates)
+            continuous.draw(time, subject, args, coordinates(time))
         }
     }
 
@@ -42,7 +42,7 @@ class Once {
          * Type safe delegate for play in the [Continuous].
          */
         override fun send(continuous: Continuous, time: Double) {
-            continuous.play(time, subject, key, args, coordinates)
+            continuous.play(time, subject, key, args, coordinates(time))
         }
     }
 
@@ -59,7 +59,7 @@ class Once {
          * Type safe delegate for capture in the [Continuous].
          */
         override fun send(continuous: Continuous, time: Double) {
-            continuous.capture(time, result, subject, args, coordinates)
+            continuous.capture(time, result, subject, args, coordinates(time))
         }
     }
 
@@ -127,7 +127,7 @@ class Once {
     /**
      * Sends all queued subjects to the [Continuous] context.
      */
-    fun send(continuous: Continuous, time: Double) {
+    fun apply(continuous: Continuous, time: Double) {
         // Send or remove pending entries.
         pending.iterator().let {
             while (it.hasNext()) {

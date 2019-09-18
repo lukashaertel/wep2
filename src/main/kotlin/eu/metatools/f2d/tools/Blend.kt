@@ -4,10 +4,10 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import eu.metatools.f2d.context.Drawable
 
 /**
- * Runs the [Drawable]s [Drawable.upload] method with a different blend-function.
+ * Runs the [Drawable]s [Drawable.draw] method with a different blend-function.
  */
 fun <T> Drawable<T>.blend(src: Int, dst: Int, srcAlpha: Int? = null, dstAlpha: Int? = null) = object : Drawable<T> {
-    override fun upload(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+    override fun draw(args: T, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
         receiver {
             // Get original values.
             val previousSrc = it.blendSrcFunc
@@ -17,7 +17,7 @@ fun <T> Drawable<T>.blend(src: Int, dst: Int, srcAlpha: Int? = null, dstAlpha: I
 
             // Set new values.
             it.setBlendFunctionSeparate(src, dst, srcAlpha ?: src, dstAlpha ?: dst)
-            this@blend.upload(args, time, it::run)
+            this@blend.draw(args, time, it::run)
             it.setBlendFunctionSeparate(previousSrc, previousDst, previousSrcAlpha, previousDstAlpha)
         }
     }
