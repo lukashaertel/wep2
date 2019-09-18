@@ -1,17 +1,20 @@
 package eu.metatools.f2d
 
-import com.badlogic.gdx.*
+import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
+import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.math.Matrix4
-import com.badlogic.gdx.math.Vector3
-import eu.metatools.f2d.context.*
-import eu.metatools.f2d.math.*
+import eu.metatools.f2d.context.offset
+import eu.metatools.f2d.context.refer
+import eu.metatools.f2d.context.then
+import eu.metatools.f2d.math.Mat
+import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.math.deg
 import eu.metatools.f2d.tools.*
-import eu.metatools.f2d.util.uniformMouseCoords
 import eu.metatools.f2d.wep2.encoding.GdxEncoding
-import eu.metatools.f2d.wep2.recPlay
+import eu.metatools.f2d.wep2.recEnqueue
 import eu.metatools.nw.encoding.Encoding
 import eu.metatools.nw.enter
 import eu.metatools.wep2.entity.bind.Restore
@@ -70,11 +73,10 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
                 it.color = rc
 
                 // Play sound when actually changed.
-                once.recPlay(fire then fire offset time.time.sec) {
+                once.recEnqueue(fire  offset time.time.sec) {
                     // Translation of field, relative to listener at center.
-                    Matrix4()
-                        .translate((x + xo).toFloat(), (y + yo).toFloat(), 0f)
-                        .translate(-1f, -1f, -0f)
+                    Mat()
+                        .translate((x + xo) * 264f, (y + yo) * 264f, 0f)
                 }
             }
         }
@@ -86,19 +88,19 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
     }
 
     fun render(time: Double) = with(Frontend) {
-        val coords = Coords()
-            .translate(x * 64f, y * 64f, 0f)
+        val coords = Mat()
+            .translate(x * 264f, y * 264f, 0f)
             .scale(64f, 64f, 1f)
             .translate(0.5f, 0.5f, 0f)
-            .rotate(Vector3.Z, cos((time * 5).toFloat()) * 3f)
+            .rotateZ((cos((time * 5).toFloat()) * 3f).deg)
             .scale(
                 1.25f + sin(time.toFloat()) * 0.25f,
                 1.25f + sin(time.toFloat()) * 0.25f,
                 1f
             )
 
-        continuous.draw(time, solid.blend(GL11.GL_ONE, GL11.GL_ONE), Variation(color), coords)
-        continuous.capture(time, this@Field, Cube, coords)
+        continuous.submit(solid.blend(GL11.GL_ONE, GL11.GL_ONE), Variation(color), time, coords)
+        continuous.submit(Cube, this@Field, time, coords)
     }
 }
 
@@ -206,28 +208,6 @@ object Frontend : F2DListener(-100f, 100f) {
     override fun create() {
         super.create()
 
-
-        val m = Mat()
-            .translate(10f, 0f, 5f)
-            .rotateX(90.deg)
-            .scale(10f)
-
-        val vs = Vecs(
-            Vec.zero,
-            Vec.x, Vec.y, Vec.z,
-            Vec.one,
-            Vec(10f, 5f, 0f)
-        )
-
-        val tvs = m * vs
-        val itvs = m.inv * tvs
-
-        vs.toVecs().forEach(::println)
-        println()
-        tvs.toVecs().forEach(::println)
-        println()
-        itvs.toVecs().forEach(::println)
-
         // After creation, also connect the input processor.
         Gdx.input.inputProcessor = object : InputAdapter() {
             override fun keyUp(keycode: Int) = when (keycode) {
@@ -257,16 +237,11 @@ object Frontend : F2DListener(-100f, 100f) {
 
         // Render the entities.
         root.render(time)
+    }
 
-        // Capture via mouse pointer.
-        continuous.collect(
-            projectionMatrix,
-            Gdx.input.uniformMouseCoords
-        )?.let { (r, _) ->
-            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT) && r is Field)
-                r.signal("paintNext", system.time(), Unit)
-
-        }
+    override fun capture(result: Any, intersection: Vec) {
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT) && result is Field)
+            result.signal("paintNext", system.time(), Unit)
     }
 
     override fun pause() = Unit

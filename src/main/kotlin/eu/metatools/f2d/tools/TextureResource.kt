@@ -92,35 +92,36 @@ class TextureResource(
     override fun referNew(argsResource: ReferTexture?) = object : LifecycleDrawable<Variation?> {
         val activeArgsResource = argsResource ?: ReferTexture.DEFAULT
 
-        var textureRegion: TextureRegion? = null
+        var region: TextureRegion? = null
 
         override fun initialize() {
-            if (textureRegion == null)
-                textureRegion = activeArgsResource.region.apply(texture)
+            if (region == null)
+                region = activeArgsResource.region.apply(texture)
         }
 
         override fun dispose() {
-            textureRegion = null
+            region = null
         }
 
-        override fun draw(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+        override fun draw(args: Variation?, time: Double, spriteBatch: SpriteBatch) {
+            // Get region or return if not assigned yet.
+            val region = region ?: return
+
+            // Get args or default.
             val activeArgs = args ?: Variation.DEFAULT
 
-            val textureRegion = activeArgsResource.region.apply(texture)
+            // Memorize color.
+            val colorBefore = spriteBatch.color.cpy()
+            spriteBatch.color = activeArgs.tint
+
+            // Draw with desired sizing.
             if (activeArgs.keepSize)
-                receiver {
-                    val source = it.color.cpy()
-                    it.color = activeArgs.tint
-                    it.draw(textureRegion, -(textureRegion.regionWidth / 2f), -(textureRegion.regionHeight / 2f))
-                    it.color = source
-                }
+                spriteBatch.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
             else
-                receiver {
-                    val source = it.color.cpy()
-                    it.color = activeArgs.tint
-                    it.draw(textureRegion, -0.5f, -0.5f, 1f, 1f)
-                    it.color = source
-                }
+                spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
+
+            // Reset color.
+            spriteBatch.color = colorBefore
         }
     }
 }

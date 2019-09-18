@@ -30,16 +30,22 @@ class SolidResource : LifecycleResource<Unit, Drawable<Variation?>> {
 
     override fun refer(argsResource: Unit) =
         object : Drawable<Variation?> {
-            override fun draw(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+            override fun draw(args: Variation?, time: Double, spriteBatch: SpriteBatch) {
+                // Get texture or return if not assigned yet.
+                val texture = texture ?: return
+
+                // Get args or default.
                 val activeArgs = args ?: Variation.DEFAULT
 
-                // Keeping size has no effect, as it will result in the same call.
-                receiver {
-                    val source = it.color.cpy()
-                    it.color = activeArgs.tint
-                    it.draw(texture, -0.5f, -0.5f, 1f, 1f)
-                    it.color = source
-                }
+                // Memorize color.
+                val colorBefore = spriteBatch.color.cpy()
+                spriteBatch.color = activeArgs.tint
+
+                // Draw, sizing is irrelevant as solid resources have the same size as uniform draws.
+                spriteBatch.draw(texture, -0.5f, -0.5f, 1.0f, 1.0f)
+
+                // Reset color.
+                spriteBatch.color = colorBefore
             }
         }
 }

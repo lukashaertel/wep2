@@ -1,231 +1,300 @@
 package eu.metatools.f2d.context
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.math.Matrix4
-import com.badlogic.gdx.math.Vector2
-import com.badlogic.gdx.math.Vector3
-import com.badlogic.gdx.math.collision.Ray
-import eu.metatools.f2d.math.Coords
+import eu.metatools.f2d.math.*
 import java.util.*
 
 /**
- * Methods used to draw or play a subject continuously.
+ * Methods to draw, play sounds and to capture input.
  */
-class Continuous {
+class Continuous(val trimExcess: Float = 0.25f) {
 
     /**
-     * All Z-sorted calls performing visualization in the sprite-batch.
+     * Capture in the current [begin]/[end] block.
      */
-    private val drawRows = TreeMap<Float, MutableList<(SpriteBatch) -> Unit>>()
-
-    private val captureRows = TreeMap<Float, MutableList<Pair<Any?, (Ray, Vector3) -> Boolean>>>()
-
-    private var minX: Float = Float.NEGATIVE_INFINITY
-    private var minY: Float = Float.NEGATIVE_INFINITY
-    private var minZ: Float = Float.NEGATIVE_INFINITY
-    private var maxX: Float = Float.POSITIVE_INFINITY
-    private var maxY: Float = Float.POSITIVE_INFINITY
-    private var maxZ: Float = Float.POSITIVE_INFINITY
-
-    /**
-     * Draws a visible instance [subject]  with the [time] and the [coordinates]. Passes the [args].
-     */
-    fun <T> draw(time: Double, subject: Drawable<T>, args: T, coords: Coords) {
-        // Don't render subjects outside their lifetime.
-        if (time < subject.start || subject.end <= time)
-            return
-
-        // Read center from the matrix, abort any outside of bounds.
-        val x = coords.`val`[Matrix4.M03] / coords.`val`[Matrix4.M33]
-        if (x < minX || maxX < x) return
-
-        val y = coords.`val`[Matrix4.M13] / coords.`val`[Matrix4.M33]
-        if (y < minY || maxY < y) return
-
-        val z = coords.`val`[Matrix4.M23] / coords.`val`[Matrix4.M33]
-        if (z < minZ || maxZ < z) return
-
-        // Get the target for the given Z entry.
-        val target = drawRows.getOrPut(z, ::mutableListOf)
-
-        // Add setting the combined matrix.
-        target.add {
-            it.transformMatrix = coords
-        }
-
-        // Generate calls for the subject.
-        subject.draw(args, time) { target.add(it) }
-    }
-
-    /**
-     * Auto-fills the nullable args with `null`.
-     */
-    fun <T> draw(time: Double, subject: Drawable<T?>, transform: Coords) =
-        draw(time, subject, null, transform)
-
-    fun <T> capture(time: Double, result: Any?, subject: Capturable<T>, args: T, coords: Coords) {
-        // Don't render subjects outside their lifetime.
-        if (time < subject.start || subject.end <= time)
-            return
-
-        // Read center from the matrix, abort any outside of bounds.
-        val x = coords.`val`[Matrix4.M03] / coords.`val`[Matrix4.M33]
-        if (x < minX || maxX < x) return
-
-        val y = coords.`val`[Matrix4.M13] / coords.`val`[Matrix4.M33]
-        if (y < minY || maxY < y) return
-
-        val z = coords.`val`[Matrix4.M23] / coords.`val`[Matrix4.M33]
-        if (z < minZ || maxZ < z) return
-
-        // Invert transformatuion.
-        val inverse = coords.cpy().inv()
-
-        // Get the target for the given Z entry.
-        val target = captureRows.getOrPut(z, ::mutableListOf)
-
-        // Generate calls for the subject.
-        subject.capture(args, time) { f ->
-            target.add(result to { ray, intersection ->
-                // Multiply a copy of the ray in the inverted coordinate system, creating
-                // a uniform representation.
-                f(ray.cpy().mul(inverse), intersection).also {
-                    // If actually intersected, transform the uniform coordinate back into the world coordinate.
-                    if (it)
-                        intersection.mul(coords)
-                }
-            })
-        }
-    }
-
-    fun <T> capture(time: Double, result: Any?, subject: Capturable<T?>, transform: Coords) =
-        capture(time, result, subject, null, transform)
-
-    private val playLast = mutableMapOf<Playable<*>, MutableSet<Any>>()
-    private val playCurrent = mutableMapOf<Playable<*>, MutableSet<Any>>()
-
-    /**
-     * Plays or keeps playing a sound instance [subject] for the given [handle] with the [time] and the
-     * listener-relative [coordinates]. Passes the [args].
-     */
-    fun <T> play(time: Double, subject: Playable<T>, handle: Any, args: T, coords: Coords) {
-        // Don't play subjects outside their lifetime.
-        if (time < subject.start || subject.end <= time)
-            return
-
-        // Read center from the matrix.
-        val x = coords.`val`[Matrix4.M03] / coords.`val`[Matrix4.M33]
-        val y = coords.`val`[Matrix4.M13] / coords.`val`[Matrix4.M33]
-        val z = coords.`val`[Matrix4.M23] / coords.`val`[Matrix4.M33]
-
-        // Remove from last play.
-        playLast[subject]?.let { if (it.remove(handle) && it.isEmpty()) playLast.remove(subject) }
-
-        // Add to current play.
-        playCurrent.getOrPut(subject, ::mutableSetOf).add(handle)
-
-        // Upload sound with the given handle
-        subject.play(args, handle, time, x, y, z)
-    }
-
-    /**
-     * Auto-fills the nullable args with `null`.
-     */
-    fun <T> play(time: Double, subject: Playable<T?>, handle: Any, coords: Coords) =
-        play(time, subject, handle, null, coords)
-
-    /**
-     * Computes boundary points from the given projection matrix.
-     * The [excess] specified how much a position outside of the view frustum may be without being skipped.
-     */
-    fun computeBounds(projectionMatrix: Matrix4, excess: Float = 0.25f) {
-        val edgePoints = listOf(-1f - excess, 1f + excess)
-
-        minX = Float.POSITIVE_INFINITY
-        minY = Float.POSITIVE_INFINITY
-        minZ = Float.POSITIVE_INFINITY
-        maxX = Float.NEGATIVE_INFINITY
-        maxY = Float.NEGATIVE_INFINITY
-        maxZ = Float.NEGATIVE_INFINITY
-
-        val inverse = projectionMatrix.cpy().inv()
-        for (x in edgePoints) for (y in edgePoints) for (z in edgePoints) {
-            val xyz = Vector3(x, y, z).mul(inverse)
-            minX = minOf(minX, xyz.x)
-            minY = minOf(minY, xyz.y)
-            minZ = minOf(minZ, xyz.z)
-            maxX = maxOf(maxX, xyz.x)
-            maxY = maxOf(maxY, xyz.y)
-            maxZ = maxOf(maxZ, xyz.z)
-        }
-    }
-
-    /**
-     * Resets the bound to be unbounded.
-     */
-    fun resetBounds() {
-        minX = Float.NEGATIVE_INFINITY
-        minY = Float.NEGATIVE_INFINITY
-        minZ = Float.NEGATIVE_INFINITY
-        maxX = Float.POSITIVE_INFINITY
-        maxY = Float.POSITIVE_INFINITY
-        maxZ = Float.POSITIVE_INFINITY
-    }
-
-    /**
-     * Collects the first hit in the captures, returns the associated result and the intersection vector.
-     */
-    fun collect(projectionMatrix: Matrix4, position: Vector2): Pair<Any?, Vector3>? {
-        // Create ray in inverted projection space.
-        val inverse = projectionMatrix.cpy().inv()
-        val ray = Ray(Vector3(position.x, position.y, 1f), Vector3(0f, 0f, -1f))
-        ray.mul(inverse)
-
-        // Create output vector.
-        val intersection = Vector3()
-
-        // Iterate inverse Z-sorting.
-        captureRows.descendingMap().values.forEach {
-            it.forEach { (r, f) ->
-                // If there is an intersection, return it.
-                if (f(ray, intersection))
-                    return r to intersection
+    private data class Capture<T>(
+        val subject: Capturable<T>, val args: T, val result: Any, val transform: Mat
+    ) {
+        fun capture(time: Double, origin: Vec, direction: Vec) =
+            // Capture in local system.
+            subject.capture(args, time, transform.inv * origin, transform.inv.rotate(direction))?.let {
+                // Invert intersection if valid.
+                transform * it
             }
+    }
+
+    /**
+     * Draw in the current [begin]/[end] block.
+     */
+    private data class Draw<T>(
+        val subject: Drawable<T>, val args: T, val transform: Mat
+    ) {
+        fun draw(time: Double, spriteBatch: SpriteBatch) {
+            // Override transform.
+            spriteBatch.transformMatrix = spriteBatch.transformMatrix.set(transform.values)
+
+            // Draw subject itself.
+            subject.draw(args, time, spriteBatch)
         }
+    }
+
+    /**
+     * Play in the current [begin]/[end] block.
+     */
+    private data class Play<T>(
+        val subject: Playable<T>, val args: T, val handle: Any, val transform: Mat
+    ) {
+        fun play(time: Double) {
+            // Play subject itself.
+            subject.play(args, handle, time, transform)
+        }
+
+        fun cancel() {
+            // Cancel the handle for the subject.
+            subject.cancel(handle)
+        }
+    }
+
+    /**
+     * Vectors that are [trimExcess] outside the uniform projection space.
+     */
+    private val excessVectors = Vecs(8) {
+        Vec(
+            if ((it / 4) % 2 == 0) -1f - trimExcess else 1f + trimExcess,
+            if ((it / 2) % 2 == 0) -1f - trimExcess else 1f + trimExcess,
+            if ((it / 1) % 2 == 0) -1f - trimExcess else 1f + trimExcess
+        )
+    }
+
+    /**
+     * The model transformation matrix in the current block.
+     */
+    private var model = Mat.NaN
+
+    /**
+     * The projection matrix in the current block.
+     */
+    private var projection = Mat.NaN
+
+    /**
+     * The minimum in-bounds vector.
+     */
+    private var excessMin = Vec.NaN
+
+    /**
+     * The maximum in-bounds vector.
+     */
+    private var excessMax = Vec.NaN
+
+    /**
+     * All draws in the current block.
+     */
+    private val draws = hashMapOf<Float, MutableList<Draw<*>>>()
+
+    /**
+     * All captures in the current block.
+     */
+    private val captures = hashMapOf<Float, MutableList<Capture<*>>>()
+
+    /**
+     * All plays in the current block.
+     */
+    private var plays = hashSetOf<Play<*>>()
+
+    /**
+     * Plays from the last block.
+     */
+    private var playsSecondary = hashSetOf<Play<*>>()
+
+    /**
+     * Starts the block with the given matrices.
+     */
+    fun begin(model: Mat, projection: Mat) {
+        // Transfer matrices.
+        this.model = model
+        this.projection = projection
+
+        // Setup bounds.
+        excessMin = Vec.PositiveInfinity
+        excessMax = Vec.NegativeInfinity
+        for (v in model.inv * projection.inv * excessVectors) {
+            excessMin = reduceComponents(excessMin, v, ::minOf)
+            excessMax = reduceComponents(excessMax, v, ::maxOf)
+        }
+
+        // Prepare buffers.
+        draws.clear()
+        captures.clear()
+        plays.clear()
+    }
+
+    /**
+     * Plays all play calls in this block.
+     */
+    fun play(time: Double) {
+        // Play all collected entries.
+        for (play in plays)
+            play.play(time)
+    }
+
+    /**
+     * Renders all draw calls in this block.
+     */
+    fun render(time: Double, spriteBatch: SpriteBatch) {
+        // Memorize previous values.
+        val transformBefore = spriteBatch.transformMatrix.cpy()
+        val projectionBefore = spriteBatch.projectionMatrix.cpy()
+
+        // Set projection, begin batch. Transform will be set by draws itself.
+        spriteBatch.projectionMatrix = projectionBefore.set(projection.values)
+        spriteBatch.begin()
+
+        // Create tree map from draws.
+        val sortedDraws = TreeMap(draws).descendingMap()
+
+        // Iterate all Z-layers and all draw calls.
+        for ((_, draws) in sortedDraws)
+            for (draw in draws)
+                draw.draw(time, spriteBatch)
+
+        // End batch, rest model and projection.
+        spriteBatch.end()
+        spriteBatch.transformMatrix = transformBefore
+        spriteBatch.projectionMatrix = projectionBefore
+    }
+
+    /**
+     * Captures input on negative Z axis and projection space coordinates [x] and [y].
+     */
+    fun collect(time: Double, x: Float, y: Float): Pair<Any, Vec>? {
+        // Create ray in inverted projection space.
+        val origin = projection.inv * Vec(x, y, 1f)
+        val direction = projection.inv.rotate(-Vec.Z)
+
+        // Create tree map from captures.
+        val sortedCaptures = TreeMap(captures).descendingMap()
+
+        // Iterate all Z-layers and all capture calls.
+        for ((_, captures) in sortedCaptures)
+            for (capture in captures) {
+                // Try to capture.
+                val intersection = capture.capture(time, origin, direction)
+
+                // Successfully captured, return result paired with intersection point.
+                if (intersection != null)
+                    return capture.result to intersection
+            }
 
         return null
     }
 
     /**
-     * Sends all the calls to the sprite batch, clear the capture buffers, stops untouched continuous sounds.
+     * Resets the model and projection matrices, cancels all non-renewed sounds.
      */
-    fun apply(spriteBatch: SpriteBatch) {
-        // Remember previous transformation.
-        val previousTransform = spriteBatch.transformMatrix.cpy()
+    fun end() {
+        // Reset bounds and matrices.
+        model = Mat.NaN
+        projection = Mat.NaN
+        excessMin = Vec.NaN
+        excessMax = Vec.NaN
 
-        // Render all entries for the Z-sorted set (lower Z-values being rendered later).
-        drawRows.descendingMap().values.forEach {
-            it.forEach {
-                it(spriteBatch)
-            }
+        // Cancel previous plays that were not renewed.
+        for (play in playsSecondary subtract plays)
+            play.cancel()
+
+        // Swap plays.
+        plays.let {
+            plays = playsSecondary
+            playsSecondary = it
         }
-
-        // Reset transformation.
-        spriteBatch.transformMatrix = previousTransform
-
-        // Cancel outdated instances.
-        playLast.forEach { (p, hs) ->
-            hs.forEach { h ->
-                p.cancel(h)
-            }
-        }
-
-        // Clear outdated set.
-        playLast.putAll(playCurrent)
-        playCurrent.clear()
-
-        // Clear buffers.
-        drawRows.clear()
-        captureRows.clear()
     }
+
+    /**
+     * Validates time, does not perform boundary check.
+     */
+    private inline fun validate(timed: Timed, time: Double, block: () -> Unit) {
+        // Not within time frame, return.
+        if (time < timed.start) return
+        if (timed.end <= time) return
+
+        // Valid, run block.
+        block()
+    }
+
+    /**
+     * Validates time and performs boundary check.
+     */
+    private inline fun validate(timed: Timed, time: Double, transform: Mat, block: () -> Unit) {
+        // Not within time frame, return.
+        if (time < timed.start) return
+        if (timed.end <= time) return
+
+        // Not within visible portion, return.
+        transform.center.let { (x, y, z) ->
+            if (x < excessMin.x) return
+            if (y < excessMin.y) return
+            if (z < excessMin.z) return
+            if (excessMax.x < x) return
+            if (excessMax.y < y) return
+            if (excessMax.z < z) return
+        }
+
+        // Valid, run block.
+        block()
+    }
+
+    /**
+     * Submits a capture call.
+     */
+    fun <T> submit(subject: Capturable<T>, args: T, result: Any, time: Double, transform: Mat) {
+        // Validate time and bounds.
+        validate(subject, time, transform) {
+            // Add a capture call on the correct Z index.
+            captures.getOrPut(transform.center.z, ::mutableListOf).add(
+                Capture(subject, args, result, model * transform)
+            )
+        }
+    }
+
+    /**
+     * Submits a capture call with args set to `null`.
+     */
+    fun <T> submit(subject: Capturable<T?>, result: Any, time: Double, transform: Mat) =
+        submit(subject, null, result, time, transform)
+
+    /**
+     * Submits a draw call.
+     */
+    fun <T> submit(subject: Drawable<T>, args: T, time: Double, transform: Mat) {
+        // Validate time and bounds.
+        validate(subject, time, transform) {
+            // Add a draw call on the correct Z index.
+            draws.getOrPut(transform.center.z, ::mutableListOf).add(
+                Draw(subject, args, model * transform)
+            )
+        }
+    }
+
+    /**
+     * Submits a draw call with args set to `null`.
+     */
+    fun <T> submit(subject: Drawable<T?>, time: Double, transform: Mat) =
+        submit(subject, null, time, transform)
+
+    /**
+     * Submits a play call.
+     */
+    fun <T> submit(subject: Playable<T>, args: T, handle: Any, time: Double, transform: Mat) {
+        // Validate time (no bounds for sound).
+        validate(subject, time) {
+            // Add to plays, sound is played in active projection space.
+            plays.add(Play(subject, args, handle, projection * model * transform))
+        }
+    }
+
+    /**
+     * Submits a play call with args set to `null`.
+     */
+    fun <T> submit(subject: Playable<T?>, handle: Any, time: Double, transform: Mat) =
+        submit(subject, null, handle, time, transform)
 }

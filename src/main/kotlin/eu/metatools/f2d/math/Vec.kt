@@ -1,38 +1,54 @@
 package eu.metatools.f2d.math
 
 import com.badlogic.gdx.math.Vector3
+import java.io.Serializable
 import kotlin.math.hypot
 import kotlin.math.sqrt
 
 /**
  * A vector.
  */
-class Vec(val values: FloatArray) {
+class Vec(val values: FloatArray, val offset: Int = 0) : Serializable {
     companion object {
         /**
          * The x unit vector.
          */
-        val x = Vec(1f, 0f, 0f)
+        val X = Vec(1f, 0f, 0f)
 
         /**
          * The y unit vector.
          */
-        val y = Vec(0f, 1f, 0f)
+        val Y = Vec(0f, 1f, 0f)
 
         /**
          * The z unit vector.
          */
-        val z = Vec(0f, 0f, 1f)
+        val Z = Vec(0f, 0f, 1f)
 
         /**
          * The zero vector.
          */
-        val zero = Vec(0f, 0f, 0f)
+        val Zero = Vec(0f, 0f, 0f)
 
         /**
          * The one vector.
          */
-        val one = Vec(1f, 1f, 1f)
+        val One = Vec(1f, 1f, 1f)
+
+        /**
+         * The vector of NaN values.
+         */
+        val NaN = Vec(Float.NaN, Float.NaN, Float.NaN)
+
+        /**
+         * The vector of negative infinity.
+         */
+        val NegativeInfinity = Vec(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)
+
+        /**
+         * The vector of positive infinity.
+         */
+        val PositiveInfinity = Vec(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
     }
 
     /**
@@ -148,22 +164,22 @@ class Vec(val values: FloatArray) {
     /**
      * Gets the component as `[x, y, z]`
      */
-    operator fun get(n: Int) = values[n]
+    operator fun get(n: Int) = values[offset + maxOf(0, minOf(n, 2))]
 
     /**
      * The x-component.
      */
-    val x get() = values[0]
+    val x get() = values[offset + 0]
 
     /**
      * The y-component.
      */
-    val y get() = values[1]
+    val y get() = values[offset + 1]
 
     /**
      * The z-component.
      */
-    val z get() = values[2]
+    val z get() = values[offset + 2]
 
     operator fun component1() = x
     operator fun component2() = y
@@ -172,21 +188,41 @@ class Vec(val values: FloatArray) {
     /**
      * Returns the vector as a [Vector3].
      */
-    fun toVector() = Vector3(values.clone())
+    fun toVector() = Vector3(x, y, z)
 
     override fun equals(other: Any?) =
-        this === other || (other as? Vec)?.values?.contentEquals(values) ?: false
+        this === other || (other as? Vec)?.let {
+            x == it.x && y == it.x && z == it.z
+        } ?: false
 
-    override fun hashCode() =
-        values.contentHashCode()
+    override fun hashCode(): Int {
+        var r = 31
+        r = r * 17 + x.hashCode()
+        r = r * 17 + y.hashCode()
+        r = r * 17 + z.hashCode()
+        return r
+    }
+
 
     override fun toString() = buildString {
         append('(')
-        append(roundForPrint(values[0]))
+        append(roundForPrint(x))
         append(", ")
-        append(roundForPrint(values[1]))
+        append(roundForPrint(y))
         append(", ")
-        append(roundForPrint(values[2]))
+        append(roundForPrint(z))
         append(')')
     }
 }
+
+/**
+ * Applies the function on the components.
+ */
+inline fun Vec.mapComponents(block: (Float) -> Float) =
+    Vec(block(x), block(y), block(z))
+
+/**
+ * Applies the function on the pairs of components.
+ */
+inline fun reduceComponents(a: Vec, b: Vec, block: (Float, Float) -> Float) =
+    Vec(block(a.x, b.x), block(a.y, b.y), block(a.z, b.z))

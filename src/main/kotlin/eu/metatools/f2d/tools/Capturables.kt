@@ -1,31 +1,54 @@
 package eu.metatools.f2d.tools
 
-import com.badlogic.gdx.math.Intersector
+import com.badlogic.gdx.math.Intersector.*
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.math.collision.BoundingBox
 import com.badlogic.gdx.math.collision.Ray
 import eu.metatools.f2d.context.Capturable
+import eu.metatools.f2d.math.Vec
 
+/**
+ * A dedicated [Capturable] that checks if a sphere with a diameter of one intersects.
+ */
 object Sphere : Capturable<Unit?> {
-    override fun capture(args: Unit?, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
-        receiver { ray, intersection ->
-            Intersector.intersectRaySphere(ray, Vector3.Zero, 0.5f, intersection)
-        }
+    override fun capture(args: Unit?, time: Double, origin: Vec, direction: Vec): Vec? {
+        // Create  ray from vectors.
+        val ray = Ray(origin.toVector(), direction.toVector())
+
+        // Create output for intersection.
+        val intersection = Vector3()
+
+        // Intersect, return result if intersected.
+        return if (intersectRaySphere(ray, Vector3.Zero, 0.5f, intersection))
+            Vec(intersection)
+        else
+            null
     }
 }
 
+/**
+ * A dedicated [Capturable] that checks if a cube with edges of length one intersects.
+ */
 object Cube : Capturable<Unit?> {
+    /**
+     * The static bounding box to use for intersections.
+     */
     private val boundingBox = BoundingBox(
         Vector3(-0.5f, -0.5f, -0.5f),
         Vector3(0.5f, 0.5f, 0.5f)
     )
 
-    override fun capture(args: Unit?, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
-        receiver { ray, intersection ->
-            if (Intersector.intersectRayBoundsFast(ray, boundingBox))
-                Intersector.intersectRayBounds(ray, boundingBox, intersection)
-            else
-                false
-        }
+    override fun capture(args: Unit?, time: Double, origin: Vec, direction: Vec): Vec? {
+        // Create  ray from vectors.
+        val ray = Ray(origin.toVector(), direction.toVector())
+
+        // Create output for intersection.
+        val intersection = Vector3()
+
+        // Intersect, return result if intersected.
+        return if (intersectRayBoundsFast(ray, boundingBox) && intersectRayBounds(ray, boundingBox, intersection))
+            Vec(intersection)
+        else
+            null
     }
 }

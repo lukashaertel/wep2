@@ -1,10 +1,9 @@
 package eu.metatools.f2d.context
 
-import com.badlogic.gdx.math.Vector3
-import com.badlogic.gdx.math.collision.Ray
+import eu.metatools.f2d.math.Vec
 
 interface Capturable<in T> : Timed {
-    fun capture(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit)
+    fun capture(args: T, time: Double, origin: Vec, direction: Vec): Vec?
 }
 
 
@@ -12,8 +11,8 @@ interface Capturable<in T> : Timed {
  * Returns a capturable instance that is fixed to end after the given time.
  */
 infix fun <T> Capturable<T>.limit(duration: Double) = object : Capturable<T> {
-    override fun capture(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) =
-        this@limit.capture(args, time, receiver)
+    override fun capture(args: T, time: Double, origin: Vec, direction: Vec) =
+        this@limit.capture(args, time, origin, direction)
 
     override val start: Double
         get() = this@limit.start
@@ -26,8 +25,8 @@ infix fun <T> Capturable<T>.limit(duration: Double) = object : Capturable<T> {
  * Returns a capturable instance that is offset by the given time.
  */
 infix fun <T> Capturable<T>.offset(offset: Double) = object : Capturable<T> {
-    override fun capture(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) =
-        this@offset.capture(args, time - offset, receiver)
+    override fun capture(args: T, time: Double, origin: Vec, direction: Vec) =
+        this@offset.capture(args, time - offset, origin, direction)
 
     override val start: Double
         get() = this@offset.start + offset
@@ -40,24 +39,20 @@ infix fun <T> Capturable<T>.offset(offset: Double) = object : Capturable<T> {
  * Chains the receiver with the next [Capturable]. If receiver does not end, [next] will never capture.
  * The argument type is generic and arguments are extracted via [firstArg] and [secondArg].
  */
-fun <T, A, B> Capturable<A>.then(
-    next: Capturable<B>,
-    firstArg: (T) -> A,
-    secondArg: (T) -> B
-) = object : Capturable<T> {
-    override fun capture(args: T, time: Double, receiver: ((Ray, Vector3) -> Boolean) -> Unit) {
-        if (time < this@then.end)
-            this@then.capture(firstArg(args), time, receiver)
-        else
-            next.capture(secondArg(args), time - this@then.duration, receiver)
+fun <T, A, B> Capturable<A>.then(next: Capturable<B>, firstArg: (T) -> A, secondArg: (T) -> B) =
+    object : Capturable<T> {
+        override fun capture(args: T, time: Double, origin: Vec, direction: Vec) =
+            if (time < this@then.end)
+                this@then.capture(firstArg(args), time, origin, direction)
+            else
+                next.capture(secondArg(args), time - this@then.duration, origin, direction)
+
+        override val duration: Double
+            get() = this@then.duration + next.duration
+
+        override val start: Double
+            get() = this@then.start
     }
-
-    override val duration: Double
-        get() = this@then.duration + next.duration
-
-    override val start: Double
-        get() = this@then.start
-}
 
 
 /**

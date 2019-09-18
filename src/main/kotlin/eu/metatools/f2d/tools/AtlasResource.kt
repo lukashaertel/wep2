@@ -67,28 +67,25 @@ class AtlasResource(
                 region = null
             }
 
-            override fun draw(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+            override fun draw(args: Variation?, time: Double, spriteBatch: SpriteBatch) {
+                // Get region or return if not assigned yet.
+                val region = region ?: return
+
+                // Get args or default.
                 val activeArgs = args ?: Variation.DEFAULT
 
-                // Generate when region is assigned.
-                region?.let { region ->
-                    if (activeArgs.keepSize)
-                        receiver {
-                            // Keeping size, use region size to display.
-                            val source = it.color.cpy()
-                            it.color = activeArgs.tint
-                            it.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
-                            it.color = source
-                        }
-                    else
-                        receiver {
-                            // Uniform, render to 1 by 1 field.
-                            val source = it.color.cpy()
-                            it.color = activeArgs.tint
-                            it.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
-                            it.color = source
-                        }
-                }
+                // Memorize color.
+                val colorBefore = spriteBatch.color.cpy()
+                spriteBatch.color = activeArgs.tint
+
+                // Draw with desired sizing.
+                if (activeArgs.keepSize)
+                    spriteBatch.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
+                else
+                    spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
+
+                // Reset color.
+                spriteBatch.color = colorBefore
             }
 
             override val duration: Double
@@ -119,40 +116,33 @@ class AtlasResource(
                 regions = null
             }
 
-            override fun draw(args: Variation?, time: Double, receiver: ((SpriteBatch) -> Unit) -> Unit) {
+            override fun draw(args: Variation?, time: Double, spriteBatch: SpriteBatch) {
+                // Get regions or return if not assigned yet.
+                val regions = regions ?: return
+
+                // Get args or default.
                 val activeArgs = args ?: Variation.DEFAULT
 
-                // Generate when regions are assigned.
-                regions?.let { regions ->
-                    // Ge region index from time, divided by time-per-frame.
-                    val regionIndex = (time / (argsResource.length / regions.size)).toInt().let {
-                        // If looping, wrap by modulo, otherwise stop at last index.
-                        if (argsResource.looping)
-                            it % regions.size
-                        else
-                            minOf(it, regions.size - 1)
-                    }
-
-                    // Get the region for the index.
-                    val region = regions[regionIndex]
-
-                    if (activeArgs.keepSize)
-                        receiver {
-                            // Keeping size, use region size to display.
-                            val source = it.color.cpy()
-                            it.color = activeArgs.tint
-                            it.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
-                            it.color = source
-                        }
+                val region = (time / (argsResource.length / regions.size)).toInt().let {
+                    // If looping, wrap by modulo, otherwise stop at last index.
+                    if (argsResource.looping)
+                        regions[it % regions.size]
                     else
-                        receiver {
-                            // Uniform, render to 1 by 1 field.
-                            val source = it.color.cpy()
-                            it.color = activeArgs.tint
-                            it.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
-                            it.color = source
-                        }
+                        regions[minOf(it, regions.size - 1)]
                 }
+
+                // Memorize color.
+                val colorBefore = spriteBatch.color.cpy()
+                spriteBatch.color = activeArgs.tint
+
+                // Draw with desired sizing.
+                if (activeArgs.keepSize)
+                    spriteBatch.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
+                else
+                    spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
+
+                // Reset color.
+                spriteBatch.color = colorBefore
             }
 
             override val duration: Double

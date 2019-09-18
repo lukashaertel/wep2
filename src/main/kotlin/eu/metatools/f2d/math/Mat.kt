@@ -1,6 +1,7 @@
 package eu.metatools.f2d.math
 
 import com.badlogic.gdx.math.Matrix4
+import java.io.Serializable
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
@@ -10,11 +11,11 @@ import kotlin.math.sqrt
  * Four by four matrix, non-self mutating.
  * @property values The values of the array, provide this with an array that won't be mutated afterwards.
  */
-class Mat(val values: FloatArray) {
+class Mat(val values: FloatArray) : Serializable {
     /**
-     * Creates a new matrix with the values of [id].
+     * Creates a new matrix with the values of [Id].
      */
-    constructor() : this(id.values)
+    constructor() : this(Id.values)
 
     /**
      * Creates the matrix from a [Matrix4].
@@ -42,11 +43,21 @@ class Mat(val values: FloatArray) {
         /**
          * The identity matrix.
          */
-        val id = Mat(
+        val Id = Mat(
             1f, 0f, 0f, 0f,
             0f, 1f, 0f, 0f,
             0f, 0f, 1f, 0f,
             0f, 0f, 0f, 1f
+        )
+
+        /**
+         * The NaN matrix.
+         */
+        val NaN = Mat(
+            Float.NaN, Float.NaN, Float.NaN, Float.NaN,
+            Float.NaN, Float.NaN, Float.NaN, Float.NaN,
+            Float.NaN, Float.NaN, Float.NaN, Float.NaN,
+            Float.NaN, Float.NaN, Float.NaN, Float.NaN
         )
 
         /**
@@ -70,9 +81,9 @@ class Mat(val values: FloatArray) {
          */
         fun rotation(ax: Float, ay: Float, az: Float, rad: Float): Mat {
             if (rad == 0f)
-                return id
+                return Id
             if (ax == 0f || ay == 0f || az == 0f)
-                return id
+                return Id
 
             // Length and normalized axis.
             val d = 1f / hypot(hypot(ax, ay), az)
@@ -110,7 +121,7 @@ class Mat(val values: FloatArray) {
          */
         fun rotationX(rad: Float): Mat {
             if (rad == 0f)
-                return id
+                return Id
 
             // Trigonometric values.
             val c = cos(rad)
@@ -130,7 +141,7 @@ class Mat(val values: FloatArray) {
          */
         fun rotationY(rad: Float): Mat {
             if (rad == 0f)
-                return id
+                return Id
 
             // Trigonometric values.
             val c = cos(rad)
@@ -150,7 +161,7 @@ class Mat(val values: FloatArray) {
          */
         fun rotationZ(rad: Float): Mat {
             if (rad == 0f)
-                return id
+                return Id
 
             // Trigonometric values.
             val c = cos(rad)
@@ -190,6 +201,27 @@ class Mat(val values: FloatArray) {
          */
         fun scaling(vec: Vec) =
             scaling(vec.x, vec.y, vec.z)
+
+        fun ortho2D(x: Float, y: Float, width: Float, height: Float, near: Float, far: Float) =
+            ortho(x, x + width, y, y + height, near, far)
+
+        fun ortho(left: Float, right: Float, bottom: Float, top: Float, near: Float, far: Float): Mat {
+
+            val x = 2 / (right - left)
+            val y = 2 / (top - bottom)
+            val z = -2 / (far - near)
+
+            val tx = -(right + left) / (right - left)
+            val ty = -(top + bottom) / (top - bottom)
+            val tz = -(far + near) / (far - near)
+
+            return Mat(
+                x, 0f, 0f, tx,
+                0f, y, 0f, ty,
+                0f, 0f, z, tz,
+                0f, 0f, 0f, 1f
+            )
+        }
     }
 
     /**
@@ -354,24 +386,24 @@ class Mat(val values: FloatArray) {
     }
 
     /**
-     * The origin of the matrix.
-     */
-    val center by lazy { times(Vec.zero) }
-
-    /**
      * The x-vector of the matrix.
      */
-    val x by lazy { times(Vec.x) }
+    val x by lazy { Vec(values, 0) }
 
     /**
      * The y-vector of the matrix.
      */
-    val y by lazy { times(Vec.y) }
+    val y by lazy { Vec(values, 4) }
 
     /**
      * The z-vector of the matrix.
      */
-    val z by lazy { times(Vec.z) }
+    val z by lazy { Vec(values, 8) }
+
+    /**
+     * The origin of the matrix.
+     */
+    val center by lazy { Vec(values, 12) }
 
     /**
      * The length of the longest component.

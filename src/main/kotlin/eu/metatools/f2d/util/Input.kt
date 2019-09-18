@@ -5,11 +5,15 @@ import com.badlogic.gdx.Input
 import com.badlogic.gdx.math.Vector2
 
 /**
- * Mouse coordinates in the projection space.
+ * Touch x-coordinate in the projection space.
  */
-val Input.uniformMouseCoords: Vector2
+val Input.uniformX: Float
     get() =
-        Vector2(
-            x.toFloat() * 2f / Gdx.graphics.width - 1f,
-            1f - y.toFloat() * 2f / Gdx.graphics.height
-        )
+        x.toFloat() * 2f / Gdx.graphics.width - 1f
+
+/**
+ * Touch y-coordinates in the projection space.
+ */
+val Input.uniformY: Float
+    get() =
+        1f - y.toFloat() * 2f / Gdx.graphics.height

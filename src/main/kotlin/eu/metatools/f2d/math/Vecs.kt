@@ -1,14 +1,37 @@
 package eu.metatools.f2d.math
 
+import java.io.Serializable
+
+/**
+ * A [Float] component accessor.
+ */
 interface Component {
+    /**
+     * Gets the [n]th component.
+     */
     operator fun get(n: Int): Float
+
+    /**
+     * Sets the [n]th component.
+     */
     operator fun set(n: Int, value: Float)
 }
 
 /**
  * A list of vectors sharing a backing array.
  */
-class Vecs(vararg val values: Float) {
+class Vecs(vararg val values: Float) : Iterable<Vec>, Serializable {
+    constructor(size: Int) : this(*FloatArray(size * 3))
+
+    constructor(size: Int, init: (Int) -> Vec) : this(*FloatArray(size * 3)) {
+        for (i in 0 until size) {
+            val vec = init(i)
+            values[i * 3 + 0] = vec.x
+            values[i * 3 + 1] = vec.y
+            values[i * 3 + 2] = vec.z
+        }
+    }
+
     /**
      * Constructs the vector list from a list of single vectors.
      */
@@ -63,7 +86,7 @@ class Vecs(vararg val values: Float) {
     /**
      * Gets a new vector of the [n]th values.
      */
-    operator fun get(n: Int) = Vec(FloatArray(3) { values[n * 3 + it] })
+    operator fun get(n: Int) = Vec(values, n * 3)
 
     operator fun component1() = get(0)
     operator fun component2() = get(1)
@@ -73,6 +96,9 @@ class Vecs(vararg val values: Float) {
     operator fun component6() = get(5)
     operator fun component7() = get(6)
     operator fun component8() = get(7)
+
+    override fun iterator() =
+        (0 until size).asSequence().map(::get).iterator()
 
     /**
      * Returns the vectors as a list of [Vec].

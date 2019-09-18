@@ -3,7 +3,9 @@ package eu.metatools.f2d.tools
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.audio.Sound
 import com.badlogic.gdx.files.FileHandle
-import eu.metatools.f2d.context.*
+import eu.metatools.f2d.context.LifecycleResource
+import eu.metatools.f2d.context.Playable
+import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.util.bufferId
 import eu.metatools.f2d.util.sourceFromID
 import org.lwjgl.openal.AL10
@@ -93,7 +95,7 @@ class SoundResource(
 
             private val plays = mutableMapOf<Any, Long>()
 
-            override fun play(args: Modulation?, handle: Any, time: Double, x: Float, y: Float, z: Float) {
+            override fun play(args: Modulation?, handle: Any, time: Double, transform: Mat) {
                 val activeArgs = args ?: Modulation.DEFAULT
 
                 // Get or create handle, assign looping property once.
@@ -114,7 +116,12 @@ class SoundResource(
                     AL10.alSourcef(source, AL11.AL_SEC_OFFSET, time.toFloat())
 
                 // Set audio position.
-                AL10.alSource3f(source, AL10.AL_POSITION, x, y, z)
+                AL10.alSource3f(
+                    source, AL10.AL_POSITION,
+                    transform.center.x, transform.center.y, transform.center.z
+                )
+
+                // TODO: Investigate directions and scale.
 
                 // Set extra arguments.
                 AL10.alSourcef(source, AL10.AL_PITCH, activeArgs.pitch)

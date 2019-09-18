@@ -4,10 +4,13 @@ import com.badlogic.gdx.ApplicationListener
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.math.Matrix4
 import eu.metatools.f2d.context.Continuous
 import eu.metatools.f2d.context.Lifecycle
 import eu.metatools.f2d.context.Once
+import eu.metatools.f2d.math.Mat
+import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.util.uniformX
+import eu.metatools.f2d.util.uniformY
 
 abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : ApplicationListener {
     /**
@@ -45,10 +48,10 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
      */
     private lateinit var spriteBatch: SpriteBatch
 
-    /**
-     * The projection matrix of the sprite batch.
-     */
-    protected val projectionMatrix get() = spriteBatch.projectionMatrix
+
+    var model = Mat.Id
+
+    var projection = Mat.NaN
 
     /**
      * The one-shot renderer.
@@ -66,38 +69,49 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     abstract val time: Double
 
     override fun render() {
-        // Bind the current time.
-        val time = time
-
-
-        // Render to once and continuous.
-        render(time)
-
-        // Dispatch generated calls from the one-shot renderer.
-        once.apply(continuous, time)
-
         // Clear the screen properly.
         Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
 
-        // Run the sprite batch with the calls generated in the continuous renderer.
-        spriteBatch.begin()
-        continuous.apply(spriteBatch)
-        spriteBatch.end()
+        // Start drawing with the current matrices.
+        continuous.begin(model, projection)
+
+        // Bind the current time.
+        val time = time
+
+        // Render to once and continuous.
+        render(time)
+
+        // Dispatch generated calls from the once to continuous.
+        once.send(continuous, time)
+
+        // Render all continuous draws.
+        continuous.render(time, spriteBatch)
+
+        // Send all sounds.
+        continuous.play(time)
+
+        // Perform capture for primary pointer.
+        continuous.collect(time, Gdx.input.uniformX, Gdx.input.uniformY)?.let { (result, intersection) ->
+            capture(result, intersection)
+        }
+
+        // Finalize batch for this call.
+        continuous.end()
     }
 
     /**
-     * Renders the graphics, sound and capturables at the time.
+     * Handles captures of the pointer.
      */
-    abstract fun render(time: Double)
+    open fun capture(result: Any, intersection: Vec) = Unit
+
+    /**
+     * Renders the graphics, sound and captures at the time.
+     */
+    open fun render(time: Double) = Unit
 
     override fun resize(width: Int, height: Int) {
-        // Reset projection.
-        spriteBatch.projectionMatrix =
-            Matrix4().setToOrtho2D(0f, 0f, width.toFloat(), height.toFloat(), near, far)
-
-        // Compute the boundaries.
-        continuous.computeBounds(spriteBatch.projectionMatrix)
+        projection = Mat.ortho2D(0f, 0f, width.toFloat(), height.toFloat(), near, far)
     }
 
     override fun create() {
@@ -107,11 +121,8 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         spriteBatch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
 
         // Initialize proper projection matrix.
-        spriteBatch.projectionMatrix =
-            Matrix4().setToOrtho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), near, far)
+        projection = Mat.ortho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), near, far)
 
-        // Compute the boundaries.
-        continuous.computeBounds(spriteBatch.projectionMatrix)
 
         // Initialize all used resources.
         roots.forEach {

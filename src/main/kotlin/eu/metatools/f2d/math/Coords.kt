@@ -1,6 +1,5 @@
 package eu.metatools.f2d.math
 
-import com.badlogic.gdx.math.Matrix4
 import kotlin.math.*
 
 
@@ -8,12 +7,12 @@ import kotlin.math.*
 internal inline fun roundForPrint(value: Float) =
     round(value * 1e5) / 1e5
 
-/**
- * Preliminary coordinate delegate, uses a four dimensional matrix.
- */
-typealias Coords = Matrix4
+
+// TODO: Introduce color object.
+
+typealias Transform = Mat
 
 /**
  * Retrieves the coordinates at a given time.
  */
-typealias CoordsAt = (Double) -> Coords
+typealias CoordsAt = (Double) -> Transform
