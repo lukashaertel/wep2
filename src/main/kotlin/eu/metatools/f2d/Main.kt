@@ -2,6 +2,7 @@ package eu.metatools.f2d
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
+import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
@@ -13,6 +14,7 @@ import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.math.deg
 import eu.metatools.f2d.tools.*
+import eu.metatools.f2d.util.contains
 import eu.metatools.f2d.wep2.encoding.GdxEncoding
 import eu.metatools.f2d.wep2.recEnqueue
 import eu.metatools.nw.encoding.Encoding
@@ -73,7 +75,7 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
                 it.color = rc
 
                 // Play sound when actually changed.
-                once.recEnqueue(fire  offset time.time.sec) {
+                once.recEnqueue(fire offset time.time.sec) {
                     // Translation of field, relative to listener at center.
                     Mat()
                         .translate((x + xo) * 264f, (y + yo) * 264f, 0f)
@@ -210,22 +212,30 @@ object Frontend : F2DListener(-100f, 100f) {
 
         // After creation, also connect the input processor.
         Gdx.input.inputProcessor = object : InputAdapter() {
-            override fun keyUp(keycode: Int) = when (keycode) {
-                Input.Keys.SPACE -> {
-                    root.fields[1 to 1]?.signal("paintNext", system.time(), Unit)
-                    true
+            override fun keyUp(keycode: Int): Boolean {
+                when (keycode) {
+                    Input.Keys.SPACE ->
+                        root.fields[1 to 1]?.signal("paintNext", system.time(), Unit)
+                    Input.Keys.ESCAPE ->
+                        Gdx.app.exit()
+                    else -> return false
                 }
-                Input.Keys.ESCAPE -> {
-                    Gdx.app.exit()
 
-                    true
-                }
-                else -> false
+                return true
             }
         }
     }
 
     override fun render(time: Double) {
+        if (Keys.W in Gdx.input)
+            model = model.translate(Vec.Y * 10f)
+        if (Keys.S in Gdx.input)
+            model = model.translate(-Vec.Y * 10f)
+        if (Keys.A in Gdx.input)
+            model = model.translate(-Vec.X * 10f)
+        if (Keys.D in Gdx.input)
+            model = model.translate(Vec.X * 10f)
+
         // Process the next messages.
         net.update()
 

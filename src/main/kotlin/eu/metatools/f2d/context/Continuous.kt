@@ -41,10 +41,8 @@ class Continuous(val trimExcess: Float = 0.25f) {
     /**
      * Play in the current [begin]/[end] block.
      */
-    private data class Play<T>(
-        val subject: Playable<T>, val args: T, val handle: Any, val transform: Mat
-    ) {
-        fun play(time: Double) {
+    private data class Play<T>(val subject: Playable<T>, val args: T, val handle: Any) {
+        fun play(time: Double, transform: Mat) {
             // Play subject itself.
             subject.play(args, handle, time, transform)
         }
@@ -97,14 +95,16 @@ class Continuous(val trimExcess: Float = 0.25f) {
     private val captures = hashMapOf<Float, MutableList<Capture<*>>>()
 
     /**
-     * All plays in the current block.
+     * All plays in the current block, differs in implementation, as sounds are updated from continuous, while
+     * captures and draws are always passed through. Therefore an identity is needed, i.e., what to play, what
+     * argument and what handle. The value of this association is the transformation to update to.
      */
-    private var plays = hashSetOf<Play<*>>()
+    private var plays = hashMapOf<Play<*>, Mat>()
 
     /**
      * Plays from the last block.
      */
-    private var playsSecondary = hashSetOf<Play<*>>()
+    private var playsSecondary = hashMapOf<Play<*>, Mat>()
 
     /**
      * Starts the block with the given matrices.
@@ -133,8 +133,8 @@ class Continuous(val trimExcess: Float = 0.25f) {
      */
     fun play(time: Double) {
         // Play all collected entries.
-        for (play in plays)
-            play.play(time)
+        for ((play, transform) in plays)
+            play.play(time, transform)
     }
 
     /**
@@ -199,7 +199,7 @@ class Continuous(val trimExcess: Float = 0.25f) {
         excessMax = Vec.NaN
 
         // Cancel previous plays that were not renewed.
-        for (play in playsSecondary subtract plays)
+        for (play in playsSecondary.keys subtract plays.keys)
             play.cancel()
 
         // Swap plays.
@@ -288,7 +288,8 @@ class Continuous(val trimExcess: Float = 0.25f) {
         // Validate time (no bounds for sound).
         validate(subject, time) {
             // Add to plays, sound is played in active projection space.
-            plays.add(Play(subject, args, handle, projection * model * transform))
+            plays[Play(subject, args, handle)] =
+                projection * model * transform
         }
     }
 

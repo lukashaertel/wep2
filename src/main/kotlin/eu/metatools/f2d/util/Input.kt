@@ -17,3 +17,9 @@ val Input.uniformX: Float
 val Input.uniformY: Float
     get() =
         1f - y.toFloat() * 2f / Gdx.graphics.height
+
+/**
+ * True if the key is pressed.
+ */
+operator fun Input.contains(key: Int) =
+    isKeyPressed(key)
