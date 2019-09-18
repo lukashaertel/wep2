@@ -13,6 +13,13 @@ import eu.metatools.f2d.util.uniformX
 import eu.metatools.f2d.util.uniformY
 
 abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : ApplicationListener {
+    companion object {
+        /**
+         * The time to use for the first delta.
+         */
+        private val initialDelta = 0.001
+    }
+
     /**
      * All root lifecycle elements.
      */
@@ -68,6 +75,11 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
      */
     abstract val time: Double
 
+    /**
+     * The time of the last render.
+     */
+    private var timeOfLast: Double? = null
+
     override fun render() {
         // Clear the screen properly.
         Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
@@ -76,11 +88,13 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         // Start drawing with the current matrices.
         continuous.begin(model, projection)
 
-        // Bind the current time.
+        // Bind the current time, generate delta and set new last time.
         val time = time
+        val delta = timeOfLast?.minus(time)?.unaryMinus() ?: initialDelta
+        timeOfLast = time
 
         // Render to once and continuous.
-        render(time)
+        render(time, delta)
 
         // Dispatch generated calls from the once to continuous.
         once.send(continuous, time)
@@ -96,6 +110,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
             capture(result, intersection)
         }
 
+
         // Finalize batch for this call.
         continuous.end()
     }
@@ -108,7 +123,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     /**
      * Renders the graphics, sound and captures at the time.
      */
-    open fun render(time: Double) = Unit
+    open fun render(time: Double, delta: Double) = Unit
 
     override fun resize(width: Int, height: Int) {
         projection = Mat.ortho2D(0f, 0f, width.toFloat(), height.toFloat(), near, far)

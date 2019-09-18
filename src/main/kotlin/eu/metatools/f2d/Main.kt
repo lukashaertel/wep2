@@ -226,15 +226,15 @@ object Frontend : F2DListener(-100f, 100f) {
         }
     }
 
-    override fun render(time: Double) {
+    override fun render(time: Double, delta: Double) {
         if (Keys.W in Gdx.input)
-            model = model.translate(Vec.Y * 10f)
+            model = model.translate(Vec.Y * (100 * delta).toFloat())
         if (Keys.S in Gdx.input)
-            model = model.translate(-Vec.Y * 10f)
+            model = model.translate(-Vec.Y * (100 * delta).toFloat())
         if (Keys.A in Gdx.input)
-            model = model.translate(-Vec.X * 10f)
+            model = model.translate(-Vec.X * (100 * delta).toFloat())
         if (Keys.D in Gdx.input)
-            model = model.translate(Vec.X * 10f)
+            model = model.translate(Vec.X * (100 * delta).toFloat())
 
         // Process the next messages.
         net.update()
