@@ -7,10 +7,8 @@ import eu.metatools.wep2.entity.bind.restoreIndex
 import eu.metatools.wep2.entity.bind.storeBy
 import eu.metatools.wep2.entity.bind.storeIndex
 import eu.metatools.wep2.tools.*
-import eu.metatools.wep2.track.Claimer
-import eu.metatools.wep2.track.SI
-import eu.metatools.wep2.track.prop
-import eu.metatools.wep2.track.rec
+import eu.metatools.wep2.track.*
+import eu.metatools.wep2.util.ComparablePair
 import eu.metatools.wep2.util.None
 import eu.metatools.wep2.util.shorts
 import java.io.Serializable
@@ -289,7 +287,7 @@ class StandardSystem<N, P> private constructor(
         ReleasePlayer -> rec {
             // Assert type of args.
             @Suppress("unchecked_cast")
-            args as Pair<Short, Short>
+            args as ComparablePair<Short, Short>
 
             // Release player and decrement player count.
             players.release(args)

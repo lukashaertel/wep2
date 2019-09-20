@@ -3,6 +3,7 @@ package eu.metatools.nw.encoding
 import eu.metatools.wep2.system.StandardInitializer
 import eu.metatools.wep2.system.StandardName
 import eu.metatools.wep2.tools.Time
+import eu.metatools.wep2.util.ComparablePair
 import eu.metatools.wep2.util.ReplacingObjectOutputStream
 import eu.metatools.wep2.util.ResolvingObjectInputStream
 import java.io.InputStream
@@ -56,10 +57,10 @@ open class SerializationEncoding<N, P> : Encoding<N, P> {
         @Suppress("unchecked_cast")
         return StandardInitializer(
             playerHead as Short?,
-            playerRecycled as List<Pair<Short, Short>>,
+            playerRecycled as List<ComparablePair<Short, Short>>,
             idsHead as Short?,
-            idsRecycled as List<Pair<Short, Short>>,
-            playerSelf as Pair<Short, Short>,
+            idsRecycled as List<ComparablePair<Short, Short>>,
+            playerSelf as ComparablePair<Short, Short>,
             playerCount as Short,
             scopes as Map<Long, Byte>,
             instructions as List<Triple<StandardName<N>, Time, Any?>>,

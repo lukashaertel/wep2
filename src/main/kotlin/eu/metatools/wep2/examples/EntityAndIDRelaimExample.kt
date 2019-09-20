@@ -119,7 +119,7 @@ fun main() {
 
     // Create a child on another entity, expected behavior is that
     // an ID is reclaimed, but differs in recycle count.
-    hostA.index.minBy { it.key.first * Short.MAX_VALUE + it.key.second }
+    hostA.index.minBy { it.key }
         ?.value
         ?.signal("sib", generator.take(6, 10, 0), Unit)
 
@@ -127,20 +127,20 @@ fun main() {
 
     // Expected output:
 
-    // Index
-    //   (0, 0)=(Child of null, money=0)
-    //   (1, 0)=(Child of (0, 0), money=3)
-    //   (2, 0)=(Child of (0, 0), money=3)
-    //   (3, 0)=(Child of (0, 0), money=3)
-    // Index
-    //   (0, 0)=(Child of null, money=0)
-    //   (1, 0)=(Child of (0, 0), money=3)
-    //   (2, 0)=(Child of (0, 0), money=3)
-    //   (3, 0)=(Child of (0, 0), money=3)
-    //   (4, 0)=(Child of (0, 0), money=3)
-    // Index
-    //   (1, 0)=(Child of (0, 0), money=3)
-    // Index
-    //   (1, 0)=(Child of (0, 0), money=2)
-    //   (0, 1)=(Child of (1, 0), money=3)
+    //Index
+    //	(0, 0)=(Child of null, money=0)
+    //	(1, 0)=(Child of (0, 0), money=3)
+    //	(2, 0)=(Child of (0, 0), money=3)
+    //	(3, 0)=(Child of (0, 0), money=3)
+    //Index
+    //	(0, 0)=(Child of null, money=0)
+    //	(1, 0)=(Child of (0, 0), money=3)
+    //	(2, 0)=(Child of (0, 0), money=3)
+    //	(3, 0)=(Child of (0, 0), money=3)
+    //	(4, 0)=(Child of (0, 0), money=3)
+    //Index
+    //	(1, 0)=(Child of (0, 0), money=3)
+    //Index
+    //	(0, 1)=(Child of (1, 0), money=3)
+    //	(1, 0)=(Child of (0, 0), money=2)
 }

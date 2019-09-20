@@ -15,13 +15,13 @@ import kotlin.reflect.KProperty1
 /**
  * Stores an optional entity reference, provides restoration.
  */
-fun <I, E : Entity<*, *, I>> ref(restore: Restore?, initial: () -> E? = { null }) =
-    ReadWritePropertyProvider { thisRef: Entity<*, *, I>, property ->
+fun <E : Entity<*, *, *>> ref(restore: Restore?, initial: () -> E? = { null }) =
+    ReadWritePropertyProvider { thisRef: Entity<*, *, *>, property ->
         // Apply auto-saving mechanism.
         if (thisRef is RestoringEntity<*, *, *>) {
             // Type assert on result type, receiver is not null so this is a member property.
             @Suppress("unchecked_cast")
-            property as KProperty1<Entity<*, *, I>, E?>
+            property as KProperty1<Entity<*, *, *>, E?>
 
             thisRef.saveWith({ store: Store ->
                 store.saveRef(property.name, property.get(thisRef))
@@ -38,13 +38,21 @@ fun <I, E : Entity<*, *, I>> ref(restore: Restore?, initial: () -> E? = { null }
                 // Check if restoring.
                 if (restore != null) {
                     // Is restoring, retrieve the property as the stored optional ID.
-                    val id = restore.load<Option<I>>(property.name)
+                    val id = restore.load<Option<Comparable<Any?>>>(property.name)
 
                     // See if ID is present.
                     if (id is Just) {
                         // ID is actually given, register resolution of the ID.
                         restore.registerPost {
-                            current = Just(thisRef.context.index[id.item] as E?)
+                            // Cast index for access without type information.
+                            @Suppress("unchecked_cast")
+                            val index = thisRef.context.index as SimpleMap<Comparable<Any?>, E>
+
+                            // Assign result, ID must be present in the result set.
+                            current = Just(
+                                index[id.item]
+                                    ?: throw IllegalStateException("Entity at ${id.item} not restored")
+                            )
                         }
                     } else {
                         // ID is not present, original value was null.

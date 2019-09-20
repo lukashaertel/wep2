@@ -63,7 +63,7 @@ class Mat(val values: FloatArray) : Serializable {
         /**
          * Creates a translation matrix.
          */
-        fun translation(x: Float, y: Float, z: Float) = Mat(
+        fun translation(x: Float, y: Float, z: Float = 0f) = Mat(
             1f, 0f, 0f, x,
             0f, 1f, 0f, y,
             0f, 0f, 1f, z,
@@ -179,7 +179,7 @@ class Mat(val values: FloatArray) : Serializable {
         /**
          * Creates a scaling matrix.
          */
-        fun scaling(sx: Float, sy: Float, sz: Float) = Mat(
+        fun scaling(sx: Float, sy: Float, sz: Float = 1f) = Mat(
             sx, 0f, 0f, 0f,
             0f, sy, 0f, 0f,
             0f, 0f, sz, 0f,
@@ -319,7 +319,7 @@ class Mat(val values: FloatArray) : Serializable {
     /**
      * Post-multiplies the matrix with the given translation.
      */
-    fun translate(x: Float, y: Float, z: Float) =
+    fun translate(x: Float, y: Float, z: Float = 0f) =
         times(translation(x, y, z))
 
     /**
@@ -361,7 +361,7 @@ class Mat(val values: FloatArray) : Serializable {
     /**
      * Post-multiplies the matrix with the given scaling.
      */
-    fun scale(sx: Float, sy: Float, sz: Float) =
+    fun scale(sx: Float, sy: Float, sz: Float = 1f) =
         times(scaling(sx, sy, sz))
 
     /**

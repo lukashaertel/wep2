@@ -1,9 +1,16 @@
 package eu.metatools.wep2.util
 
+import java.util.*
+
 /**
  * A simpler interface for mutable sets.
  */
-interface SimpleSet<E> : Iterable<E> {
+interface SimpleSet<E : Comparable<E>> : Iterable<E> {
+    /**
+     * True if the set is not empty.
+     */
+    val isEmpty: Boolean get() = iterator().hasNext()
+
     /**
      * Adds an element. True if changed.
      */
@@ -23,14 +30,20 @@ interface SimpleSet<E> : Iterable<E> {
 /**
  * Simplified observable set.
  */
-abstract class ObservableSet<E> : SimpleSet<E> {
-    private val backing = mutableSetOf<E>()
+abstract class ObservableSet<E : Comparable<E>> : SimpleSet<E> {
+    private val backing = TreeSet<E>()
+
+    override val isEmpty
+        get() = backing.isEmpty()
 
     /**
      * Blocks calls to the change listeners.
      */
     val silent by lazy {
         object : SimpleSet<E> {
+            override val isEmpty: Boolean
+                get() = this@ObservableSet.isEmpty
+
             override fun add(element: E) =
                 backing.add(element)
 
@@ -100,7 +113,7 @@ abstract class ObservableSet<E> : SimpleSet<E> {
 /**
  * Creates a simplified observable set with the given delegates.
  */
-inline fun <E> observableSet(
+inline fun <E : Comparable<E>> observableSet(
     crossinline added: ObservableSet<E>.(E) -> Unit,
     crossinline removed: ObservableSet<E>.(E) -> Unit
 ) = object : ObservableSet<E>() {

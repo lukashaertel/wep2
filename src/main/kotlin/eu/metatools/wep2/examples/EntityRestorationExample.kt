@@ -11,17 +11,6 @@ import eu.metatools.wep2.track.bind.prop
 import eu.metatools.wep2.track.bind.ref
 
 /**
- * Does not do anything, coordination is not the focus here, operations are never invoked.
- */
-class NonCoordinator : Coordinator<SN<Int>, Int>() {
-    override fun register(block: (SN<Int>, Int, Any?) -> Unit) = throw NotImplementedError()
-
-    override fun receive(name: SN<Int>, time: Int, args: Any?) = throw NotImplementedError()
-
-    override fun publish(name: SN<Int>, time: Int, args: Any?) = throw NotImplementedError()
-}
-
-/**
  * A container entity with a child.
  */
 class Container(context: Context<Int, Int, SI>, restore: Restore?) : RestoringEntity<Int, Int, SI>(context, restore) {

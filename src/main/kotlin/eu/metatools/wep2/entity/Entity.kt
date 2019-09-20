@@ -9,7 +9,7 @@ import eu.metatools.wep2.util.*
 /**
  * A context for entity creation.
  */
-interface Context<N, T : Comparable<T>, I> {
+interface Context<N, T : Comparable<T>, I : Comparable<I>> {
     /**
      * The index containing all registrations.
      */
@@ -32,7 +32,7 @@ interface Context<N, T : Comparable<T>, I> {
  * @param releaseId The method of releasing an ID.
  * @param signal The dispatch method, per entity ID and local name.
  */
-inline fun <N, T : Comparable<T>, I> context(
+inline fun <N, T : Comparable<T>, I : Comparable<I>> context(
     index: SimpleMap<I, Entity<N, T, I>>,
     crossinline newId: () -> I,
     crossinline releaseId: (I) -> Unit,
@@ -56,7 +56,7 @@ inline fun <N, T : Comparable<T>, I> context(
  * @property context The receiver context.
  * @param init The post-creation hook to run, deals with generation of identities.
  */
-sealed class Entity<N, T : Comparable<T>, I>(
+sealed class Entity<N, T : Comparable<T>, I : Comparable<I>>(
     val context: Context<N, T, I>,
     init: Entity<N, T, I>.() -> Unit
 ) {
@@ -117,7 +117,7 @@ sealed class Entity<N, T : Comparable<T>, I>(
 /**
  * Returns an entity relative name.
  */
-fun <N, I> Entity<N, *, I>.name(name: N) =
+fun <N, I : Comparable<I>> Entity<N, *, I>.name(name: N) =
     id to name
 
 /**
@@ -125,7 +125,7 @@ fun <N, I> Entity<N, *, I>.name(name: N) =
  * [RestoringEntity], which skips ID generation if restoring.
  * @param context The receiver context.
  */
-abstract class TrackingEntity<N, T : Comparable<T>, I>(
+abstract class TrackingEntity<N, T : Comparable<T>, I : Comparable<I>>(
     context: Context<N, T, I>
 ) : Entity<N, T, I>(context, {
     id = context.newId()
@@ -137,7 +137,7 @@ abstract class TrackingEntity<N, T : Comparable<T>, I>(
  * @param context The receiver context.
  * @param restore The restore context, given when this entity is reconstructed, rather then initialized.
  */
-abstract class RestoringEntity<N, T : Comparable<T>, I>(
+abstract class RestoringEntity<N, T : Comparable<T>, I : Comparable<I>>(
     context: Context<N, T, I>,
     restore: Restore?
 ) : Entity<N, T, I>(context, {
@@ -170,7 +170,7 @@ abstract class RestoringEntity<N, T : Comparable<T>, I>(
  * Uses the entities accessible by the receiver to evaluate the incoming instruction, which is keyed by
  * the entity index, as well as the name of the instruction.
  */
-fun <N, T : Comparable<T>, I> SimpleMap<I, Entity<N, T, I>>.dispatchEvaluate(
+fun <N, T : Comparable<T>, I : Comparable<I>> SimpleMap<I, Entity<N, T, I>>.dispatchEvaluate(
     name: Pair<I, N>, time: T, args: Any?
 ): () -> Unit {
     // Resolve the target, return NOP if not found.
@@ -194,4 +194,5 @@ typealias BN<N> = Pair<BI, N>
 /**
  * A map associating entities by their IDs.
  */
-fun <N, T : Comparable<T>, I> entityMap() = map<I, Entity<N, T, I>>()
+fun <N, T : Comparable<T>, I : Comparable<I>> entityMap() =
+    map<I, Entity<N, T, I>>()

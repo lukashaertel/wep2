@@ -1,6 +1,7 @@
 package eu.metatools.wep2.track
 
 import eu.metatools.wep2.tools.ReclaimableSequence
+import eu.metatools.wep2.util.ComparablePair
 import eu.metatools.wep2.util.labeledAs
 import eu.metatools.wep2.util.uv
 import eu.metatools.wep2.util.within
@@ -8,11 +9,13 @@ import eu.metatools.wep2.util.within
 /**
  * Wraps generating elements of a [ReclaimableSequence] providing automated undo.
  */
-class Claimer<I, R>(val reclaimableSequence: ReclaimableSequence<I, R>) {
+class Claimer<I : Comparable<I>, R : Comparable<R>>(
+    val reclaimableSequence: ReclaimableSequence<I, R>
+) {
     /**
      * Claims a value.
      */
-    fun claim(): Pair<I, R> {
+    fun claim(): ComparablePair<I, R> {
         val (value, undo) = reclaimableSequence.claim()
         undos.get()?.add(undo labeledAs {
             "releasing $value"
@@ -23,7 +26,7 @@ class Claimer<I, R>(val reclaimableSequence: ReclaimableSequence<I, R>) {
     /**
      * Releases a value.
      */
-    fun release(value: Pair<I, R>) {
+    fun release(value: ComparablePair<I, R>) {
         val undo = reclaimableSequence.release(value)
         undos.get()?.add(undo labeledAs {
             "reclaiming $value"
@@ -34,20 +37,20 @@ class Claimer<I, R>(val reclaimableSequence: ReclaimableSequence<I, R>) {
 /**
  * Creates a [Claimer] on a reclaimable sequence on [sequence], [zero] and [inc].
  */
-fun <I, R> claimer(sequence: Sequence<I>, zero: R, inc: (R) -> R) =
+fun <I : Comparable<I>, R : Comparable<R>> claimer(sequence: Sequence<I>, zero: R, inc: (R) -> R) =
     Claimer(ReclaimableSequence(sequence, zero, inc))
 
 /**
  * Creates a [claimer] with short recycle counts.
  */
-fun <I> claimer(sequence: Sequence<I>) =
-    Claimer(ReclaimableSequence(sequence, 0, Short::inc))
+fun <I : Comparable<I>> claimer(sequence: Sequence<I>) =
+    Claimer(ReclaimableSequence(sequence, 0.toShort(), Short::inc))
 
 
 /**
  * Claims a value of a [Claimer], returns the first component without the recycle count.
  */
-fun <I> Claimer<I, *>.claimValue() =
+fun <I : Comparable<I>> Claimer<I, *>.claimValue() =
     claim().first
 
 /**
@@ -88,9 +91,9 @@ fun <K : Comparable<K>, V> Claimer<Int, *>.randomOf(map: Map<K, V>) =
 /**
  * Small identity.
  */
-typealias SI = Pair<Short, Short>
+typealias SI = ComparablePair<Short, Short>
 
 /**
  * Big identity.
  */
-typealias BI = Pair<Long, Int>
+typealias BI = ComparablePair<Long, Int>

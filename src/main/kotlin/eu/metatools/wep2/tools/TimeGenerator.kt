@@ -1,6 +1,8 @@
 package eu.metatools.wep2.tools
 
 import eu.metatools.wep2.coord.Coordinator
+import eu.metatools.wep2.util.first
+import eu.metatools.wep2.util.then
 import java.io.Serializable
 
 /**
@@ -16,23 +18,20 @@ data class Time(
     val player: Short,
     val local: Byte
 ) : Comparable<Time>, Serializable {
-    override fun compareTo(other: Time): Int {
-        // Compare outer time, return if not zero.
-        val compareTime = time.compareTo(other.time)
-        if (compareTime != 0)
-            return compareTime
-
-        // Compare player, rotate for fair distribution.
-        val mod = maxOf(playerCount, other.playerCount)
-        val shift = (time + player) % mod
-        val otherShift = (other.time + other.player) % mod
-        val compareShift = shift.compareTo(otherShift)
-        if (compareShift != 0)
-            return compareShift
-
-        // Same player on same time, return comparison of local.
-        return local.compareTo(other.local)
-    }
+    override fun compareTo(other: Time) =
+        first(other) {
+            // Compare outer time.
+            time.compareTo(other.time)
+        } then {
+            val mod = maxOf(playerCount, other.playerCount)
+            val shift = (time + player) % mod
+            val otherShift = (other.time + other.player) % mod
+            // Compare player, rotate for fair distribution.
+            shift.compareTo(otherShift)
+        } then {
+            // Same player on same time, return comparison of local.
+            local.compareTo(other.local)
+        }
 
     override fun toString() =
         "$time.$local for $player/$playerCount"

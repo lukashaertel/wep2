@@ -5,7 +5,7 @@ import eu.metatools.wep2.util.*
 /**
  * A set partaking in change based undo-tracking. Alternatively, prop of an immutable set can be used.
  */
-fun <E> set() = observableSet<E>({ e ->
+fun <E : Comparable<E>> set() = observableSet<E>({ e ->
     // Run on undos if assigned.
     undos.get()?.let {
         // Add removing the just added element.
@@ -25,7 +25,7 @@ fun <E> set() = observableSet<E>({ e ->
 /**
  * A map partaking in change based undo-tracking. Alternatively, prop of an immutable map can be used.
  */
-fun <K, V> map() = observableMap<K, V>({ k, _ ->
+fun <K : Comparable<K>, V> map() = observableMap<K, V>({ k, _ ->
     // Run on undos if assigned.
     undos.get()?.let {
         // Add removing the just added entry.

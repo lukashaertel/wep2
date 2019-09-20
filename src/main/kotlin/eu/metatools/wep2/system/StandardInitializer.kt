@@ -1,6 +1,7 @@
 package eu.metatools.wep2.system
 
 import eu.metatools.wep2.tools.Time
+import eu.metatools.wep2.util.ComparablePair
 import java.io.Serializable
 
 /**
@@ -8,10 +9,10 @@ import java.io.Serializable
  */
 data class StandardInitializer<N, P>(
     val playerHead: Short?,
-    val playerRecycled: List<Pair<Short, Short>>,
+    val playerRecycled: List<ComparablePair<Short, Short>>,
     val idsHead: Short?,
-    val idsRecycled: List<Pair<Short, Short>>,
-    val playerSelf: Pair<Short, Short>,
+    val idsRecycled: List<ComparablePair<Short, Short>>,
+    val playerSelf: ComparablePair<Short, Short>,
     val playerCount: Short,
     val scopes: Map<Long, Byte>,
     val instructions: List<Triple<StandardName<N>, Time, Any?>>,

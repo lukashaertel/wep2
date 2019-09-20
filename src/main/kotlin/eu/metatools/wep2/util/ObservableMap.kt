@@ -1,9 +1,27 @@
 package eu.metatools.wep2.util
 
+import java.lang.UnsupportedOperationException
+import java.util.*
+
 /**
  * A simpler interface for mutable maps.
  */
-interface SimpleMap<K, V> : Iterable<Map.Entry<K, V>> {
+interface SimpleMap<K:Comparable<K>, V> : Iterable<Map.Entry<K, V>> {
+    /**
+     * True if the map is not empty.
+     */
+    val isEmpty: Boolean get() = iterator().hasNext()
+
+    /**
+     * Gets all keys if supported.
+     */
+    val keys: Set<K> get() = throw UnsupportedOperationException("This map does not expose key set")
+
+    /**
+     * Gets all values if supported.
+     */
+    val values: List<V> get() = throw UnsupportedOperationException("This map does not expose value list")
+
     /**
      * Sets the key to the value, returns the previous association or null.
      */
@@ -28,24 +46,36 @@ interface SimpleMap<K, V> : Iterable<Map.Entry<K, V>> {
 /**
  * Simplified observable map.
  */
-abstract class ObservableMap<K, V> : SimpleMap<K, V> {
-    private val backing = mutableMapOf<K, V>()
+abstract class ObservableMap<K : Comparable<K>, V> : SimpleMap<K, V> {
+    private val backing = TreeMap<K, V>()
+
+    override val isEmpty
+        get() = backing.isEmpty()
 
     /**
      * The keys as a set.
      */
-    val keys get() = backing.keys.toSet()
+    override val keys get() = backing.keys.toSet()
 
     /**
      * The values as a list.
      */
-    val values get() = backing.values.toList()
+    override val values get() = backing.values.toList()
 
     /**
      * Blocks calls to the change listeners.
      */
     val silent by lazy {
         object : SimpleMap<K, V> {
+            override val isEmpty
+                get() = this@ObservableMap.isEmpty
+
+            override val keys
+                get() = this@ObservableMap.keys
+
+            override val values
+                get() = this@ObservableMap.values
+
             override fun set(key: K, value: V) =
                 backing.put(key, value)
 
@@ -144,7 +174,7 @@ abstract class ObservableMap<K, V> : SimpleMap<K, V> {
 /**
  * Creates a simplified observable map with the given delegates.
  */
-inline fun <K, V> observableMap(
+inline fun <K : Comparable<K>, V> observableMap(
     crossinline added: ObservableMap<K, V>.(K, V) -> Unit,
     crossinline changed: ObservableMap<K, V>.(K, V, V) -> Unit,
     crossinline removed: ObservableMap<K, V>.(K, V) -> Unit

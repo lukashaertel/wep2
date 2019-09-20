@@ -12,7 +12,7 @@ import kotlin.reflect.full.primaryConstructor
  * @param context The context to restore to.
  * @param restore The restore object.
  */
-fun <N, T : Comparable<T>, I> restoreIndex(
+fun <N, T : Comparable<T>, I : Comparable<I>> restoreIndex(
     context: Context<N, T, I>,
     restore: Restore
 ) {
@@ -44,7 +44,7 @@ fun <N, T : Comparable<T>, I> restoreIndex(
  * @param context The context to store from.
  * @param store The store object.
  */
-fun <N, T : Comparable<T>, I> storeIndex(
+fun <N, T : Comparable<T>, I : Comparable<I>> storeIndex(
     context: Context<N, T, I>,
     store: Store
 ) {

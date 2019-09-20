@@ -4,6 +4,7 @@ import eu.metatools.wep2.entity.Entity
 import eu.metatools.wep2.entity.RestoringEntity
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.bind.Store
+import eu.metatools.wep2.track.set
 import eu.metatools.wep2.util.ReadOnlyPropertyProvider
 import eu.metatools.wep2.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -14,13 +15,13 @@ import kotlin.reflect.KProperty1
 /**
  * Stores a set of entities, provides restoration.
  */
-fun <I, E : Entity<*, *, I>> refSet(restore: Restore?) =
-    ReadOnlyPropertyProvider { thisRef: Entity<*, *, I>, property ->
+fun <E> refSet(restore: Restore?) where  E : Entity<*, *, *>, E : Comparable<E> =
+    ReadOnlyPropertyProvider { thisRef: Entity<*, *, *>, property ->
         // Apply auto-saving mechanism.
         if (thisRef is RestoringEntity<*, *, *>) {
             // Type assert on result type, receiver is not null so this is a member property.
             @Suppress("unchecked_cast")
-            property as KProperty1<Entity<*, *, I>, SimpleSet<E>>
+            property as KProperty1<Entity<*, *, *>, SimpleSet<E>>
 
             thisRef.saveWith({ store: Store ->
                 store.saveRefSet(property.name, property.get(thisRef))
@@ -38,19 +39,23 @@ fun <I, E : Entity<*, *, I>> refSet(restore: Restore?) =
                 // Check if restoring.
                 if (restore != null) {
                     // Is restoring, retrieve the property as the stored IDs.
-                    val ids = restore.load<List<I>>(property.name)
+                    val ids = restore.load<List<Comparable<Any?>>>(property.name)
 
                     // Register resolution of the IDs.
                     restore.registerPost {
-                        current = Just(eu.metatools.wep2.track.set<E>().also { set ->
+                        // Cast index for access without type information.
+                        @Suppress("unchecked_cast")
+                        val index = thisRef.context.index as SimpleMap<Comparable<Any?>, E>
+
+                        current = Just(set<E>().also { set ->
                             ids.forEach {
-                                set.silent.add(thisRef.context.index[it] as E)
+                                set.silent.add(index[it] ?: throw IllegalStateException("Entity at $it not restored"))
                             }
                         })
                     }
                 } else {
                     // Not restoring, offer new set.
-                    current = Just(eu.metatools.wep2.track.set())
+                    current = Just(set())
                 }
             }
 
@@ -68,13 +73,13 @@ fun <I, E : Entity<*, *, I>> refSet(restore: Restore?) =
 /**
  * Saves the value of the property with a [SimpleSet] of entity references to the receiver.
  */
-fun <E : Entity<*, *, *>> Store.saveRefSet(name: String, value: SimpleSet<E>) {
+fun <E> Store.saveRefSet(name: String, value: SimpleSet<E>) where  E : Entity<*, *, *>, E : Comparable<E> {
     save(name, value.map { it.id })
 }
 
 /**
  * Saves the value of the property with a [SimpleSet] of entity references to the receiver.
  */
-fun <E : Entity<*, *, *>> Store.saveRefSet(property: KProperty0<SimpleSet<E>>) {
+fun <E> Store.saveRefSet(property: KProperty0<SimpleSet<E>>) where  E : Entity<*, *, *>, E : Comparable<E> {
     saveRefSet(property.name, property.get())
 }

@@ -16,7 +16,7 @@ import kotlin.reflect.KProperty1
 /**
  * A set partaking in change based undo-tracking. Alternatively, prop of an immutable set can be used.
  */
-fun <E> set(restore: Restore?) =
+fun <E : Comparable<E>> set(restore: Restore?) =
     // Create a property provider to receive the name.
     ReadOnlyPropertyProvider { thisRef: Any?, property ->
         // Apply auto-saving mechanism.
@@ -50,20 +50,20 @@ fun <E> set(restore: Restore?) =
 /**
  * Saves the value of the property with a [SimpleSet] to the receiver.
  */
-fun <E> Store.saveSet(name: String, value: SimpleSet<E>) {
+fun <E : Comparable<E>> Store.saveSet(name: String, value: SimpleSet<E>) {
     save(name, value.toList())
 }
 
 /**
  * Saves the value of the property with a [SimpleSet] to the receiver.
  */
-fun <E> Store.saveSet(property: KProperty0<SimpleSet<E>>) =
+fun <E : Comparable<E>> Store.saveSet(property: KProperty0<SimpleSet<E>>) =
     saveSet(property.name, property.get())
 
 /**
  * A map partaking in change based undo-tracking. Alternatively, prop of an immutable map can be used.
  */
-fun <K, V> map(restore: Restore?) =
+fun <K : Comparable<K>, V> map(restore: Restore?) =
 // Create a property provider to receive the name.
     ReadOnlyPropertyProvider { thisRef: Any?, property ->
         // Apply auto-saving mechanism.
@@ -97,12 +97,12 @@ fun <K, V> map(restore: Restore?) =
 /**
  * Saves the value of the property with a [SimpleMap] to the receiver.
  */
-fun <K, V> Store.saveMap(name: String, value: SimpleMap<K, V>) {
+fun <K : Comparable<K>, V> Store.saveMap(name: String, value: SimpleMap<K, V>) {
     save(name, value.map { (k, v) -> k to v })
 }
 
 /**
  * Saves the value of the property with a [SimpleMap] to the receiver.
  */
-fun <K, V> Store.saveMap(property: KProperty0<SimpleMap<K, V>>) =
+fun <K : Comparable<K>, V> Store.saveMap(property: KProperty0<SimpleMap<K, V>>) =
     saveMap(property.name, property.get())

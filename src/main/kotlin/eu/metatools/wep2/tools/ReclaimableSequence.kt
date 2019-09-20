@@ -1,9 +1,6 @@
 package eu.metatools.wep2.tools
 
-import eu.metatools.wep2.util.labeledAs
-import eu.metatools.wep2.util.longs
-import eu.metatools.wep2.util.randomInts
-import eu.metatools.wep2.util.shorts
+import eu.metatools.wep2.util.*
 import java.util.*
 
 /**
@@ -14,7 +11,9 @@ import java.util.*
  * @param zero The zero value to use for the recycle counts.
  * @param inc How to increment the recycle counts.
  */
-class ReclaimableSequence<I, R>(val sequence: Sequence<I>, val zero: R, val inc: (R) -> R) {
+class ReclaimableSequence<I : Comparable<I>, R : Comparable<R>>(
+    val sequence: Sequence<I>, val zero: R, val inc: (R) -> R
+) {
     companion object {
         /**
          * Restores a [ReclaimableSequence] from the defining values of another scoped sequence.
@@ -24,8 +23,9 @@ class ReclaimableSequence<I, R>(val sequence: Sequence<I>, val zero: R, val inc:
          * @param head Defining value of where source was at.
          * @param recycled Defining value of all recycled items.
          */
-        fun <I, R> restore(sequence: Sequence<I>, zero: R, inc: (R) -> R, head: I?, recycled: List<Pair<I, R>>)
-                : ReclaimableSequence<I, R> {
+        fun <I : Comparable<I>, R : Comparable<R>> restore(
+            sequence: Sequence<I>, zero: R, inc: (R) -> R, head: I?, recycled: List<ComparablePair<I, R>>
+        ): ReclaimableSequence<I, R> {
             // Create the result sequence from the basic parameters.
             val result = ReclaimableSequence(sequence, zero, inc)
 
@@ -57,7 +57,7 @@ class ReclaimableSequence<I, R>(val sequence: Sequence<I>, val zero: R, val inc:
     /**
      * Stack of currently recycling identities.
      */
-    private val recycleStack = Stack<Pair<I, R>>()
+    private val recycleStack = Stack<ComparablePair<I, R>>()
 
     /**
      * The currently recycled identities.
@@ -67,12 +67,12 @@ class ReclaimableSequence<I, R>(val sequence: Sequence<I>, val zero: R, val inc:
     /**
      * claims an ID, returns the generator's next element on zero recycle counts or recycles an element.
      */
-    fun claim(): Pair<Pair<I, R>, () -> Unit> {
+    fun claim(): Pair<ComparablePair<I, R>, () -> Unit> {
         // Recycle or get new ID, for new ID set recycle count to zero.
         val result = if (recycleStack.isEmpty())
-            generator.next().also { generatorHead = it } to zero
+            ComparablePair(generator.next().also { generatorHead = it }, zero)
         else
-            recycleStack.pop().let { (id, rc) -> id to inc(rc) }
+            recycleStack.pop().let { (id, rc) -> ComparablePair(id, inc(rc)) }
 
         // Return item paired with undo.
         return result to ({
@@ -86,9 +86,9 @@ class ReclaimableSequence<I, R>(val sequence: Sequence<I>, val zero: R, val inc:
     /**
      * Releases the given [id], increments it's recycle count.
      */
-    fun release(element: Pair<I, R>): () -> Unit {
+    fun release(element: ComparablePair<I, R>): () -> Unit {
         // Add to bin, increment recycle counter.
-        recycleStack.push(element.first to element.second)
+        recycleStack.push(element)
 
         // Return popping the recycled element.
         return {
@@ -104,7 +104,7 @@ class ReclaimableSequence<I, R>(val sequence: Sequence<I>, val zero: R, val inc:
  * Reclaimable sequence generating short natural numbers with a short recycle count.
  */
 fun shortNat(start: Short = 0) =
-    ReclaimableSequence(shorts(start), 0, Short::inc)
+    ReclaimableSequence(shorts(start), 0.toShort(), Short::inc)
 
 /**
  * Reclaimable sequence generating short natural numbers with an integer recycle count.
@@ -116,7 +116,7 @@ fun shortNatBusy(start: Short = 0) =
  * Reclaimable sequence generating long natural numbers with a short recycle count.
  */
 fun longNat(start: Long = 0L) =
-    ReclaimableSequence(longs(start), 0, Short::inc)
+    ReclaimableSequence(longs(start), 0.toShort(), Short::inc)
 
 /**
  * Reclaimable sequence generating long natural numbers with an integer recycle count.
@@ -129,7 +129,7 @@ fun longBusy(start: Long = 0L) =
  */
 fun intRandom(seed: Long = 0): ReclaimableSequence<Int, Short> {
     val random = Random(seed)
-    return ReclaimableSequence(randomInts(seed), 0, Short::inc)
+    return ReclaimableSequence(randomInts(seed), 0.toShort(), Short::inc)
 }
 
 /**

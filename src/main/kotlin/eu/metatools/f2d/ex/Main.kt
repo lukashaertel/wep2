@@ -1,4 +1,4 @@
-package eu.metatools.f2d
+package eu.metatools.f2d.ex
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
@@ -7,9 +7,9 @@ import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
-import eu.metatools.f2d.context.offset
+import eu.metatools.f2d.F2DListener
+import eu.metatools.f2d.context.Lifecycle
 import eu.metatools.f2d.context.refer
-import eu.metatools.f2d.context.then
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.math.deg
@@ -17,7 +17,6 @@ import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.util.contains
 import eu.metatools.f2d.wep2.encoding.GdxEncoding
 import eu.metatools.f2d.wep2.recEnqueue
-import eu.metatools.nw.encoding.Encoding
 import eu.metatools.nw.enter
 import eu.metatools.wep2.entity.bind.Restore
 import eu.metatools.wep2.entity.name
@@ -34,8 +33,8 @@ import eu.metatools.wep2.track.randomOf
 import eu.metatools.wep2.util.randomInts
 import org.lwjgl.opengl.GL11
 import java.io.ObjectOutputStream
-import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.cos
 
 // Shortened type declarations as aliases.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -60,13 +59,13 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
 
     var color by prop(restore) { Color.WHITE }
 
-    private fun paintNext(time: Time) = with(Frontend) {
+    private fun paintNext(time: Time) = with(frontend) {
         // Get random offset.
         val xo = root.rnd.randomInt(-1, 2)
         val yo = root.rnd.randomInt(-1, 2)
 
         // Get the corresponding field.
-        root.fields[(x + xo) to (y + yo)]?.let {
+        root.fields[XY(x + xo, y + yo)]?.let {
             // Get a new random color.
             val rc = root.rnd.randomOf(Root.randomColors)
 
@@ -74,12 +73,12 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
             if (rc != it.color) {
                 it.color = rc
 
-                // Play sound when actually changed.
-                once.recEnqueue(fire offset time.time.sec) {
-                    // Translation of field, relative to listener at center.
-                    Mat()
-                        .translate((x + xo) * 264f, (y + yo) * 264f, 0f)
-                }
+//                // Play sound when actually changed.
+//                once.recEnqueue(fire offset time.time.sec) {
+//                    // Translation of field, relative to listener at center.
+//                    Mat()
+//                        .translate((x + xo) * 264f, (y + yo) * 264f, 0f)
+//                }
             }
         }
     }
@@ -89,7 +88,7 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
         else -> throw IllegalArgumentException("$name unrecognized")
     }
 
-    fun render(time: Double) = with(Frontend) {
+    fun render(time: Double) = with(frontend) {
         val coords = Mat()
             .translate(x * 264f, y * 264f, 0f)
             .scale(64f, 64f, 1f)
@@ -101,8 +100,8 @@ class Field(context: GameContext, restore: Restore?) : GameEntity(context, resto
                 1f
             )
 
-        continuous.submit(solid.blend(GL11.GL_ONE, GL11.GL_ONE), Variation(color), time, coords)
-        continuous.submit(Cube, this@Field, time, coords)
+//        continuous.submit(solid.blend(GL11.GL_ONE, GL11.GL_ONE), Variation(color), time, coords)
+//        continuous.submit(Cube, this@Field, time, coords)
     }
 }
 
@@ -120,12 +119,12 @@ class Root(context: GameContext, restore: Restore?) : GameEntity(context, restor
 
     val rnd by claimer(restore, randomInts(0L))
 
-    val fields by refMap<SI, Pair<Int, Int>, Field>(restore)
+    val fields by refMap<XY, Field>(restore)
 
     private fun initialize(time: Time) {
         for (x in 0..2)
             for (y in 0..2)
-                fields[x to y] = Field(context, null).also {
+                fields[XY(x, y)] = Field(context, null).also {
                     it.x = x
                     it.y = y
                     it.color = rnd.randomOf(randomColors)
@@ -146,16 +145,18 @@ class Root(context: GameContext, restore: Restore?) : GameEntity(context, restor
     }
 }
 
-val encoding: Encoding<GameName, GameParam> = GdxEncoding()
+interface RootRender {
+    fun render(time: Double)
+}
 
 // Frontend object.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-object Frontend : F2DListener(-100f, 100f) {
+class Frontend : F2DListener(-100f, 100f) {
     /**
      * Cluster contribution methods.
      */
-    val net = enter(encoding, "game", Unit).also {
+    val net = enter(GdxEncoding<GameName, GameParam>(), "game", Unit).also {
         it.system.claimNewPlayer(System.currentTimeMillis())
     }
 
@@ -182,30 +183,17 @@ object Frontend : F2DListener(-100f, 100f) {
         }
 
     /**
-     * Solid colors resource.
+     * Map of resource keys to instance.
      */
-    val solids = use(SolidResource())
+    private val resources = mutableMapOf<Any, Lifecycle>()
 
     /**
-     * Solid color.
+     * Gets or creates the resource.
      */
-    val solid = solids.refer()
-
-    val atlas = use(AtlasResource { Gdx.files.internal("trees.atlas") })
-
-    val treeA = atlas.refer(Animated("tree1", 2.0, false))
-
-    val treeB = atlas.refer(Animated("tree3", 2.0, false))
-
-    /**
-     * Resource of an AK74 firing (?)
-     */
-    val fires = use(SoundResource { Gdx.files.internal("ak74-fire.wav") })
-
-    /**
-     * A sound.
-     */
-    val fire = fires.refer()
+    fun <T : Lifecycle> resource(key: Any, create: () -> T): T {
+        @Suppress("unchecked_cast")
+        return resources.getOrPut(key, { use(create()) }) as T
+    }
 
     override fun create() {
         super.create()
@@ -215,7 +203,7 @@ object Frontend : F2DListener(-100f, 100f) {
             override fun keyUp(keycode: Int): Boolean {
                 when (keycode) {
                     Input.Keys.SPACE ->
-                        root.fields[1 to 1]?.signal("paintNext", system.time(), Unit)
+                        root.fields[XY(1, 1)]?.signal("paintNext", system.time(), Unit)
                     Input.Keys.ESCAPE ->
                         Gdx.app.exit()
                     else -> return false
@@ -264,14 +252,17 @@ object Frontend : F2DListener(-100f, 100f) {
         system.releasePlayer(System.currentTimeMillis())
 
         net.stop()
-
-        ObjectOutputStream(Gdx.files.external("sg").write(false)).use {
-            system.save().summarize().let(::println)
-        }
+//
+//        ObjectOutputStream(Gdx.files.external("sg").write(false)).use {
+//            system.save().summarize().let(::println)
+//        }
     }
 }
 
+lateinit var frontend: Frontend
+
 fun main() {
+    frontend = Frontend()
     val config = LwjglApplicationConfiguration()
-    LwjglApplication(Frontend, config)
+    LwjglApplication(frontend, config)
 }
