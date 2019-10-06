@@ -2,7 +2,6 @@ package eu.metatools.f2d.util
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
-import com.badlogic.gdx.math.Vector2
 
 /**
  * Touch x-coordinate in the projection space.

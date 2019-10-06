@@ -1,20 +1,19 @@
 package eu.metatools.wep2.examples
 
-import eu.metatools.wep2.coord.Coordinator
+import eu.metatools.wep2.components.prop
 import eu.metatools.wep2.entity.*
-import eu.metatools.wep2.entity.bind.*
+import eu.metatools.wep2.storage.Restore
+import eu.metatools.wep2.storage.restoreBy
+import eu.metatools.wep2.storage.storeBy
 import eu.metatools.wep2.tools.ReclaimableSequence
 import eu.metatools.wep2.tools.shortNat
 import eu.metatools.wep2.track.Claimer
-import eu.metatools.wep2.track.SI
-import eu.metatools.wep2.track.bind.prop
-import eu.metatools.wep2.track.bind.ref
 
 /**
  * A container entity with a child.
  */
 class Container(context: Context<Int, Int, SI>, restore: Restore?) : RestoringEntity<Int, Int, SI>(context, restore) {
-    var element by ref(restore) {
+    var element by prop {
         Element(context, restore)
     }
 
@@ -22,16 +21,16 @@ class Container(context: Context<Int, Int, SI>, restore: Restore?) : RestoringEn
         return {}
     }
 
-    override fun toString() = "(Container $id, element=${element?.id})"
+    override fun toString() = "(Container $id, element=${element.id})"
 }
 
 /**
  * A child entity with some properties.
  */
 class Element(context: Context<Int, Int, SI>, restore: Restore?) : RestoringEntity<Int, Int, SI>(context, restore) {
-    var xCoord by prop(restore) { 0 }
+    var xCoord by prop { 0 }
 
-    var yCoord by prop(restore) { 0 }
+    var yCoord by prop { 0 }
 
     override fun evaluate(name: Int, time: Int, args: Any?): () -> Unit {
         return {}
@@ -45,7 +44,7 @@ class Element(context: Context<Int, Int, SI>, restore: Restore?) : RestoringEnti
  */
 fun main() {
     // Generate basic status, entity map with simple names and identities.
-    val index = entityMap<Int, Int, SI>()
+    val index by entityMap<Int, Int, SI>()
     val idgen = shortNat()
     val ids = Claimer(idgen)
 
@@ -55,14 +54,14 @@ fun main() {
     // Create the existing entity, assign the element values.
     val root = Container(context, null).also {
         // Delete the element, creating a state that would not be equal to the default.
-        it.element?.delete()
+        it.element.delete()
 
         // Assign a new element.
         it.element = Element(it.context, null)
 
         // Set it's values.
-        it.element?.xCoord = 2
-        it.element?.yCoord = 5
+        it.element.xCoord = 2
+        it.element.yCoord = 5
     }
 
 
@@ -79,7 +78,7 @@ fun main() {
     }
 
     // Create the index to restore.
-    val resIndex = entityMap<Int, Int, SI>()
+    val resIndex by entityMap<Int, Int, SI>()
 
     // Restore the identity generator.
     val resIdgen = ReclaimableSequence.restore(

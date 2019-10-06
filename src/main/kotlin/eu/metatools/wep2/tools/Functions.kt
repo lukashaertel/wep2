@@ -1,10 +1,8 @@
 package eu.metatools.wep2.tools
 
-import eu.metatools.wep2.entity.Context
 import eu.metatools.wep2.track.rec
 import kotlin.reflect.KFunction1
 import kotlin.reflect.KFunction2
-import kotlin.reflect.full.isSupertypeOf
 
 
 /**

@@ -28,17 +28,19 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     /**
      * True if creation has happened.
      */
-    private var postCreate = false
+    var postCreate = false
+        private set
 
     /**
      * True if disposal happened.
      */
-    private var postDispose = false
+    var postDispose = false
+        private set
 
     /**
      * Marks an element as used, will be initialized and disposed of in the corresponding methods.
      */
-    protected fun <T : Lifecycle> use(element: T): T {
+    fun <T : Lifecycle> use(element: T): T {
         // Add to resources to be initialized and disposed of.
         roots.add(element)
 

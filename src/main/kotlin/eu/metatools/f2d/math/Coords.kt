@@ -1,6 +1,6 @@
 package eu.metatools.f2d.math
 
-import kotlin.math.*
+import kotlin.math.round
 
 
 @Suppress("nothing_to_inline")

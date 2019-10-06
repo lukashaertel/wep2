@@ -1,4 +1,4 @@
-package eu.metatools.wep2.entity.bind
+package eu.metatools.wep2.storage
 
 import eu.metatools.wep2.entity.RestoringEntity
 

@@ -3,8 +3,8 @@ package eu.metatools.f2d.tools
 import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
-import eu.metatools.f2d.context.*
-import java.lang.IllegalArgumentException
+import eu.metatools.f2d.context.LifecycleDrawable
+import eu.metatools.f2d.context.NotifyingResource
 
 /**
  * Arguments to refer an [AtlasResource].
@@ -31,7 +31,7 @@ data class Animated(val name: String, val length: Double, val looping: Boolean =
  */
 class AtlasResource(
     val location: () -> FileHandle
-) : NotifyingResource<ReferAtlas, LifecycleDrawable<Variation?>>() {
+) : NotifyingResource<ReferAtlas, LifecycleDrawable<Unit?>>() {
     /**
      * The atlas the resources are taken from when referring a new drawable.
      */
@@ -51,7 +51,7 @@ class AtlasResource(
 
     override fun referNew(argsResource: ReferAtlas) = when (argsResource) {
         // Static drawable is requested.
-        is Static -> object : LifecycleDrawable<Variation?> {
+        is Static -> object : LifecycleDrawable<Unit?> {
             /**
              * The region to draw when initialized.
              */
@@ -67,25 +67,12 @@ class AtlasResource(
                 region = null
             }
 
-            override fun draw(args: Variation?, time: Double, spriteBatch: SpriteBatch) {
+            override fun draw(args: Unit?, time: Double, spriteBatch: SpriteBatch) {
                 // Get region or return if not assigned yet.
                 val region = region ?: return
 
-                // Get args or default.
-                val activeArgs = args ?: Variation.DEFAULT
-
-                // Memorize color.
-                val colorBefore = spriteBatch.color.cpy()
-                spriteBatch.color = activeArgs.tint
-
-                // Draw with desired sizing.
-                if (activeArgs.keepSize)
-                    spriteBatch.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
-                else
-                    spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
-
-                // Reset color.
-                spriteBatch.color = colorBefore
+                // Draw to sprite batch.
+                spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
             }
 
             override val duration: Double
@@ -95,7 +82,7 @@ class AtlasResource(
         }
 
         // Animated drawable is requested.
-        is Animated -> object : LifecycleDrawable<Variation?> {
+        is Animated -> object : LifecycleDrawable<Unit?> {
             /**
              * The regions to draw when initialized.
              */
@@ -116,12 +103,9 @@ class AtlasResource(
                 regions = null
             }
 
-            override fun draw(args: Variation?, time: Double, spriteBatch: SpriteBatch) {
+            override fun draw(args: Unit?, time: Double, spriteBatch: SpriteBatch) {
                 // Get regions or return if not assigned yet.
                 val regions = regions ?: return
-
-                // Get args or default.
-                val activeArgs = args ?: Variation.DEFAULT
 
                 val region = (time / (argsResource.length / regions.size)).toInt().let {
                     // If looping, wrap by modulo, otherwise stop at last index.
@@ -131,18 +115,8 @@ class AtlasResource(
                         regions[minOf(it, regions.size - 1)]
                 }
 
-                // Memorize color.
-                val colorBefore = spriteBatch.color.cpy()
-                spriteBatch.color = activeArgs.tint
-
-                // Draw with desired sizing.
-                if (activeArgs.keepSize)
-                    spriteBatch.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
-                else
-                    spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
-
-                // Reset color.
-                spriteBatch.color = colorBefore
+                // Draw to sprite batch.
+                spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
             }
 
             override val duration: Double

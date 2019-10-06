@@ -89,7 +89,7 @@ class SoundResource(
         sound = null
     }
 
-    override fun refer(argsResource: ReferSound?) =
+    override fun get(argsResource: ReferSound?) =
         object : Playable<Modulation?> {
             private val activeArgsResource = argsResource ?: ReferSound.DEFAULT
 

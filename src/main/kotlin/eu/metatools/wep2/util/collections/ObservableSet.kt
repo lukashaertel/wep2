@@ -1,36 +1,20 @@
-package eu.metatools.wep2.util
+package eu.metatools.wep2.util.collections
 
+import eu.metatools.wep2.util.listeners.SetListener
 import java.util.*
 
 /**
- * A simpler interface for mutable sets.
+ * The listener for an [ObservableSet].
  */
-interface SimpleSet<E : Comparable<E>> : Iterable<E> {
-    /**
-     * True if the set is not empty.
-     */
-    val isEmpty: Boolean get() = iterator().hasNext()
-
-    /**
-     * Adds an element. True if changed.
-     */
-    fun add(element: E): Boolean
-
-    /**
-     * Removes an element. True if changed.
-     */
-    fun remove(element: E): Boolean
-
-    /**
-     * True if the element is in the set.
-     */
-    operator fun contains(element: E): Boolean
-}
+typealias ObservableSetListener<E> = SetListener<ObservableSet<E>, E>
 
 /**
  * Simplified observable set.
+ * @param listener The listener to notify.
  */
-abstract class ObservableSet<E : Comparable<E>> : SimpleSet<E> {
+class ObservableSet<E : Comparable<E>>(
+    val listener: ObservableSetListener<E>
+) : SimpleSet<E> {
     private val backing = TreeSet<E>()
 
     override val isEmpty
@@ -62,7 +46,8 @@ abstract class ObservableSet<E : Comparable<E>> : SimpleSet<E> {
         if (!backing.add(element))
             return false
 
-        added(element)
+        listener.added(this, element)
+
         return true
     }
 
@@ -70,7 +55,8 @@ abstract class ObservableSet<E : Comparable<E>> : SimpleSet<E> {
         if (!backing.remove(element))
             return false
 
-        removed(element)
+        listener.removed(this, element)
+
         return true
     }
 
@@ -79,16 +65,6 @@ abstract class ObservableSet<E : Comparable<E>> : SimpleSet<E> {
 
     override fun iterator() =
         backing.iterator()
-
-    /**
-     * Called when a value was actually added.
-     */
-    protected abstract fun added(element: E)
-
-    /**
-     * Called when a value was actually removed.
-     */
-    protected abstract fun removed(element: E)
 
     override fun toString() =
         backing.toString()
@@ -110,16 +86,3 @@ abstract class ObservableSet<E : Comparable<E>> : SimpleSet<E> {
     }
 }
 
-/**
- * Creates a simplified observable set with the given delegates.
- */
-inline fun <E : Comparable<E>> observableSet(
-    crossinline added: ObservableSet<E>.(E) -> Unit,
-    crossinline removed: ObservableSet<E>.(E) -> Unit
-) = object : ObservableSet<E>() {
-    override fun added(element: E) =
-        added(this, element)
-
-    override fun removed(element: E) =
-        removed(this, element)
-}

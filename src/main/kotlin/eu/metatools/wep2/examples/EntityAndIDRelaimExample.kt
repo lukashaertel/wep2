@@ -1,10 +1,13 @@
 package eu.metatools.wep2.examples
 
+import eu.metatools.wep2.components.prop
 import eu.metatools.wep2.coord.Warp
 import eu.metatools.wep2.entity.*
-import eu.metatools.wep2.tools.*
-import eu.metatools.wep2.track.*
-import java.lang.IllegalArgumentException
+import eu.metatools.wep2.tools.Time
+import eu.metatools.wep2.tools.TimeGenerator
+import eu.metatools.wep2.tools.shortNat
+import eu.metatools.wep2.track.Claimer
+import eu.metatools.wep2.track.rec
 
 /**
  * An entity created by the coordinator or another entity.
@@ -15,7 +18,7 @@ class Child(context: Context<String, Time, SI>, val parent: SI? = null) :
     /**
      * The money of this child, needed to create another child.
      */
-    var money by prop(3)
+    var money by prop { 3 }
 
 
     override fun evaluate(name: String, time: Time, args: Any?) =
@@ -56,8 +59,7 @@ class Example : Warp<SN<String>, Time>(), Context<String, Time, SI> {
     /**
      * The central entity index.
      */
-    override val index = entityMap<String, Time, SI>()
-
+    override val index by entityMap<String, Time, SI>()
 
     /**
      * The ID generator.

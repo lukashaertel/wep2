@@ -1,11 +1,11 @@
 package eu.metatools.wep2.examples
 
-import eu.metatools.wep2.entity.bind.Restore
+import eu.metatools.wep2.components.claimer
+import eu.metatools.wep2.components.prop
+import eu.metatools.wep2.storage.Restore
 import eu.metatools.wep2.system.StandardEntity
 import eu.metatools.wep2.system.StandardSystem
 import eu.metatools.wep2.tools.Time
-import eu.metatools.wep2.track.bind.claimer
-import eu.metatools.wep2.track.bind.prop
 import eu.metatools.wep2.track.randomInt
 import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.randomInts
@@ -20,22 +20,22 @@ class StandardChild(
     val system: StandardSystem<String, Int>,
     restore: Restore?
 ) : StandardEntity<String>(system, restore) {
-    val rnd by claimer(restore, randomInts(0L))
+    val rnd by claimer(randomInts(0L))
 
     /**
      * A restored or initialized value.
      */
-    var value by prop(restore) { system.parameter }
+    var value by prop { system.parameter }
 
     /**
      * A random value.
      */
-    var ar by prop(restore) { 0 }
+    var ar by prop { 0 }
 
     /**
      * Another random value.
      */
-    var br by prop(restore) { 0 }
+    var br by prop { 0 }
 
     override fun evaluate(name: String, time: Time, args: Any?) =
         when (name) {

@@ -1,7 +1,9 @@
 package eu.metatools.f2d.math
 
 import com.badlogic.gdx.math.Matrix4
-import java.io.Serializable
+import java.io.Externalizable
+import java.io.ObjectInput
+import java.io.ObjectOutput
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
@@ -11,11 +13,11 @@ import kotlin.math.sqrt
  * Four by four matrix, non-self mutating.
  * @property values The values of the array, provide this with an array that won't be mutated afterwards.
  */
-class Mat(val values: FloatArray) : Serializable {
+class Mat(val values: FloatArray) : Externalizable {
     /**
-     * Creates a new matrix with the values of [Id].
+     * Creates a new matrix with all zeroes.
      */
-    constructor() : this(Id.values)
+    constructor() : this(FloatArray(16))
 
     /**
      * Creates the matrix from a [Matrix4].
@@ -63,7 +65,7 @@ class Mat(val values: FloatArray) : Serializable {
         /**
          * Creates a translation matrix.
          */
-        fun translation(x: Float, y: Float, z: Float = 0f) = Mat(
+        fun translation(x: Float = 0f, y: Float = 0f, z: Float = 0f) = Mat(
             1f, 0f, 0f, x,
             0f, 1f, 0f, y,
             0f, 0f, 1f, z,
@@ -79,7 +81,7 @@ class Mat(val values: FloatArray) : Serializable {
         /**
          * Creates a rotation matrix around the axis.
          */
-        fun rotation(ax: Float, ay: Float, az: Float, rad: Float): Mat {
+        fun rotation(ax: Float = 0f, ay: Float = 0f, az: Float = 0f, rad: Float = 0f): Mat {
             if (rad == 0f)
                 return Id
             if (ax == 0f || ay == 0f || az == 0f)
@@ -179,7 +181,7 @@ class Mat(val values: FloatArray) : Serializable {
         /**
          * Creates a scaling matrix.
          */
-        fun scaling(sx: Float, sy: Float, sz: Float = 1f) = Mat(
+        fun scaling(sx: Float = 1f, sy: Float = 1f, sz: Float = 1f) = Mat(
             sx, 0f, 0f, 0f,
             0f, sy, 0f, 0f,
             0f, 0f, sz, 0f,
@@ -234,12 +236,30 @@ class Mat(val values: FloatArray) : Serializable {
     }
 
     /**
+     * Multiplies all points.
+     */
+    operator fun times(pts: Pts): Pts {
+        val target = toVecValues(pts)
+        Matrix4.mulVec(values, target, 0, target.size / 3, 3)
+        return fromVecValues(target)
+    }
+
+    /**
      * Multiplies all vectors, divides by w-component for projection.
      */
     fun project(vecs: Vecs): Vecs {
         val target = vecs.values.clone()
         Matrix4.prj(values, target, 0, target.size / 3, 3)
         return Vecs(*target)
+    }
+
+    /**
+     * Multiplies all points, divides by w-component for projection.
+     */
+    fun project(pts: Pts): Pts {
+        val target = toVecValues(pts)
+        Matrix4.prj(values, target, 0, target.size / 3, 3)
+        return fromVecValues(target)
     }
 
     /**
@@ -252,12 +272,31 @@ class Mat(val values: FloatArray) : Serializable {
     }
 
     /**
+     * Multiplies all points, ignores translation.
+     */
+    fun rotate(pts: Pts): Pts {
+        val target = toVecValues(pts)
+        Matrix4.rot(values, target, 0, target.size / 3, 3)
+        return fromVecValues(target)
+    }
+
+
+    /**
      * Multiplies the vector.
      */
     operator fun times(vec: Vec): Vec {
         val target = vec.values.clone()
         Matrix4.mulVec(values, target)
         return Vec(target)
+    }
+
+    /**
+     * Multiplies the point.
+     */
+    operator fun times(pt: Pt): Pt {
+        val target = floatArrayOf(pt.x, pt.y, 0f)
+        Matrix4.mulVec(values, target)
+        return Pt(target[0], target[1])
     }
 
     /**
@@ -270,12 +309,30 @@ class Mat(val values: FloatArray) : Serializable {
     }
 
     /**
+     * Multiplies the point, divides by w-component for projection.
+     */
+    fun project(pt: Pt): Pt {
+        val target = floatArrayOf(pt.x, pt.y, 0f)
+        Matrix4.prj(values, target)
+        return Pt(target[0], target[1])
+    }
+
+    /**
      * Multiplies the vector, ignores translation.
      */
     fun rotate(vec: Vec): Vec {
         val target = vec.values.clone()
         Matrix4.rot(values, target)
         return Vec(target)
+    }
+
+    /**
+     * Multiplies the point, ignores translation.
+     */
+    fun rotate(pt: Pt): Pt {
+        val target = floatArrayOf(pt.x, pt.y, 0f)
+        Matrix4.rot(values, target)
+        return Pt(target[0], target[1])
     }
 
     /**
@@ -319,7 +376,7 @@ class Mat(val values: FloatArray) : Serializable {
     /**
      * Post-multiplies the matrix with the given translation.
      */
-    fun translate(x: Float, y: Float, z: Float = 0f) =
+    fun translate(x: Float = 0f, y: Float = 0f, z: Float = 0f) =
         times(translation(x, y, z))
 
     /**
@@ -331,7 +388,7 @@ class Mat(val values: FloatArray) : Serializable {
     /**
      * Post-multiplies the matrix with the given rotation.
      */
-    fun rotate(ax: Float, ay: Float, az: Float, rad: Float) =
+    fun rotate(ax: Float = 0f, ay: Float = 0f, az: Float = 0f, rad: Float = 0f) =
         times(rotation(ax, ay, az, rad))
 
     /**
@@ -361,7 +418,7 @@ class Mat(val values: FloatArray) : Serializable {
     /**
      * Post-multiplies the matrix with the given scaling.
      */
-    fun scale(sx: Float, sy: Float, sz: Float = 1f) =
+    fun scale(sx: Float = 1f, sy: Float, sz: Float = 1f) =
         times(scaling(sx, sy, sz))
 
     /**
@@ -462,7 +519,50 @@ class Mat(val values: FloatArray) : Serializable {
         append(", ")
         append(roundForPrint(values[15]))
         append("}")
+    }
 
+    override fun readExternal(input: ObjectInput) {
+        values[0] = input.readFloat()
+        values[1] = input.readFloat()
+        values[2] = input.readFloat()
+        values[3] = input.readFloat()
+
+        values[4] = input.readFloat()
+        values[5] = input.readFloat()
+        values[6] = input.readFloat()
+        values[7] = input.readFloat()
+
+        values[8] = input.readFloat()
+        values[9] = input.readFloat()
+        values[10] = input.readFloat()
+        values[11] = input.readFloat()
+
+        values[12] = input.readFloat()
+        values[13] = input.readFloat()
+        values[14] = input.readFloat()
+        values[15] = input.readFloat()
+    }
+
+    override fun writeExternal(output: ObjectOutput) {
+        output.writeFloat(values[0])
+        output.writeFloat(values[1])
+        output.writeFloat(values[2])
+        output.writeFloat(values[3])
+
+        output.writeFloat(values[4])
+        output.writeFloat(values[5])
+        output.writeFloat(values[6])
+        output.writeFloat(values[7])
+
+        output.writeFloat(values[8])
+        output.writeFloat(values[9])
+        output.writeFloat(values[10])
+        output.writeFloat(values[11])
+
+        output.writeFloat(values[12])
+        output.writeFloat(values[13])
+        output.writeFloat(values[14])
+        output.writeFloat(values[15])
     }
 }
 

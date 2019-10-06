@@ -5,7 +5,6 @@ import com.badlogic.gdx.audio.Sound
 import com.badlogic.gdx.backends.lwjgl.audio.OpenALAudio
 import com.badlogic.gdx.backends.lwjgl.audio.OpenALSound
 import com.badlogic.gdx.utils.LongMap
-import java.lang.IllegalStateException
 
 /**
  * Navigates from the object to the explicitly given superclass [T]. Used for declared field access.

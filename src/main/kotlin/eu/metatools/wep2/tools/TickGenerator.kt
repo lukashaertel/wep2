@@ -67,7 +67,7 @@ inline fun <N, T : Comparable<T>> TickGenerator.tickTo(
     time: Long,
     crossinline convert: (Long) -> T
 ) = coordinator.receiveAll(generateTicks(time).asSequence().map {
-    Triple(name, convert(it), Unit)
+    Triple(name, convert(it), frequency)
 })
 
 /**

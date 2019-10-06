@@ -1,8 +1,12 @@
 package eu.metatools.wep2.examples
 
+import eu.metatools.wep2.components.map
+import eu.metatools.wep2.components.prop
 import eu.metatools.wep2.coord.Warp
+import eu.metatools.wep2.entity.SI
 import eu.metatools.wep2.tools.*
-import eu.metatools.wep2.track.*
+import eu.metatools.wep2.track.Claimer
+import eu.metatools.wep2.track.rec
 
 /**
  * Example of a coordinator that will be restored.
@@ -17,12 +21,12 @@ class RestorationExample(idgen: ReclaimableSequence<Short, Short>) : Warp<String
     /**
      * Current value with undo tracking.
      */
-    var value by prop(0)
+    var value by prop { 0 }
 
     /**
      * Items created for the coordinator.
      */
-    var items = map<SI, String>()
+    val items by map<SI, String>()
 
     override fun evaluate(name: String, time: Time, args: Any?) =
         when (name) {

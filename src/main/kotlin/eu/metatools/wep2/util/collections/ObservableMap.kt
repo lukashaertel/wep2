@@ -1,52 +1,22 @@
-package eu.metatools.wep2.util
+package eu.metatools.wep2.util.collections
 
-import java.lang.UnsupportedOperationException
+import eu.metatools.wep2.util.listeners.MapListener
 import java.util.*
 
 /**
- * A simpler interface for mutable maps.
+ * The listener for an [ObservableMap].
  */
-interface SimpleMap<K:Comparable<K>, V> : Iterable<Map.Entry<K, V>> {
-    /**
-     * True if the map is not empty.
-     */
-    val isEmpty: Boolean get() = iterator().hasNext()
+typealias ObservableMapListener<K, V> = MapListener<ObservableMap<K, V>, K, V>
 
-    /**
-     * Gets all keys if supported.
-     */
-    val keys: Set<K> get() = throw UnsupportedOperationException("This map does not expose key set")
-
-    /**
-     * Gets all values if supported.
-     */
-    val values: List<V> get() = throw UnsupportedOperationException("This map does not expose value list")
-
-    /**
-     * Sets the key to the value, returns the previous association or null.
-     */
-    operator fun set(key: K, value: V): V?
-
-    /**
-     * Sets the value for the key, returns the previous association or null.
-     */
-    fun remove(key: K): V?
-
-    /**
-     * Returns the value associated to the key or null.
-     */
-    operator fun get(key: K): V?
-
-    /**
-     * True if the key is associated in the map.
-     */
-    operator fun contains(key: K): Boolean
-}
 
 /**
  * Simplified observable map.
+ * @param listener The listener to notify..
  */
-abstract class ObservableMap<K : Comparable<K>, V> : SimpleMap<K, V> {
+class ObservableMap<K : Comparable<K>, V>(
+    val listener: ObservableMapListener<K, V>
+) : SimpleMap<K, V> {
+
     private val backing = TreeMap<K, V>()
 
     override val isEmpty
@@ -99,13 +69,13 @@ abstract class ObservableMap<K : Comparable<K>, V> : SimpleMap<K, V> {
 
         // Old value not present, notify add.
         if (before == null) {
-            added(key, value)
+            listener.added(this, key, value)
             return before
         }
 
         // Old value differing, notify change.
         if (before != value) {
-            changed(key, before, value)
+            listener.changed(this, key, before, value)
             return before
         }
 
@@ -119,7 +89,7 @@ abstract class ObservableMap<K : Comparable<K>, V> : SimpleMap<K, V> {
 
         // Old value was present, notify removal.
         if (before != null) {
-            removed(key, before)
+            listener.removed(this, key, before)
             return before
         }
 
@@ -135,21 +105,6 @@ abstract class ObservableMap<K : Comparable<K>, V> : SimpleMap<K, V> {
 
     override fun iterator() =
         backing.iterator()
-
-    /**
-     * Called when an entry is actually added.
-     */
-    protected abstract fun added(key: K, value: V)
-
-    /**
-     * Called when an entry is actually changed.
-     */
-    protected abstract fun changed(key: K, oldValue: V, newValue: V)
-
-    /**
-     * Called when an entry is actually removed.
-     */
-    protected abstract fun removed(key: K, value: V)
 
     override fun toString() =
         backing.toString()
@@ -169,22 +124,4 @@ abstract class ObservableMap<K : Comparable<K>, V> : SimpleMap<K, V> {
     override fun hashCode(): Int {
         return backing.hashCode()
     }
-}
-
-/**
- * Creates a simplified observable map with the given delegates.
- */
-inline fun <K : Comparable<K>, V> observableMap(
-    crossinline added: ObservableMap<K, V>.(K, V) -> Unit,
-    crossinline changed: ObservableMap<K, V>.(K, V, V) -> Unit,
-    crossinline removed: ObservableMap<K, V>.(K, V) -> Unit
-) = object : ObservableMap<K, V>() {
-    override fun added(key: K, value: V) =
-        added(this, key, value)
-
-    override fun changed(key: K, oldValue: V, newValue: V) =
-        changed(this, key, oldValue, newValue)
-
-    override fun removed(key: K, value: V) =
-        removed(this, key, value)
 }

@@ -22,7 +22,7 @@ interface Resource<in A, out I> {
     /**
      * Creates an instance referring to the definition of this resource.
      */
-    fun refer(argsResource: A): I
+    operator fun get(argsResource: A): I
 }
 
 /**
@@ -31,9 +31,30 @@ interface Resource<in A, out I> {
 interface LifecycleResource<in A, out I> : Lifecycle, Resource<A, I>
 
 /**
+ * A standard resource that remembers the results per resource argument.
+ */
+abstract class MemorizingResource<in A, out I> : LifecycleResource<A, I> {
+    /**
+     * The elements created.
+     */
+    private val existing = hashMapOf<A, I>()
+
+    /**
+     * Refers a new instance.
+     */
+    protected abstract fun referNew(argsResource: A): I
+
+    /**
+     * Gets or creates the subject for the argument.
+     */
+    override fun get(argsResource: A) =
+        existing.getOrPut(argsResource) { referNew(argsResource) }
+}
+
+/**
  * A resource that handles lifecycle methods and passes them to the created instances.
  */
-abstract class NotifyingResource<in A, out I : Lifecycle> : LifecycleResource<A, I> {
+abstract class NotifyingResource<in A, out I : Lifecycle> : MemorizingResource<A, I>() {
     /**
      * Handles initialization of the local resource.
      */
@@ -45,14 +66,15 @@ abstract class NotifyingResource<in A, out I : Lifecycle> : LifecycleResource<A,
     protected abstract fun disposeSelf()
 
     /**
-     * Refers a new instance.
-     */
-    protected abstract fun referNew(argsResource: A): I
-
-    /**
      * True if resource is initialized.
      */
     var isInitialized = false
+        private set
+
+    /**
+     * True if resource is disposed.
+     */
+    var isDisposed = false
         private set
 
     /**
@@ -67,15 +89,21 @@ abstract class NotifyingResource<in A, out I : Lifecycle> : LifecycleResource<A,
     }
 
     override fun dispose() {
-        isInitialized = false
         created.forEach(Lifecycle::dispose)
         disposeSelf()
+        isDisposed = true
     }
 
-    override fun refer(argsResource: A) =
-        // Create a new element, also add it to the set.
-        referNew(argsResource).also {
+    override fun get(argsResource: A) =
+        // Let super get or create new subject.
+        super.get(argsResource).also {
+            // Add it to the set of created instances to dispose later.
             created.add(it)
+
+            // If already initialized but not yet disposed, initialize the instance
+            // on the spot.
+            if (isInitialized && !isDisposed)
+                it.initialize()
         }
 }
 
@@ -93,11 +121,11 @@ interface LifecyclePlayable<in T> : Lifecycle, Playable<T>
  * For a resource with a [Unit] argument, refers with argument [Unit] passed.
  */
 fun <I> Resource<Unit, I>.refer() =
-    refer(Unit)
+    get(Unit)
 
 /**
  * For a resource with a nullable argument, refers with argument `null` passed.
  */
 @JvmName("referNullArg")
 fun <T, I> Resource<T?, I>.refer() =
-    refer(null)
+    get(null)

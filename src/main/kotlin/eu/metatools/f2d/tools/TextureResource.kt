@@ -1,11 +1,11 @@
 package eu.metatools.f2d.tools
 
 import com.badlogic.gdx.files.FileHandle
-import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
-import eu.metatools.f2d.context.*
+import eu.metatools.f2d.context.LifecycleDrawable
+import eu.metatools.f2d.context.NotifyingResource
 
 /**
  * A region that can turn a [Texture] into a [TextureRegion].
@@ -54,24 +54,12 @@ data class ReferTexture(val region: Region = DEFAULT.region) {
 }
 
 /**
- * Variation of how to draw something to a sprite batch.
- */
-data class Variation(val tint: Color = DEFAULT.tint, val keepSize: Boolean = DEFAULT.keepSize) {
-    companion object {
-        /**
-         * The default variation.
-         */
-        val DEFAULT = Variation(Color.WHITE, false)
-    }
-}
-
-/**
  * A texture resource on a file location.
  * @property location The location function.
  */
 class TextureResource(
     val location: () -> FileHandle
-) : NotifyingResource<ReferTexture?, LifecycleDrawable<Variation?>>() {
+) : NotifyingResource<ReferTexture?, LifecycleDrawable<Unit?>>() {
 
     /**
      * The texture that is active.
@@ -89,7 +77,7 @@ class TextureResource(
         texture = null
     }
 
-    override fun referNew(argsResource: ReferTexture?) = object : LifecycleDrawable<Variation?> {
+    override fun referNew(argsResource: ReferTexture?) = object : LifecycleDrawable<Unit?> {
         val activeArgsResource = argsResource ?: ReferTexture.DEFAULT
 
         var region: TextureRegion? = null
@@ -103,25 +91,12 @@ class TextureResource(
             region = null
         }
 
-        override fun draw(args: Variation?, time: Double, spriteBatch: SpriteBatch) {
+        override fun draw(args: Unit?, time: Double, spriteBatch: SpriteBatch) {
             // Get region or return if not assigned yet.
             val region = region ?: return
 
-            // Get args or default.
-            val activeArgs = args ?: Variation.DEFAULT
-
-            // Memorize color.
-            val colorBefore = spriteBatch.color.cpy()
-            spriteBatch.color = activeArgs.tint
-
-            // Draw with desired sizing.
-            if (activeArgs.keepSize)
-                spriteBatch.draw(region, -(region.regionWidth / 2f), -(region.regionHeight / 2f))
-            else
-                spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
-
-            // Reset color.
-            spriteBatch.color = colorBefore
+            // Draw to sprite batch.
+            spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
         }
     }
 }

@@ -9,9 +9,7 @@ import eu.metatools.wep2.util.within
 /**
  * Wraps generating elements of a [ReclaimableSequence] providing automated undo.
  */
-class Claimer<I : Comparable<I>, R : Comparable<R>>(
-    val reclaimableSequence: ReclaimableSequence<I, R>
-) {
+class Claimer<I : Comparable<I>, R : Comparable<R>>(val reclaimableSequence: ReclaimableSequence<I, R>) {
     /**
      * Claims a value.
      */
@@ -33,19 +31,6 @@ class Claimer<I : Comparable<I>, R : Comparable<R>>(
         })
     }
 }
-
-/**
- * Creates a [Claimer] on a reclaimable sequence on [sequence], [zero] and [inc].
- */
-fun <I : Comparable<I>, R : Comparable<R>> claimer(sequence: Sequence<I>, zero: R, inc: (R) -> R) =
-    Claimer(ReclaimableSequence(sequence, zero, inc))
-
-/**
- * Creates a [claimer] with short recycle counts.
- */
-fun <I : Comparable<I>> claimer(sequence: Sequence<I>) =
-    Claimer(ReclaimableSequence(sequence, 0.toShort(), Short::inc))
-
 
 /**
  * Claims a value of a [Claimer], returns the first component without the recycle count.
@@ -87,13 +72,3 @@ inline fun <reified E> Claimer<Int, *>.randomOf(array: Array<E>) =
 fun <K : Comparable<K>, V> Claimer<Int, *>.randomOf(map: Map<K, V>) =
     map[randomOf(map.keys.sorted())]
 
-
-/**
- * Small identity.
- */
-typealias SI = ComparablePair<Short, Short>
-
-/**
- * Big identity.
- */
-typealias BI = ComparablePair<Long, Int>

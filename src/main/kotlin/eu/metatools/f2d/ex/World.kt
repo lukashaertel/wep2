@@ -1,20 +1,27 @@
 package eu.metatools.f2d.ex
 
-import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.Gdx
 import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.math.Mat
+import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.tools.AtlasResource
 import eu.metatools.f2d.tools.SolidResource
-import eu.metatools.f2d.tools.Variation
-import eu.metatools.wep2.entity.bind.Restore
+import eu.metatools.wep2.components.map
+import eu.metatools.wep2.components.prop
+import eu.metatools.wep2.components.set
+import eu.metatools.wep2.components.ticker
+import eu.metatools.wep2.storage.Restore
+import eu.metatools.wep2.tools.TickGenerator
 import eu.metatools.wep2.tools.Time
-import eu.metatools.wep2.track.SI
-import eu.metatools.wep2.track.bind.ref
-import eu.metatools.wep2.track.bind.refMap
+import eu.metatools.wep2.tools.rec
+import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.first
+import eu.metatools.wep2.util.listeners.mapListener
 import eu.metatools.wep2.util.then
 import java.io.Serializable
 
 data class XY(val x: Int, val y: Int) : Comparable<XY>, Serializable {
+    val isEmpty get() = x == 0 && y == 0
     override fun compareTo(other: XY) =
         first(other) {
             y.compareTo(other.y)
@@ -37,124 +44,182 @@ data class Dimension(val minX: Int, val minY: Int, val maxX: Int, val maxY: Int)
         )
 }
 
-var above = true
+var viewUnderground = false
 
 
 object Constants {
-    val tileWidth = 32
-    val tileHeight = 32
-}
+    /**
+     * Width of the tile.
+     */
+    val tileWidth = 32f
 
-object Variations {
-    val below = Variation(Color(0x2c353e), false)
+    /**
+     * Height of the tile.
+     */
+    val tileHeight = 32f
+
+    /**
+     * Depth of the tile, i.e., how much is an underground tile displaced.
+     */
+    val tileDepth = 24f
 }
 
 object Resources {
-    val resSolid by lazy { frontend.resource("solid") { SolidResource() } }
+    val solid by lazy { frontend.use(SolidResource()) }
 
-    val solid by lazy { resSolid.refer() }
+    val terrain by lazy { frontend.use(AtlasResource { Gdx.files.internal("terrain.atlas") }) }
 }
 
-class World(context: GameContext, restore: Restore?) : GameEntity(context, restore), RootRender {
+interface Rendered {
+    fun render(time: Double)
+}
 
-    private val tiles by refMap<XY, Tile>(restore)
+interface Ticking {
+    val ticker: TickGenerator
+}
+
+class World(context: GameContext, restore: Restore?) : GameEntity(context, restore), Rendered {
+    val tiles by map<XY, TileKind>(mapListener(added = { k, v ->
+        println("added $k to $v")
+    }))
+
+    val movers by set<Mover>()
 
     override fun render(time: Double) {
-        if (tiles.isEmpty)
-            return
-
-        val dimensions = tiles.keys.fold(Dimension(0, 0, 0, 0), Dimension::include)
-        val sx = (Constants.tileWidth * dimensions.width).toFloat()
-        val sy = (Constants.tileHeight * dimensions.height).toFloat()
-        val tx = (Constants.tileWidth * dimensions.minX).toFloat()
-        val ty = (Constants.tileHeight * dimensions.minY).toFloat()
-
-        val field = Mat
-            .translation(-0.5f, -0.5f)
-            .scale(sx + 1, sy + 1)
-            .translate(tx, ty)
-            .translate(0.5f, 0.5f)
-
-        if (above) {
-            // TODO: Unfuck iteration order problems.
-            for ((p, t) in tiles.sortedBy { it.key }) {
-                val mat = Mat.translation(
-                    (Constants.tileWidth * p.x).toFloat(),
-                    (Constants.tileHeight * p.y).toFloat()
-                )
-
-                t.render(time, mat)
-                t.above?.render(time, mat)
-            }
-        } else {
-            frontend.continuous.submit(Resources.solid, Variations.below, time, field)
-
-            for ((p, t) in tiles)
-                t.below?.render(
-                    time, Mat.translation(
-                        (Constants.tileWidth * p.x).toFloat(),
-                        (Constants.tileHeight * p.y).toFloat()
-                    )
-                )
-        }
-
-        // TODO: Render UI.
+        for ((k, v) in tiles)
+            frontend.continuous.submit(
+                v.visual, time, Mat
+                    .translation(Constants.tileWidth * k.x, Constants.tileHeight * k.y)
+                    .scale(Constants.tileWidth, Constants.tileHeight)
+            )
     }
 
     override fun evaluate(name: GameName, time: Time, args: Any?): () -> Unit {
         return super.evaluate(name, time, args)
     }
-}
 
+    fun passable(x: Float, y: Float, radius: Float): Boolean {
+        check(radius <= 1.0)
+        for (a in sequenceOf(-radius, 0f, radius))
+            for (b in sequenceOf(-radius, 0f, radius)) {
+                val ix = (x + a + 0.5f).toInt()
+                val iy = (y + b + 0.5f).toInt()
+                if (tiles[XY(ix, iy)]?.passable == false)
+                    return false
+            }
 
-abstract class Tile(context: GameContext, restore: Restore?) : GameEntity(context, restore) {
-    abstract val source: TileDefinition
-
-    val active get() = modifier?.modifyTile(source) ?: source
-
-    var modifier by ref<Modifier>(restore)
-
-    var above by ref<Structure>(restore)
-
-    var below by ref<Structure>(restore)
-
-    fun update(world: World) {
-        val modifier = modifier
-        val above = above
-        val below = below
-
-        above?.update(world, modifier?.modifyStructure(above.source) ?: above.source)
-        below?.update(world, modifier?.modifyStructure(below.source) ?: below.source)
-    }
-
-    fun render(time: Double, mat: Mat) {
-
+        return true
     }
 }
 
-class Modifier(context: GameContext, restore: Restore?) : GameEntity(context, restore) {
-    fun modifyTile(definition: TileDefinition): TileDefinition {
-        TODO()
-    }
+interface MoverKind {
+    val radius: Float
+}
 
-    fun modifyStructure(definition: StructureDefinition): StructureDefinition {
-        TODO()
+enum class Movers : MoverKind {
+    S {
+        override val radius: Float
+            get() = 0.1f
+
     }
 }
 
 
-abstract class Structure(context: GameContext, restore: Restore?) : GameEntity(context, restore) {
-    abstract val source: StructureDefinition
+interface TraitWorld {
+    val world: World
+}
 
-    abstract fun update(world: World, definition: StructureDefinition)
 
-    fun render(time: Double, mat: Mat) {
+interface TraitMove : TraitWorld {
+    var pos: Vec
 
+    var moveTime: Double
+
+    var vel: Vec
+
+    val radius: Float
+
+    fun posAt(time: Double): Vec {
+        if (vel.isEmpty)
+            return pos
+
+        val dt = (time - moveTime).toFloat()
+        return pos + vel * dt
+    }
+
+    fun receiveMove(time: Time, vel: Vec) {
+        pos = posAt(time.time.sec)
+        moveTime = time.time.sec
+        this.vel = vel
+    }
+
+    fun updateMove(time: Time, freq: Long) {
+        if (vel.isEmpty)
+            return
+
+        pos = posAt(time.time.sec)
+        moveTime = time.time.sec
+
+        while (!world.passable(pos.x, pos.y, radius))
+            pos -= vel * freq.sec.toFloat()
     }
 }
 
-interface TileDefinition {
+class Mover private constructor(
+    context: GameContext, restore: Restore?,
+    world: () -> World = undefined(),
+    pos: () -> Vec = undefined(),
+    kind: () -> MoverKind = undefined()
+) : GameEntity(context, restore), Rendered, Ticking, Comparable<Mover>, TraitMove {
+    constructor(context: GameContext, world: World, pos: Vec, kind: MoverKind) :
+            this(context, null, { world }, { pos }, { kind })
 
+    /**
+     * The world this tile is contained in.
+     */
+    override val world by prop(initial = world)
+
+    override var pos by prop(initial = pos)
+
+    override var moveTime by prop { 0.0 }
+
+    override var vel by prop { Vec() }
+
+    val kind by prop(initial = kind)
+
+    override val radius get() = kind.radius
+
+    var look by prop { XY(0, 0) }
+
+    override fun render(time: Double) {
+        val (x, y) = posAt(time)
+        frontend.continuous.submit(
+            Resources.solid.refer(), time, Mat
+                .translation(Constants.tileWidth * x, Constants.tileHeight * y)
+                .scale(Constants.tileWidth * kind.radius * 2f, Constants.tileHeight * kind.radius * 2f)
+        )
+    }
+
+    override val ticker by ticker(25L, 0L)
+
+    fun tick(time: Time, freq: Long) {
+        updateMove(time, freq)
+    }
+
+    override fun evaluate(name: GameName, time: Time, args: Any?) = when (name) {
+        "tick" -> rec(time, args, this::tick)
+        "dir" -> rec {
+            args as XY
+            receiveMove(time, Vec(args.x.toFloat(), args.y.toFloat()))
+            if (!args.isEmpty)
+                look = args
+        }
+
+        else -> super.evaluate(name, time, args)
+    }
+
+    override fun compareTo(other: Mover) =
+        first(other) {
+            id.compareTo(other.id)
+        }
 }
-
-interface StructureDefinition

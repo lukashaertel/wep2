@@ -1,7 +1,10 @@
 package eu.metatools.f2d.context
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import eu.metatools.f2d.math.*
+import eu.metatools.f2d.math.Mat
+import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.math.Vecs
+import eu.metatools.f2d.math.reduceComponents
 import java.util.*
 
 /**

@@ -1,27 +1,20 @@
 package eu.metatools.wep2.system
 
+import eu.metatools.wep2.components.prop
 import eu.metatools.wep2.coord.Warp
 import eu.metatools.wep2.entity.*
-import eu.metatools.wep2.entity.bind.restoreBy
-import eu.metatools.wep2.entity.bind.restoreIndex
-import eu.metatools.wep2.entity.bind.storeBy
-import eu.metatools.wep2.entity.bind.storeIndex
+import eu.metatools.wep2.storage.restoreBy
+import eu.metatools.wep2.storage.storeBy
+import eu.metatools.wep2.system.StandardSystem.Companion.create
 import eu.metatools.wep2.tools.*
-import eu.metatools.wep2.track.*
+import eu.metatools.wep2.track.Claimer
+import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.ComparablePair
-import eu.metatools.wep2.util.None
 import eu.metatools.wep2.util.shorts
 import java.io.Serializable
-import java.lang.IllegalStateException
 import java.util.*
-import java.util.concurrent.ConcurrentLinkedDeque
-import java.util.concurrent.locks.Lock
-import kotlin.collections.asSequence
-import kotlin.collections.filterIsInstance
 import kotlin.collections.getValue
-import kotlin.collections.mutableMapOf
 import kotlin.collections.set
-import kotlin.collections.single
 
 /**
  * Names generated and processed by a [StandardSystem].
@@ -155,13 +148,13 @@ class StandardSystem<N, P> private constructor(
     /**
      * The current player with recycle count.
      */
-    var playerSelf by prop(standardInitializer?.playerSelf ?: players.claim())
+    var playerSelf by prop { standardInitializer?.playerSelf ?: players.claim() }
         private set
 
     /**
      * The current player count.
      */
-    var playerCount by prop(standardInitializer?.playerCount ?: 1)
+    var playerCount by prop { standardInitializer?.playerCount ?: 1 }
         private set
 
     /**
@@ -197,7 +190,7 @@ class StandardSystem<N, P> private constructor(
     /**
      * Central entity index.
      */
-    override val index = entityMap<N, Time, SI>()
+    override val index by entityMap<N, Time, SI>()
 
     /**
      * The used parameter, if `standardInitializer` is passed, it is restored.
@@ -314,10 +307,22 @@ class StandardSystem<N, P> private constructor(
 typealias StandardEntity<N> = RestoringEntity<N, Time, SI>
 
 /**
- * Finds the single root entity or throws an exception.
+ * Finds the single matching entity or throws an exception.
  */
-inline fun <N, reified R> StandardSystem<N, *>.findRoot() =
-    index.values.filterIsInstance<R>().single()
+inline fun <N, reified R> StandardSystem<N, *>.single() =
+    index.values.asSequence().filterIsInstance<R>().single()
+
+/**
+ * Finds the first matching entity or throws an exception.
+ */
+inline fun <N, reified R> StandardSystem<N, *>.find() =
+    index.values.asSequence().filterIsInstance<R>().first()
+
+/**
+ * Finds the first matching entity or returns null.
+ */
+inline fun <N, reified R> StandardSystem<N, *>.firstOrNull() =
+    index.values.asSequence().filterIsInstance<R>().firstOrNull()
 
 /**
  * Generates ticks to the element identified by [name] at the given [time]. The coordinator, player

@@ -1,10 +1,10 @@
 package eu.metatools.wep2.entity
 
-import eu.metatools.wep2.coord.Coordinator
-import eu.metatools.wep2.entity.bind.Restore
-import eu.metatools.wep2.entity.bind.Store
-import eu.metatools.wep2.track.*
+import eu.metatools.wep2.components.map
+import eu.metatools.wep2.storage.Restore
+import eu.metatools.wep2.storage.Store
 import eu.metatools.wep2.util.*
+import eu.metatools.wep2.util.collections.SimpleMap
 
 /**
  * A context for entity creation.
@@ -131,6 +131,7 @@ abstract class TrackingEntity<N, T : Comparable<T>, I : Comparable<I>>(
     id = context.newId()
 })
 
+
 /**
  * Entity that skips automatic ID generation if in restore mode. When only tracking and dispatch are
  * needed, use [TrackingEntity].
@@ -139,7 +140,7 @@ abstract class TrackingEntity<N, T : Comparable<T>, I : Comparable<I>>(
  */
 abstract class RestoringEntity<N, T : Comparable<T>, I : Comparable<I>>(
     context: Context<N, T, I>,
-    restore: Restore?
+    val restore: Restore?
 ) : Entity<N, T, I>(context, {
     if (restore == null)
         id = context.newId()
@@ -149,16 +150,10 @@ abstract class RestoringEntity<N, T : Comparable<T>, I : Comparable<I>>(
      */
     private val save = mutableListOf<(Store) -> Unit>()
 
-    /**
-     * Appends a save block that writes relevant data to the [Store]. This lambda [block] will be called in [save].
-     */
     fun saveWith(block: (Store) -> Unit) {
         save.add(block)
     }
 
-    /**
-     * Saves this entity to the store.
-     */
     fun save(store: Store) {
         save.forEach {
             it(store)
@@ -180,6 +175,16 @@ fun <N, T : Comparable<T>, I : Comparable<I>> SimpleMap<I, Entity<N, T, I>>.disp
     // Dispatch to entity, return it's undo.
     return target.evaluate(name.second, time, args)
 }
+
+/**
+ * Small identity.
+ */
+typealias SI = ComparablePair<Short, Short>
+
+/**
+ * Big identity.
+ */
+typealias BI = ComparablePair<Long, Int>
 
 /**
  * Small ID ([SI]) paired with a name.

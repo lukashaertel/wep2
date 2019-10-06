@@ -1,14 +1,16 @@
 package eu.metatools.f2d.math
 
 import com.badlogic.gdx.math.Vector3
-import java.io.Serializable
-import kotlin.math.hypot
+import java.io.Externalizable
+import java.io.ObjectInput
+import java.io.ObjectOutput
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 /**
  * A vector.
  */
-class Vec(val values: FloatArray, val offset: Int = 0) : Serializable {
+class Vec(val values: FloatArray, val offset: Int = 0) : Externalizable {
     companion object {
         /**
          * The x unit vector.
@@ -52,6 +54,11 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Serializable {
     }
 
     /**
+     * Constructs an empty vector on a new backing array.
+     */
+    constructor() : this(FloatArray(3), 0)
+
+    /**
      * Constructs the vector from a [Vector3].
      */
     constructor(vector3: Vector3) : this(floatArrayOf(vector3.x, vector3.y, vector3.z))
@@ -59,7 +66,7 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Serializable {
     /**
      * Constructs the vector from the given values.
      */
-    constructor(x: Float, y: Float, z: Float) : this(floatArrayOf(x, y, z))
+    constructor(x: Float = 0f, y: Float = 0f, z: Float = 0f) : this(floatArrayOf(x, y, z))
 
     /**
      * Adds the vector component-wise.
@@ -143,7 +150,7 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Serializable {
     /**
      * The squared length.
      */
-    val lenSq by lazy { hypot(hypot(x, y), z) }
+    val lenSq by lazy { x * x + y * y + z * z }
 
     /**
      * The length.
@@ -185,6 +192,8 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Serializable {
     operator fun component2() = y
     operator fun component3() = z
 
+    val isEmpty get() = x == 0.0f && y == 0.0f && z == 0.0f
+
     /**
      * Returns the vector as a [Vector3].
      */
@@ -213,6 +222,18 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Serializable {
         append(roundForPrint(z))
         append(')')
     }
+
+    override fun readExternal(input: ObjectInput) {
+        values[0] = input.readFloat()
+        values[1] = input.readFloat()
+        values[2] = input.readFloat()
+    }
+
+    override fun writeExternal(output: ObjectOutput) {
+        output.writeFloat(x)
+        output.writeFloat(y)
+        output.writeFloat(z)
+    }
 }
 
 /**
@@ -226,3 +247,9 @@ inline fun Vec.mapComponents(block: (Float) -> Float) =
  */
 inline fun reduceComponents(a: Vec, b: Vec, block: (Float, Float) -> Float) =
     Vec(block(a.x, b.x), block(a.y, b.y), block(a.z, b.z))
+
+/**
+ * Returns the componentwise absolute.
+ */
+fun abs(vec: Vec) =
+    Vec(abs(vec.x), abs(vec.y), abs(vec.z))
