@@ -1,4 +1,4 @@
-package eu.metatools.wep2.coord
+package eu.metatools.wep2.coordinators
 
 /**
  * A coordinator handling equivalent state restoration based on a sequence of instructions. Registering to

@@ -6,7 +6,7 @@ import eu.metatools.wep2.storage.Restore
 import eu.metatools.wep2.system.StandardEntity
 import eu.metatools.wep2.system.StandardSystem
 import eu.metatools.wep2.tools.Time
-import eu.metatools.wep2.track.randomInt
+import eu.metatools.wep2.components.randomInt
 import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.randomInts
 

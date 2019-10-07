@@ -1,4 +1,4 @@
-package eu.metatools.wep2.coord
+package eu.metatools.wep2.coordinators
 
 /**
  * Provides the base implementation for registration and publication mechanisms, leaving

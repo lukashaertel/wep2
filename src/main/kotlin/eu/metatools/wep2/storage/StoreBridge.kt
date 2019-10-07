@@ -1,16 +1,17 @@
-package eu.metatools.wep2.components
+package eu.metatools.wep2.storage
 
-import eu.metatools.wep2.storage.Restore
-import eu.metatools.wep2.storage.Store
 import eu.metatools.wep2.util.Just
-import eu.metatools.wep2.util.MutableProperty
+import eu.metatools.wep2.util.delegates.MutableProperty
 import eu.metatools.wep2.util.None
 import eu.metatools.wep2.util.Option
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 /**
- * Store loader bridge, disambiguated between loading and generating, using proxies and resolving them.
+ * From a [restore] object, loads the item at the [key]. If [proxy] is given as true, the read object will be passed
+ * through [resolve] on the post-restore hook. Otherwise, the item will be used as is. If not restoring, i.e., if the
+ * [restore] object is `null`, the [generate] function will provide the initial value. Once initialization happened, the
+ * [initialized] callback is run. The result is a delegate at some point returning the desired actual value.
  */
 inline fun <P, V> loadProxified(
     restore: Restore?,
@@ -67,6 +68,9 @@ inline fun <P, V> loadProxified(
     }
 }
 
+/**
+ * Stores into a [store] a [value] under [key]. If [proxy] is true, [proxify] will transform the value beforehand.
+ */
 inline fun <P, V> storeProxified(store: Store, key: String, proxy: Boolean, value: V, proxify: (V) -> P) {
     if (proxy)
         store.save(key, proxify(value))

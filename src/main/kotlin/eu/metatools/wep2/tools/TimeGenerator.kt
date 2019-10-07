@@ -1,6 +1,6 @@
 package eu.metatools.wep2.tools
 
-import eu.metatools.wep2.coord.Coordinator
+import eu.metatools.wep2.coordinators.Coordinator
 import eu.metatools.wep2.util.first
 import eu.metatools.wep2.util.then
 import java.io.Serializable

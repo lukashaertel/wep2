@@ -154,6 +154,7 @@ fun <N, P> enter(
             // Return initialized target.
             get() = target
 
+        // TODO: Better sync, elements are still flickering while saving.
         override fun update() =
             // Synchronize buffer, receive the copy as a sequence.
             target.receiveAll(synchronized(buffer) {

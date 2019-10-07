@@ -1,13 +1,16 @@
 package eu.metatools.wep2.components
 
 import eu.metatools.wep2.entity.Entity
-import eu.metatools.wep2.entity.RestoringEntity
+import eu.metatools.wep2.aspects.Resolving
+import eu.metatools.wep2.aspects.Restoring
+import eu.metatools.wep2.aspects.Saving
 import eu.metatools.wep2.storage.Store
+import eu.metatools.wep2.storage.loadProxified
+import eu.metatools.wep2.storage.storeProxified
 import eu.metatools.wep2.track.undos
-import eu.metatools.wep2.util.ReadOnlyPropertyProvider
+import eu.metatools.wep2.util.delegates.ReadOnlyPropertyProvider
 import eu.metatools.wep2.util.collections.ObservableMap
 import eu.metatools.wep2.util.collections.ObservableMapListener
-import eu.metatools.wep2.util.collections.SimpleMap
 import eu.metatools.wep2.util.labeledAs
 import eu.metatools.wep2.util.listeners.MapListener
 import eu.metatools.wep2.util.listeners.mapListener
@@ -28,16 +31,17 @@ inline fun <K : Comparable<K>, reified V> map(listener: ObservableMapListener<K,
  */
 fun <K : Comparable<K>, V> map(listener: ObservableMapListener<K, V> = MapListener.EMPTY, entity: Boolean) =
     @Suppress("unchecked_cast")
-    ReadOnlyPropertyProvider { thisRef: Any?, property ->
-        // Get reference and see if it is a restoring entity.
-        val asEntity = thisRef as? Entity<*, *, *>
-        val asRestoring = thisRef as? RestoringEntity<*, *, *>
-
-        // Get the index if this is an entity.
-        val index = asEntity?.context?.index as? SimpleMap<Comparable<Any?>, V>
+    (ReadOnlyPropertyProvider { thisRef: Any?, property ->
+        // Get aspects of the receiver.
+        val restoring = thisRef as? Restoring
+        val saving = thisRef as? Saving
+        val resolving = thisRef as? Resolving<Comparable<Any?>, V>
 
         // Return a property that notifies, tracks and restores if needed.
         object : ReadOnlyProperty<Any?, ObservableMap<K, V>> {
+            /**
+             * The actual set
+             */
             /**
              * The actual set
              */
@@ -73,11 +77,15 @@ fun <K : Comparable<K>, V> map(listener: ObservableMapListener<K, V> = MapListen
             init {
                 // Load as proxies if entity, otherwise
                 loadProxified(
-                    asRestoring?.restore, property.name, entity,
+                    restoring?.restore, property.name, entity,
                     { emptyList<Pair<K, V>>() },
                     { proxy: List<Pair<Comparable<Any?>, Comparable<Any?>>> ->
+                        check(resolving != null) {
+                            "Restoring entity proxies, ${property.name} must be from a resolving receiver."
+                        }
+
                         proxy.map { (k, v) ->
-                            k to index?.get(v)
+                            k to resolving.resolve(v)
                         }
                     },
                     { items ->
@@ -92,12 +100,17 @@ fun <K : Comparable<K>, V> map(listener: ObservableMapListener<K, V> = MapListen
                 implementation
 
             init {
-                // Amend save if in restoring entity.
-                asRestoring?.saveWith({ store: Store ->
+                // Amend save if in appropriate aspect.
+                saving?.saveWith({ store: Store ->
                     // Based on the kind of property, save proxies or values.
-                    storeProxified(store, property.name, entity, implementation.map { it.toPair() }, {
-                        it.map { (k, v) -> k to (v as Entity<*, *, *>).id }
-                    })
+                    storeProxified(
+                        store,
+                        property.name,
+                        entity,
+                        implementation.map { it.toPair() },
+                        {
+                            it.map { (k, v) -> k to (v as Entity<*, *, *>).id }
+                        })
                 } labeledAs {
                     "save map ${property.name}"
                 })
@@ -106,4 +119,4 @@ fun <K : Comparable<K>, V> map(listener: ObservableMapListener<K, V> = MapListen
             override fun toString() =
                 implementation.toString()
         }
-    }
+    })

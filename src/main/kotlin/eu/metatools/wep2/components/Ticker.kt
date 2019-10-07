@@ -1,10 +1,11 @@
 package eu.metatools.wep2.components
 
-import eu.metatools.wep2.entity.RestoringEntity
+import eu.metatools.wep2.aspects.Restoring
+import eu.metatools.wep2.aspects.Saving
 import eu.metatools.wep2.storage.Store
 import eu.metatools.wep2.tools.TickGenerator
-import eu.metatools.wep2.util.Property
-import eu.metatools.wep2.util.ReadOnlyPropertyProvider
+import eu.metatools.wep2.util.delegates.Property
+import eu.metatools.wep2.util.delegates.ReadOnlyPropertyProvider
 import eu.metatools.wep2.util.labeledAs
 
 /**
@@ -13,11 +14,12 @@ import eu.metatools.wep2.util.labeledAs
 fun ticker(frequency: Long, initial: Long) =
     @Suppress("unchecked_cast")
     (ReadOnlyPropertyProvider { thisRef: Any?, property ->
-        // Get reference and see if it is a restoring entity.
-        val asRestoring = thisRef as? RestoringEntity<*, *, *>
+        // Get aspects of the receiver.
+        val restoring = thisRef as? Restoring
+        val saving = thisRef as? Saving
 
         // Load or initialize the sequence.
-        val source = asRestoring?.restore?.let {
+        val source = restoring?.restore?.let {
             // Restoring, load last time.
             val lastTime = it.load<Long>(property.name)
 
@@ -27,8 +29,8 @@ fun ticker(frequency: Long, initial: Long) =
             TickGenerator(initial, frequency)
         }
 
-        // Amend save if in restoring entity.
-        asRestoring?.saveWith({ store: Store ->
+        // Amend save if in appropriate aspect.
+        saving?.saveWith({ store: Store ->
             // Save as last ticked time.
             store.save(property.name, source.lastTime)
         } labeledAs {

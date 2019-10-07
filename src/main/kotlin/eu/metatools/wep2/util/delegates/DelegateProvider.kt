@@ -1,4 +1,4 @@
-package eu.metatools.wep2.util
+package eu.metatools.wep2.util.delegates
 
 import kotlin.properties.ReadOnlyProperty
 import kotlin.properties.ReadWriteProperty

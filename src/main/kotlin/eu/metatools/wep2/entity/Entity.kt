@@ -1,8 +1,10 @@
 package eu.metatools.wep2.entity
 
+import eu.metatools.wep2.aspects.Resolving
+import eu.metatools.wep2.aspects.Restoring
+import eu.metatools.wep2.aspects.Saving
 import eu.metatools.wep2.components.map
-import eu.metatools.wep2.storage.Restore
-import eu.metatools.wep2.storage.Store
+import eu.metatools.wep2.storage.*
 import eu.metatools.wep2.util.*
 import eu.metatools.wep2.util.collections.SimpleMap
 
@@ -59,7 +61,7 @@ inline fun <N, T : Comparable<T>, I : Comparable<I>> context(
 sealed class Entity<N, T : Comparable<T>, I : Comparable<I>>(
     val context: Context<N, T, I>,
     init: Entity<N, T, I>.() -> Unit
-) {
+) : Resolving<I, Entity<N, T, I>> {
     /**
      * The actual value of the identity, initially empty.
      */
@@ -112,6 +114,11 @@ sealed class Entity<N, T : Comparable<T>, I : Comparable<I>>(
      * Default does nothing.
      */
     open fun evaluate(name: N, time: T, args: Any?): () -> Unit = { }
+
+    /**
+     * Resolve retrieves the entity at the given index.
+     */
+    override fun resolve(index: I) = context.index[index]
 }
 
 /**
@@ -140,17 +147,17 @@ abstract class TrackingEntity<N, T : Comparable<T>, I : Comparable<I>>(
  */
 abstract class RestoringEntity<N, T : Comparable<T>, I : Comparable<I>>(
     context: Context<N, T, I>,
-    val restore: Restore?
+    override val restore: Restore?
 ) : Entity<N, T, I>(context, {
     if (restore == null)
         id = context.newId()
-}) {
+}), Restoring, Saving {
     /**
      * Collects the save-methods.
      */
     private val save = mutableListOf<(Store) -> Unit>()
 
-    fun saveWith(block: (Store) -> Unit) {
+    override fun saveWith(block: (Store) -> Unit) {
         save.add(block)
     }
 

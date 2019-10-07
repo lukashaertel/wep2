@@ -13,7 +13,6 @@ import eu.metatools.wep2.components.ticker
 import eu.metatools.wep2.storage.Restore
 import eu.metatools.wep2.tools.TickGenerator
 import eu.metatools.wep2.tools.Time
-import eu.metatools.wep2.tools.rec
 import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.first
 import eu.metatools.wep2.util.listeners.mapListener
@@ -80,7 +79,7 @@ interface Ticking {
 
 class World(context: GameContext, restore: Restore?) : GameEntity(context, restore), Rendered {
     val tiles by map<XY, TileKind>(mapListener(added = { k, v ->
-        println("added $k to $v")
+        // TODO: Extend around
     }))
 
     val movers by set<Mover>()

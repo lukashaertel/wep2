@@ -7,7 +7,7 @@ import eu.metatools.wep2.storage.restoreBy
 import eu.metatools.wep2.storage.storeBy
 import eu.metatools.wep2.tools.ReclaimableSequence
 import eu.metatools.wep2.tools.shortNat
-import eu.metatools.wep2.track.Claimer
+import eu.metatools.wep2.components.Claimer
 
 /**
  * A container entity with a child.

@@ -1,11 +1,14 @@
 package eu.metatools.wep2.components
 
 import eu.metatools.wep2.entity.Entity
-import eu.metatools.wep2.entity.RestoringEntity
+import eu.metatools.wep2.aspects.Resolving
+import eu.metatools.wep2.aspects.Restoring
+import eu.metatools.wep2.aspects.Saving
 import eu.metatools.wep2.storage.Store
+import eu.metatools.wep2.storage.loadProxified
+import eu.metatools.wep2.storage.storeProxified
 import eu.metatools.wep2.track.undos
-import eu.metatools.wep2.util.ReadWritePropertyProvider
-import eu.metatools.wep2.util.collections.SimpleMap
+import eu.metatools.wep2.util.delegates.ReadWritePropertyProvider
 import eu.metatools.wep2.util.labeledAs
 import eu.metatools.wep2.util.listeners.Listener
 import kotlin.properties.ReadWriteProperty
@@ -24,22 +27,23 @@ inline fun <reified V> prop(listener: Listener<Unit, V> = Listener.EMPTY, noinli
  */
 fun <V> prop(listener: Listener<Unit, V> = Listener.EMPTY, initial: () -> V, entity: Boolean) =
     @Suppress("unchecked_cast")
-    ReadWritePropertyProvider { thisRef: Any?, property ->
-        // Get reference and see if it is a restoring entity.
-        val asEntity = thisRef as? Entity<*, *, *>
-        val asRestoring = thisRef as? RestoringEntity<*, *, *>
-
-        // Get the index if this is an entity.
-        val index = asEntity?.context?.index as? SimpleMap<Comparable<Any?>, V>
+    (ReadWritePropertyProvider { thisRef: Any?, property ->
+        // Get aspects of the receiver.
+        val restoring = thisRef as? Restoring
+        val saving = thisRef as? Saving
+        val resolving = thisRef as? Resolving<Comparable<Any?>, V>
 
         // Return a property that notifies, tracks and restores if needed.
         object : ReadWriteProperty<Any?, V> {
-            /**
-             *
-             */
             var current by loadProxified(
-                asRestoring?.restore, property.name, entity, initial,
-                { proxy: Comparable<Any?> -> index?.get(proxy) },
+                restoring?.restore, property.name, entity, initial,
+                { proxy: Comparable<Any?> ->
+                    check(resolving != null) {
+                        "Restoring entity proxies, ${property.name} must be from a resolving receiver."
+                    }
+
+                    resolving.resolve(proxy)
+                },
                 { listener.initialized(Unit, it as V) })
 
             override fun getValue(thisRef: Any?, property: KProperty<*>) =
@@ -68,8 +72,8 @@ fun <V> prop(listener: Listener<Unit, V> = Listener.EMPTY, initial: () -> V, ent
             }
 
             init {
-                // Amend save if in restoring entity.
-                asRestoring?.saveWith({ store: Store ->
+                // Amend save if in appropriate aspect.
+                saving?.saveWith({ store: Store ->
                     // Based on the kind of property, save proxy or value.
                     storeProxified(store, property.name, entity, current, {
                         (it as Entity<*, *, *>?)?.id
@@ -82,4 +86,4 @@ fun <V> prop(listener: Listener<Unit, V> = Listener.EMPTY, initial: () -> V, ent
             override fun toString() =
                 current.toString()
         }
-    }
+    })
