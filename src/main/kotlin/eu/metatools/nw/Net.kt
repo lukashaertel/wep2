@@ -1,6 +1,9 @@
 package eu.metatools.nw
 
 import eu.metatools.nw.encoding.Encoding
+import eu.metatools.wep2.aspects.saveToMap
+import eu.metatools.wep2.storage.restoreBy
+import eu.metatools.wep2.storage.storeBy
 import eu.metatools.wep2.system.StandardName
 import eu.metatools.wep2.system.StandardSystem
 import eu.metatools.wep2.tools.Time
@@ -41,7 +44,7 @@ interface Net<N, P> {
 fun <N, P> enter(
     encoding: Encoding<N, P>,
     cluster: String,
-    parameter: P,
+    parameter: () -> P,
     propsName: String = "fast.xml",
     stateTimeout: Long = 10_000L
 ): Net<N, P> {
@@ -99,8 +102,11 @@ fun <N, P> enter(
                 // Read initializer.
                 val initializer = encoding.readInitializer(it)
 
+
                 // Create target from state exchange.
-                target = StandardSystem.create(parameter, initializer) { it + delta }
+                target = restoreBy(initializer::get) { restore ->
+                    StandardSystem(restore, { time -> time + delta }, parameter)
+                }
             }
         }
 
@@ -116,11 +122,11 @@ fun <N, P> enter(
                     response.writeLong(delta)
                 }
 
-                // Save initializer.
-                val initializer = target.save()
+                // Save data of the target.
+                val data = target.saveToMap()
 
-                // Write initializer to state exchange.
-                encoding.writeInitializer(it, initializer)
+                // Write data to state exchange.
+                encoding.writeInitializer(it, data)
             }
         }
     })
@@ -131,7 +137,7 @@ fun <N, P> enter(
     if (channel.view.size() > 1)
         channel.getState(null, stateTimeout)
     else
-        target = StandardSystem.create(parameter, null) { it + delta }
+        target = StandardSystem(null, { time -> time + delta }, parameter)
 
     // Connect outgoing messages of the cluster.
     target.register { name, time, args ->

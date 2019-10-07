@@ -5,6 +5,7 @@ import eu.metatools.wep2.aspects.Saving
 import eu.metatools.wep2.storage.Restore
 import eu.metatools.wep2.storage.Store
 import eu.metatools.wep2.util.delegates.ReadOnlyPropertyProvider
+import eu.metatools.wep2.util.labeledAs
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
@@ -21,9 +22,11 @@ fun <V> custom(evaluate: () -> V, restore: (Restore, String) -> Unit, save: (Sto
             restore(it, property.name)
         }
 
-        saving?.saveWith {
-            save(it, property.name, evaluate())
-        }
+        saving?.saveWith({ store: Store ->
+            save(store, property.name, evaluate())
+        } labeledAs {
+            "custom saving of ${property.name}"
+        })
 
         object : ReadOnlyProperty<Any?, V> {
             override fun getValue(thisRef: Any?, property: KProperty<*>) = evaluate()

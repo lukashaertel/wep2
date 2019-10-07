@@ -1,5 +1,6 @@
 package eu.metatools.wep2.examples
 
+import eu.metatools.wep2.aspects.saveToMap
 import eu.metatools.wep2.components.claimer
 import eu.metatools.wep2.components.prop
 import eu.metatools.wep2.storage.Restore
@@ -7,6 +8,7 @@ import eu.metatools.wep2.system.StandardEntity
 import eu.metatools.wep2.system.StandardSystem
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.components.randomInt
+import eu.metatools.wep2.storage.restoreBy
 import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.randomInts
 
@@ -52,7 +54,7 @@ class StandardChild(
 
 fun main() {
     // The first standard system with some parameters.
-    val a = StandardSystem.create<String, Int>(123, null)
+    val a = StandardSystem<String, Int>(null, { it }, { 123 })
 
     // A standard child in the system, do not restore here.
     val e = StandardChild(a, null)
@@ -65,8 +67,13 @@ fun main() {
     // Consolidate values.
     a.consolidate(System.currentTimeMillis())
 
+    // Get complete data from the first system.
+    val data = a.saveToMap()
+
     // The second standard system, has it's own parameters but they will be restored.
-    val b = StandardSystem.create(432, a.save())
+    val b = restoreBy(data::get) { restore ->
+        StandardSystem<String, Int>(restore, { it }, { 432 })
+    }
 
     // Connect systems before running instructions.
     a.register(b::receive)

@@ -1,25 +1,21 @@
 package eu.metatools.wep2.system
 
-import eu.metatools.wep2.aspects.Resolving
 import eu.metatools.wep2.aspects.Restoring
 import eu.metatools.wep2.aspects.Saving
 import eu.metatools.wep2.components.*
 import eu.metatools.wep2.coordinators.Warp
 import eu.metatools.wep2.entity.*
 import eu.metatools.wep2.storage.*
-import eu.metatools.wep2.system.StandardSystem.Companion.create
 import eu.metatools.wep2.tools.*
-import eu.metatools.wep2.system.StandardSystem.Companion.playerGaia
 import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.ComparablePair
+import eu.metatools.wep2.util.collections.ObservableMap
 import eu.metatools.wep2.util.collections.SimpleMap
 import eu.metatools.wep2.util.listeners.Listener
+import eu.metatools.wep2.util.listeners.MapListener
 import eu.metatools.wep2.util.shorts
 import java.io.Serializable
 import java.util.*
-import kotlin.NoSuchElementException
-import kotlin.collections.getValue
-import kotlin.collections.set
 
 /**
  * Names generated and processed by a [StandardSystem].
@@ -60,10 +56,15 @@ data class ActiveName<N>(val name: SN<N>) : StandardName<N>(), Serializable
 typealias StandardContext<N> = Context<N, Time, SI>
 
 /**
+ * An instruction of a standard system.
+ */
+typealias StandardInstruction<N> = Triple<StandardName<N>, Time, Any?>
+
+/**
  *
  * @property restore The source of the restore operation.
  */
-class StandardSystem2<N, P>(n
+class StandardSystem<N, P>(
     override val restore: Restore?,
     val toSystemTime: (Long) -> Long,
     parameter: () -> P
@@ -98,16 +99,29 @@ class StandardSystem2<N, P>(n
     /**
      * Collects the save-methods.
      */
-    private val save = mutableListOf({ _: Store ->
-        // Before all saves, undo all operations in the instruction cache.
-        undoAll()
-    })
+    private val save = mutableListOf<(Store) -> Unit>()
 
     /**
      * Adds the [block] to the backing.
      */
     override fun saveWith(block: (Store) -> Unit) {
         save.add(block)
+    }
+
+    /**
+     * Performs all nested saves, undoes and redoes all operations as necessary.
+     */
+    override fun save(store: Store) {
+        // Before all saves, undo all operations in the instruction cache.
+        undoAll()
+
+        // Apply all nested saves.
+        save.forEach {
+            it(store)
+        }
+
+        // After save, redo all operations.
+        redoAll()
     }
 
     /**
@@ -130,7 +144,7 @@ class StandardSystem2<N, P>(n
     /**
      * The local player name.
      */
-    val self = playerSelf.first
+    val self get() = playerSelf.first
 
     /**
      * The IDs, as needed by the context to claim new entity identities.
@@ -140,7 +154,7 @@ class StandardSystem2<N, P>(n
     /**
      * The local time generator, might be restored from occupied scopes.
      */
-    private val time by timer()
+    val time by timer()
 
     /**
      * The initialization parameter as given, or as restored.
@@ -151,6 +165,11 @@ class StandardSystem2<N, P>(n
      * The serial self value, used for loop-back disambiguation.
      */
     private val serialSelf = UUID.randomUUID()
+
+    /**
+     * The central entity index.
+     */
+    override val index = ObservableMap<SI, Entity<N, Time, SI>>(MapListener.EMPTY)
 
     /**
      * The index as a custom slot, responsible for restoring the index, and storing it.
@@ -168,16 +187,16 @@ class StandardSystem2<N, P>(n
      */
     private val instructionsSlot by custom(
         { restore, key ->
-            receiveAll(restore.load(key))
+            // Load list of instructions.
+            val instructions = restore.load<List<StandardInstruction<N>>>(key)
+
+            // Receive them as a sequence.
+            receiveAll(instructions.asSequence())
         },
         { store, key ->
+            // Save instructions as a list.
             store.save(key, instructions.toList())
         })
-
-    /**
-     * The central entity index.
-     */
-    override val index by entityMap<N, Time, SI>()
 
     /**
      * Claims a new ID of the [ids].
@@ -261,262 +280,6 @@ class StandardSystem2<N, P>(n
 
     /**
      * Takes a time for the current player ([self]) and the given [local] time. If no
-     * general time is given, uses the current time millis.
-     */
-    fun time(local: Long = System.currentTimeMillis()) =
-        time.take(toSystemTime(local), playerCount, self)
-
-    /**
-     * Post save will redo all instructions, as the first save operation is to undo everything.
-     */
-    init {
-        saveWith {
-            redoAll()
-        }
-    }
-}
-
-/**
- * A standard system, initializing or restoring all components from an optional [StandardInitializer].
- *
- * Create a new instance with [create].
- * @property parameters The parameter to use if creating fresh.
- * @property standardInitializer The initializer or null if creating.
- * @property toSystemTime The conversion from external to system time.
- */
-class StandardSystem<N, P> private constructor(
-    val parameters: P,
-    val standardInitializer: StandardInitializer<N, P>?,
-    val toSystemTime: (Long) -> Long
-) : Warp<StandardName<N>, Time>(), StandardContext<N> {
-    /**
-     * True if the system was restored.
-     */
-    val wasRestored = standardInitializer != null
-
-    /**
-     * A value that can be exchanged but marks local referral.
-     */
-    private val serialSelf = UUID.randomUUID()
-
-    companion object {
-        /**
-         * Creates or restores a standard system with optional initializer argument.
-         *
-         * @param parameters The parameter to use if creating fresh.
-         * @param standardInitializer The initializer or null if creating.
-         * @param toSystemTime The conversion from external to system time.
-         */
-        fun <N, P> create(
-            parameters: P,
-            standardInitializer: StandardInitializer<N, P>?,
-            toSystemTime: (Long) -> Long = { it }
-        ) = StandardSystem(parameters, standardInitializer, toSystemTime).apply {
-            // If initializer is given, restore from it and receive all instructions.
-            standardInitializer?.let {
-                // Restore all entities from the saved data.
-                restoreBy(it.saveData::getValue) { restore ->
-                    restoreIndex(this, restore)
-                }
-
-                // Receive all instructions.
-                receiveAll(it.instructions.asSequence())
-            }
-        }
-
-        /**
-         * The player used for ticks etc.
-         */
-        const val playerGaia = (-1).toShort()
-
-        /**
-         * The starting player number.
-         */
-        const val playerZero = 0.toShort()
-
-        /**
-         * The recycler zero value for player numbers.
-         */
-        const val playerRecycleZero = 0.toShort()
-
-        /**
-         * The starting ID.
-         */
-        const val idZero = 0.toShort()
-
-        /**
-         * The recycler zero value for IDs.
-         */
-        const val idRecycleZero = 0.toShort()
-    }
-
-    /**
-     * Generates the player numbers, if `standardInitializer` is passed, it is restored.
-     */
-    private val playerReclaimableSequence =
-        standardInitializer?.let {
-            // Restore from package.
-            ReclaimableSequence.restore(
-                shorts(playerZero), playerRecycleZero, Short::inc,
-                it.playerHead, it.playerRecycled
-            )
-        } ?: ReclaimableSequence(shorts(playerZero), playerRecycleZero, Short::inc)
-
-    /**
-     * Claims player numbers.
-     */
-    private val players = Claimer(playerReclaimableSequence)
-
-    /**
-     * The current player with recycle count.
-     */
-    var playerSelf by prop { standardInitializer?.playerSelf ?: players.claim() }
-        private set
-
-    /**
-     * The current player count.
-     */
-    var playerCount by prop { standardInitializer?.playerCount ?: 1 }
-        private set
-
-    /**
-     * The current player number, claim new with [claimNewPlayer].
-     */
-    val self get() = playerSelf.first
-
-    /**
-     * Generates the identities, if `standardInitializer` is passed, it is restored.
-     */
-    private val idReclaimableSequence =
-        standardInitializer?.let {
-            // Restore from package.
-            ReclaimableSequence.restore(
-                shorts(idZero), idRecycleZero, Short::inc,
-                it.idsHead, it.idsRecycled
-            )
-        } ?: ReclaimableSequence(shorts(idZero), idRecycleZero, Short::inc)
-
-    /**
-     * Claims identities for entities.
-     */
-    val ids = Claimer(idReclaimableSequence)
-
-    /**
-     * Generates the time values.
-     */
-    val time =
-        standardInitializer?.let {
-            TimeGenerator(ScopedSequence.restore(TimeGenerator.defaultLocalIDs, it.scopes))
-        } ?: TimeGenerator(ScopedSequence(TimeGenerator.defaultLocalIDs))
-
-    /**
-     * Central entity index.
-     */
-    override val index by entityMap<N, Time, SI>()
-
-    /**
-     * The used parameter, if `standardInitializer` is passed, it is restored.
-     */
-    var parameter = standardInitializer?.parameter ?: parameters
-
-    override fun newId() =
-        ids.claim()
-
-    override fun releaseId(id: SI) =
-        ids.release(id)
-
-    override fun signal(identity: SI, name: N, time: Time, args: Any?) {
-        signal(ActiveName(identity to name), time, args)
-    }
-
-    /**
-     * Undoes all instructions and creates a restore package for this state, then redoes the instructions.
-     */
-    fun save(): StandardInitializer<N, P> {
-        undoAll()
-
-        // Create save data.
-        val saveData = mutableMapOf<String, Any?>()
-
-        // Store entity values.
-        storeBy(saveData::set) { store ->
-            storeIndex(this, store)
-        }
-
-        val result = StandardInitializer(
-            playerReclaimableSequence.generatorHead,
-            playerReclaimableSequence.recycled,
-            idReclaimableSequence.generatorHead,
-            idReclaimableSequence.recycled,
-            playerSelf,
-            playerCount,
-            time.localIDs.scopes,
-            instructions,
-            parameter,
-            saveData
-        )
-
-        redoAll()
-
-        return result
-    }
-
-    /**
-     * Consolidates the coordinator and the time generator.
-     */
-    fun consolidate(local: Long) {
-        val actual = toSystemTime(local)
-        consolidate(time.take(actual, playerCount, Short.MIN_VALUE))
-        time.consolidate(actual)
-    }
-
-    /**
-     * Sends a claim player signal for [playerGaia] and on evaluation, assigns the value.
-     */
-    fun claimNewPlayer(local: Long) {
-        val actual = toSystemTime(local)
-        signal(ClaimPlayer, time.take(actual, playerCount, playerGaia), serialSelf)
-    }
-
-    /**
-     * Releases the current player number.
-     */
-    fun releasePlayer(local: Long) {
-        val actual = toSystemTime(local)
-        signal(ReleasePlayer, time.take(actual, playerCount, playerGaia), playerSelf)
-    }
-
-    private fun evaluateManagement(name: ManagementName<N>, time: Time, args: Any?) = when (name) {
-        ClaimPlayer -> rec {
-            // Assert type of args.
-            args as UUID
-
-            // Claim new player and increment player count.
-            val next = players.claim()
-            playerCount++
-
-            // If claiming for this local player, assign self.
-            if (args == serialSelf)
-                playerSelf = next
-        }
-        ReleasePlayer -> rec {
-            // Assert type of args.
-            @Suppress("unchecked_cast")
-            args as ComparablePair<Short, Short>
-
-            // Release player and decrement player count.
-            players.release(args)
-            playerCount--
-        }
-    }
-
-    override fun evaluate(name: StandardName<N>, time: Time, args: Any?) = when (name) {
-        is ManagementName -> evaluateManagement(name, time, args)
-        is ActiveName -> index.dispatchEvaluate(name.name, time, args)
-    }
-
-    /**
-     * Takes a time for the current player ([self]) and the given [generalTime] time. If no
      * general time is given, uses the current time millis.
      */
     fun time(local: Long = System.currentTimeMillis()) =

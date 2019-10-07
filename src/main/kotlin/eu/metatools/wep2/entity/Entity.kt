@@ -161,7 +161,7 @@ abstract class RestoringEntity<N, T : Comparable<T>, I : Comparable<I>>(
         save.add(block)
     }
 
-    fun save(store: Store) {
+    override fun save(store: Store) {
         save.forEach {
             it(store)
         }

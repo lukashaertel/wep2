@@ -11,6 +11,7 @@ import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.wep2.encoding.GdxEncoding
 import eu.metatools.nw.enter
+import eu.metatools.wep2.aspects.wasRestored
 import eu.metatools.wep2.entity.name
 import eu.metatools.wep2.system.*
 
@@ -20,7 +21,6 @@ import eu.metatools.wep2.system.*
 typealias GameName = String
 typealias GameParam = Unit
 typealias GameSystem = StandardSystem<GameName, GameParam>
-typealias GameInitializer = StandardInitializer<GameName, GameParam>
 typealias GameEntity = StandardEntity<GameName>
 typealias GameContext = StandardContext<GameName>
 
@@ -63,7 +63,7 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * Cluster contribution methods.
      */
-    val net = enter(encoding, "game", Unit).also {
+    val net = enter(encoding, "game", { Unit }).also {
         it.system.claimNewPlayer(System.currentTimeMillis())
     }
 

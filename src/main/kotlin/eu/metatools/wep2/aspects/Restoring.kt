@@ -16,4 +16,3 @@ interface Restoring {
  * If true, the receiver was restored instead of created.
  */
 val Restoring.wasRestored get() = restore != null
-

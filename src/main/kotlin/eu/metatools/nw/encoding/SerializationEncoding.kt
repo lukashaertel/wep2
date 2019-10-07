@@ -1,9 +1,7 @@
 package eu.metatools.nw.encoding
 
-import eu.metatools.wep2.system.StandardInitializer
 import eu.metatools.wep2.system.StandardName
 import eu.metatools.wep2.tools.Time
-import eu.metatools.wep2.util.ComparablePair
 import eu.metatools.wep2.util.ReplacingObjectOutputStream
 import eu.metatools.wep2.util.ResolvingObjectInputStream
 import java.io.InputStream
@@ -22,65 +20,34 @@ open class SerializationEncoding<N, P> : Encoding<N, P> {
     open fun resolve(element: Any?) =
         element
 
-    override fun writeInitializer(output: OutputStream, standardInitializer: StandardInitializer<N, P>) =
-        writeInitializer(ReplacingObjectOutputStream(output, this::replace), standardInitializer)
+    override fun writeInitializer(output: OutputStream, data: Map<String, Any?>) =
+        writeInitializer(ReplacingObjectOutputStream(output, this::replace), data)
 
-    fun writeInitializer(output: ReplacingObjectOutputStream, standardInitializer: StandardInitializer<N, P>) {
-        output.writeObject(standardInitializer.playerHead)
-        output.writeObject(standardInitializer.playerRecycled)
-        output.writeObject(standardInitializer.idsHead)
-        output.writeObject(standardInitializer.idsRecycled)
-        output.writeObject(standardInitializer.playerSelf)
-        output.writeObject(standardInitializer.playerCount)
-        output.writeObject(standardInitializer.scopes)
-        output.writeObject(standardInitializer.instructions)
-        output.writeObject(standardInitializer.parameter)
-        output.writeObject(standardInitializer.saveData)
+    private fun writeInitializer(output: ReplacingObjectOutputStream, data: Map<String, Any?>) {
+        output.writeObject(data)
     }
 
     override fun readInitializer(input: InputStream) =
         readInitializer(ResolvingObjectInputStream(input, this::resolve))
 
 
-    fun readInitializer(input: ResolvingObjectInputStream): StandardInitializer<N, P> {
-        val playerHead = input.readObject()
-        val playerRecycled = input.readObject()
-        val idsHead = input.readObject()
-        val idsRecycled = input.readObject()
-        val playerSelf = input.readObject()
-        val playerCount = input.readObject()
-        val scopes = input.readObject()
-        val instructions = input.readObject()
-        val parameter = input.readObject()
-        val saveData = input.readObject()
-
+    private fun readInitializer(input: ResolvingObjectInputStream): Map<String, Any?> {
         @Suppress("unchecked_cast")
-        return StandardInitializer(
-            playerHead as Short?,
-            playerRecycled as List<ComparablePair<Short, Short>>,
-            idsHead as Short?,
-            idsRecycled as List<ComparablePair<Short, Short>>,
-            playerSelf as ComparablePair<Short, Short>,
-            playerCount as Short,
-            scopes as Map<Long, Byte>,
-            instructions as List<Triple<StandardName<N>, Time, Any?>>,
-            parameter as P,
-            saveData as Map<String, Any?>
-        )
+        return input.readObject() as Map<String, Any?>
     }
 
     override fun writeInstruction(output: OutputStream, instruction: Triple<StandardName<N>, Time, Any?>) =
         writeInstruction(ReplacingObjectOutputStream(output, this::replace), instruction)
 
 
-    fun writeInstruction(output: ReplacingObjectOutputStream, instruction: Triple<StandardName<N>, Time, Any?>) {
+    private fun writeInstruction(output: ReplacingObjectOutputStream, instruction: Triple<StandardName<N>, Time, Any?>) {
         output.writeObject(instruction)
     }
 
     override fun readInstruction(input: InputStream) =
         readInstruction(ResolvingObjectInputStream(input, this::resolve))
 
-    fun readInstruction(input: ResolvingObjectInputStream): Triple<StandardName<N>, Time, Any?> {
+    private fun readInstruction(input: ResolvingObjectInputStream): Triple<StandardName<N>, Time, Any?> {
         @Suppress("unchecked_cast")
         return input.readObject() as Triple<StandardName<N>, Time, Any?>
     }

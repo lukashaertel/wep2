@@ -10,12 +10,12 @@ interface Encoding<N, P> {
     /**
      * Writes the initializer.
      */
-    fun writeInitializer(output: OutputStream, standardInitializer: StandardInitializer<N, P>)
+    fun writeInitializer(output: OutputStream, data: Map<String, Any?>)
 
     /**
      * Reads the initializer.
      */
-    fun readInitializer(input: InputStream): StandardInitializer<N, P>
+    fun readInitializer(input: InputStream): Map<String, Any?>
 
     /**
      * Writes the instruction.
