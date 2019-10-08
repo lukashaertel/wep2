@@ -13,6 +13,30 @@ interface Listener<in R, in V> {
 
             override fun changed(receiver: Any?, oldValue: Any?, newValue: Any?) = Unit
         }
+
+        /**
+         * A listener that prints to console.
+         */
+        val CONSOLE = console("subject")
+
+        /**
+         * A listener that listens to changes and reports them under [name].
+         */
+        fun console(name: String) = object : Listener<Any?, Any?> {
+            override fun initialized(receiver: Any?, value: Any?) {
+                if (receiver == Unit)
+                    println("initialized $name=$value")
+                else
+                    println("initialized $receiver: $name=$value")
+            }
+
+            override fun changed(receiver: Any?, oldValue: Any?, newValue: Any?) {
+                if (receiver == Unit)
+                    println("changed $name=$newValue, was $oldValue")
+                else
+                    println("initialized $receiver: $name=$newValue, was $oldValue")
+            }
+        }
     }
 
     /**

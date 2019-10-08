@@ -1,13 +1,13 @@
 package eu.metatools.wep2.examples
 
+import eu.metatools.wep2.components.claimer
 import eu.metatools.wep2.components.prop
 import eu.metatools.wep2.coordinators.Warp
 import eu.metatools.wep2.entity.*
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.tools.TimeGenerator
-import eu.metatools.wep2.tools.shortNat
-import eu.metatools.wep2.components.Claimer
 import eu.metatools.wep2.track.rec
+import eu.metatools.wep2.util.shorts
 
 /**
  * An entity created by the coordinator or another entity.
@@ -64,7 +64,7 @@ class Example : Warp<SN<String>, Time>(), Context<String, Time, SI> {
     /**
      * The ID generator.
      */
-    val ids = Claimer(shortNat())
+    val ids by claimer(shorts())
 
     /**
      * The root, will be created equally for all coordinators.

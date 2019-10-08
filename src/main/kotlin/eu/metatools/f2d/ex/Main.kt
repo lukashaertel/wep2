@@ -14,13 +14,14 @@ import eu.metatools.nw.enter
 import eu.metatools.wep2.aspects.wasRestored
 import eu.metatools.wep2.entity.name
 import eu.metatools.wep2.system.*
+import eu.metatools.wep2.util.listeners.Listener
 
 // Shortened type declarations as aliases.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 typealias GameName = String
 typealias GameParam = Unit
-typealias GameSystem = StandardSystem<GameName, GameParam>
+typealias GameSystem = StandardSystem<GameName>
 typealias GameEntity = StandardEntity<GameName>
 typealias GameContext = StandardContext<GameName>
 
@@ -63,7 +64,11 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * Cluster contribution methods.
      */
-    val net = enter(encoding, "game", { Unit }).also {
+    val net = enter(
+        encoding, "game",
+        playerSelfListener = Listener.console("self"),
+        playerCountListener = Listener.console("count")
+    ).also {
         it.system.claimNewPlayer(System.currentTimeMillis())
     }
 
@@ -118,9 +123,6 @@ class Frontend : F2DListener(-100f, 100f) {
     private val keyStick = KeyStick()
 
     override fun render(time: Double, delta: Double) {
-        // Process the next messages.
-        net.update()
-
         // Get current time.
         val current = System.currentTimeMillis()
 
@@ -129,7 +131,6 @@ class Frontend : F2DListener(-100f, 100f) {
             val mover: Mover? = system.firstOrNull()
             mover?.signal("dir", system.time(current), move)
         }
-
 
         // Render the entities, tick if needed.
         for ((_, e) in system.index) {

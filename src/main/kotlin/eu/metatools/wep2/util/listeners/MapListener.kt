@@ -15,6 +15,37 @@ interface MapListener<in R, in K, in V> {
 
             override fun removed(receiver: Any?, key: Any?, value: Any?) = Unit
         }
+
+        /**
+         * A listener that prints to console.
+         */
+        val CONSOLE = Listener.console("subject")
+
+        /**
+         * A listener that listens to changes and reports them under [name].
+         */
+        fun console(name: String) = object : MapListener<Any?, Any?, Any?> {
+            override fun added(receiver: Any?, key: Any?, value: Any?) {
+                if (receiver == Unit)
+                    println("added $name[$key]=$value")
+                else
+                    println("added $receiver: $name[$key]=$value")
+            }
+
+            override fun changed(receiver: Any?, key: Any?, oldValue: Any?, newValue: Any?) {
+                if (receiver == Unit)
+                    println("changed $name[$key]=$newValue, was $oldValue")
+                else
+                    println("changed $receiver: $name[$key]=$newValue, was $oldValue")
+            }
+
+            override fun removed(receiver: Any?, key: Any?, value: Any?) {
+                if (receiver == Unit)
+                    println("removed $name[$key], was $value")
+                else
+                    println("removed $receiver: $name[$key], was $value")
+            }
+        }
     }
 
     /**

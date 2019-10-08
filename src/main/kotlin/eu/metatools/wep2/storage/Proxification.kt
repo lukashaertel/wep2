@@ -4,6 +4,7 @@ import eu.metatools.wep2.util.Just
 import eu.metatools.wep2.util.delegates.MutableProperty
 import eu.metatools.wep2.util.None
 import eu.metatools.wep2.util.Option
+import eu.metatools.wep2.util.labeledAs
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -49,14 +50,14 @@ inline fun <P, V> loadProxified(
 
         init {
             // Register a post operation to resolve the proxy.
-            restore.registerPost {
+            restore.registerPost({
                 // Resolve via application of resolution.
                 val resolved = if (from == null) null else resolve(from)
 
                 // Assign to value, notify listener.
                 current = Just(resolved)
                 initialized(resolved)
-            }
+            } labeledAs { "Resolving $from" })
         }
 
         override fun getValue(thisRef: Any?, property: KProperty<*>) =

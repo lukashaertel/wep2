@@ -13,6 +13,30 @@ interface SetListener<in R, in E> {
 
             override fun removed(receiver: Any?, element: Any?) = Unit
         }
+
+        /**
+         * A listener that prints to console.
+         */
+        val CONSOLE = Listener.console("subject")
+
+        /**
+         * A listener that listens to changes and reports them under [name].
+         */
+        fun console(name: String) = object : SetListener<Any?, Any?> {
+            override fun added(receiver: Any?, element: Any?) {
+                if (receiver == Unit)
+                    println("added $name <- $element")
+                else
+                    println("added $receiver: $name <- $element")
+            }
+
+            override fun removed(receiver: Any?, element: Any?) {
+                if (receiver == Unit)
+                    println("removed $name -> $element")
+                else
+                    println("removed $receiver: $name -> $element")
+            }
+        }
     }
 
     /**

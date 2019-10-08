@@ -2,15 +2,22 @@ package eu.metatools.wep2.system
 
 import eu.metatools.wep2.aspects.Restoring
 import eu.metatools.wep2.aspects.Saving
-import eu.metatools.wep2.components.*
+import eu.metatools.wep2.components.claimer
+import eu.metatools.wep2.components.custom
+import eu.metatools.wep2.components.prop
+import eu.metatools.wep2.components.timer
 import eu.metatools.wep2.coordinators.Warp
 import eu.metatools.wep2.entity.*
-import eu.metatools.wep2.storage.*
-import eu.metatools.wep2.tools.*
+import eu.metatools.wep2.storage.Restore
+import eu.metatools.wep2.storage.Store
+import eu.metatools.wep2.storage.path
+import eu.metatools.wep2.tools.TickGenerator
+import eu.metatools.wep2.tools.Time
+import eu.metatools.wep2.tools.tickToWith
 import eu.metatools.wep2.track.rec
 import eu.metatools.wep2.util.ComparablePair
 import eu.metatools.wep2.util.collections.ObservableMap
-import eu.metatools.wep2.util.collections.SimpleMap
+import eu.metatools.wep2.util.collections.ObservableMapListener
 import eu.metatools.wep2.util.listeners.Listener
 import eu.metatools.wep2.util.listeners.MapListener
 import eu.metatools.wep2.util.shorts
@@ -61,13 +68,31 @@ typealias StandardContext<N> = Context<N, Time, SI>
 typealias StandardInstruction<N> = Triple<StandardName<N>, Time, Any?>
 
 /**
+ * System concurrency.
+ */
+enum class Concurrency {
+    /**
+     * No locking, all operations applied on the system from outside are manually synchronized.
+     */
+    UNLOCKED,
+
+    /**
+     * Synchronized on signalling and receiving.
+     */
+    SYNC
+}
+
+/**
  *
  * @property restore The source of the restore operation.
  */
-class StandardSystem<N, P>(
+class StandardSystem<N>(
     override val restore: Restore?,
     val toSystemTime: (Long) -> Long,
-    parameter: () -> P
+    val concurrency: Concurrency = Concurrency.UNLOCKED,
+    playerSelfListener: Listener<Unit, ComparablePair<Short, Short>> = Listener.EMPTY,
+    playerCountListener: Listener<Unit, Short> = Listener.EMPTY,
+    indexListener: ObservableMapListener<SI, Entity<N, Time, SI>> = MapListener.EMPTY
 ) : Warp<StandardName<N>, Time>(), StandardContext<N>, Restoring, Saving {
     companion object {
         /**
@@ -97,6 +122,15 @@ class StandardSystem<N, P>(
     }
 
     /**
+     * Applies synchronization if needed.
+     */
+    private inline fun <R> applySync(block: () -> R) =
+        if (concurrency == Concurrency.SYNC)
+            synchronized(this, block)
+        else
+            run(block)
+
+    /**
      * Collects the save-methods.
      */
     private val save = mutableListOf<(Store) -> Unit>()
@@ -111,7 +145,7 @@ class StandardSystem<N, P>(
     /**
      * Performs all nested saves, undoes and redoes all operations as necessary.
      */
-    override fun save(store: Store) {
+    override fun save(store: Store) = applySync {
         // Before all saves, undo all operations in the instruction cache.
         undoAll()
 
@@ -124,6 +158,7 @@ class StandardSystem<N, P>(
         redoAll()
     }
 
+
     /**
      * Players are a claimer, starting at the zero values defined in the companion.
      */
@@ -132,13 +167,13 @@ class StandardSystem<N, P>(
     /**
      * The local player, might be restored.
      */
-    var playerSelf by prop { players.claim() }
+    var playerSelf by prop(playerSelfListener) { players.claim() }
         private set
 
     /**
      * The player count, starts at one.
      */
-    var playerCount by prop { 1.toShort() }
+    var playerCount by prop(playerCountListener) { 1.toShort() }
         private set
 
     /**
@@ -157,11 +192,6 @@ class StandardSystem<N, P>(
     val time by timer()
 
     /**
-     * The initialization parameter as given, or as restored.
-     */
-    val parameter by prop(Listener.EMPTY, parameter, false)
-
-    /**
      * The serial self value, used for loop-back disambiguation.
      */
     private val serialSelf = UUID.randomUUID()
@@ -169,7 +199,7 @@ class StandardSystem<N, P>(
     /**
      * The central entity index.
      */
-    override val index = ObservableMap<SI, Entity<N, Time, SI>>(MapListener.EMPTY)
+    override val index = ObservableMap(indexListener)
 
     /**
      * The index as a custom slot, responsible for restoring the index, and storing it.
@@ -210,10 +240,18 @@ class StandardSystem<N, P>(
     override fun releaseId(id: SI) =
         ids.release(id)
 
+    override fun receive(name: StandardName<N>, time: Time, args: Any?) = applySync {
+        super.receive(name, time, args)
+    }
+
+    override fun receiveAll(triples: Sequence<Triple<StandardName<N>, Time, Any?>>) = applySync {
+        super.receiveAll(triples)
+    }
+
     /**
      * Signals a non-management name to the system.
      */
-    override fun signal(identity: SI, name: N, time: Time, args: Any?) {
+    override fun signal(identity: SI, name: N, time: Time, args: Any?) = applySync {
         signal(ActiveName(identity to name), time, args)
     }
 
@@ -294,26 +332,26 @@ typealias StandardEntity<N> = RestoringEntity<N, Time, SI>
 /**
  * Finds the single matching entity or throws an exception.
  */
-inline fun <N, reified R> StandardSystem<N, *>.single() =
+inline fun <N, reified R> StandardSystem<N>.single() =
     index.values.asSequence().filterIsInstance<R>().single()
 
 /**
  * Finds the first matching entity or throws an exception.
  */
-inline fun <N, reified R> StandardSystem<N, *>.find() =
+inline fun <N, reified R> StandardSystem<N>.find() =
     index.values.asSequence().filterIsInstance<R>().first()
 
 /**
  * Finds the first matching entity or returns null.
  */
-inline fun <N, reified R> StandardSystem<N, *>.firstOrNull() =
+inline fun <N, reified R> StandardSystem<N>.firstOrNull() =
     index.values.asSequence().filterIsInstance<R>().firstOrNull()
 
 /**
  * Generates ticks to the element identified by [name] at the given [time]. The coordinator, player
  * count and time generator are taken from the [standardSystem].
  */
-fun <N> TickGenerator.tickToWith(standardSystem: StandardSystem<N, *>, name: SN<N>, time: Long) = tickToWith(
+fun <N> TickGenerator.tickToWith(standardSystem: StandardSystem<N>, name: SN<N>, time: Long) = tickToWith(
     standardSystem.time, standardSystem,
     ActiveName(name),
     standardSystem.toSystemTime(time),

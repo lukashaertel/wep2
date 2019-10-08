@@ -18,7 +18,7 @@ import eu.metatools.wep2.util.within
  */
 fun <I : Comparable<I>, R : Comparable<R>> claimer(sequence: Sequence<I>, zero: R, inc: (R) -> R) =
     @Suppress("unchecked_cast")
-    (ReadOnlyPropertyProvider { thisRef: Any?, property ->
+    ReadOnlyPropertyProvider { thisRef: Any?, property ->
         // Get aspects of the receiver.
         val restoring = thisRef as? Restoring
         val saving = thisRef as? Saving
@@ -42,8 +42,29 @@ fun <I : Comparable<I>, R : Comparable<R>> claimer(sequence: Sequence<I>, zero: 
         })
 
         // Return direct property on a claimer on the source.
-        Property(Claimer(source))
-    })
+        Property<Claimer<I, R>>(object : Claimer<I, R> {
+            /**
+             * Claims a value.
+             */
+            override fun claim(): ComparablePair<I, R> {
+                val (value, undo) = source.claim()
+                undos.get()?.add(undo labeledAs {
+                    "releasing $value"
+                })
+                return value
+            }
+
+            /**
+             * Releases a value.
+             */
+            override fun release(value: ComparablePair<I, R>) {
+                val undo = source.release(value)
+                undos.get()?.add(undo labeledAs {
+                    "reclaiming $value"
+                })
+            }
+        })
+    }
 
 /**
  * Delegates as a claimer, uses short as recycle counts.
@@ -51,34 +72,21 @@ fun <I : Comparable<I>, R : Comparable<R>> claimer(sequence: Sequence<I>, zero: 
 fun <I : Comparable<I>> claimer(sequence: Sequence<I>) =
     claimer(sequence, 0.toShort(), Short::inc)
 
-/**
- * Wraps generating elements of a [ReclaimableSequence] providing automated undo.
- */
-class Claimer<I : Comparable<I>, R : Comparable<R>>(val reclaimableSequence: ReclaimableSequence<I, R>) {
+interface Claimer<I : Comparable<I>, R : Comparable<R>> {
     /**
      * Claims a value.
      */
-    fun claim(): ComparablePair<I, R> {
-        val (value, undo) = reclaimableSequence.claim()
-        undos.get()?.add(undo labeledAs {
-            "releasing $value"
-        })
-        return value
-    }
+    fun claim(): ComparablePair<I, R>
 
     /**
      * Releases a value.
      */
-    fun release(value: ComparablePair<I, R>) {
-        val undo = reclaimableSequence.release(value)
-        undos.get()?.add(undo labeledAs {
-            "reclaiming $value"
-        })
-    }
+    fun release(value: ComparablePair<I, R>)
 }
 
+
 /**
- * Claims a value of a [Claimer], returns the first component without the recycle count.
+ * Claims a value of a [ClaimerImpl], returns the first component without the recycle count.
  */
 fun <I : Comparable<I>> Claimer<I, *>.claimValue() =
     claim().first

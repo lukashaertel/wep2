@@ -1,6 +1,5 @@
 package eu.metatools.nw.encoding
 
-import eu.metatools.wep2.system.StandardInitializer
 import eu.metatools.wep2.system.StandardName
 import eu.metatools.wep2.tools.Time
 import java.io.InputStream

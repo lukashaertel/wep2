@@ -1,5 +1,6 @@
 package eu.metatools.wep2.examples
 
+import eu.metatools.f2d.ex.undefined
 import eu.metatools.wep2.aspects.saveToMap
 import eu.metatools.wep2.components.claimer
 import eu.metatools.wep2.components.prop
@@ -10,6 +11,7 @@ import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.components.randomInt
 import eu.metatools.wep2.storage.restoreBy
 import eu.metatools.wep2.track.rec
+import eu.metatools.wep2.util.listeners.Listener
 import eu.metatools.wep2.util.randomInts
 
 /**
@@ -19,15 +21,16 @@ import eu.metatools.wep2.util.randomInts
  * @param The restore object to use to restore values.
  */
 class StandardChild(
-    val system: StandardSystem<String, Int>,
-    restore: Restore?
+    val system: StandardSystem<String>,
+    restore: Restore?,
+    value: () -> Int = undefined()
 ) : StandardEntity<String>(system, restore) {
     val rnd by claimer(randomInts(0L))
 
     /**
      * A restored or initialized value.
      */
-    var value by prop { system.parameter }
+    var value by prop(initial = value)
 
     /**
      * A random value.
@@ -53,11 +56,14 @@ class StandardChild(
 }
 
 fun main() {
-    // The first standard system with some parameters.
-    val a = StandardSystem<String, Int>(null, { it }, { 123 })
+    // The first standard system, freshly created..
+    val a = StandardSystem<String>(
+        null, { it },
+        playerCountListener = Listener.CONSOLE
+    )
 
     // A standard child in the system, do not restore here.
-    val e = StandardChild(a, null)
+    val e = StandardChild(a, null) { 123 }
 
     // Signal some impulses.
     e.signal("inc", a.time(System.currentTimeMillis()), Unit)
@@ -70,9 +76,9 @@ fun main() {
     // Get complete data from the first system.
     val data = a.saveToMap()
 
-    // The second standard system, has it's own parameters but they will be restored.
+    // The second standard system.
     val b = restoreBy(data::get) { restore ->
-        StandardSystem<String, Int>(restore, { it }, { 432 })
+        StandardSystem<String>(restore, { it })
     }
 
     // Connect systems before running instructions.

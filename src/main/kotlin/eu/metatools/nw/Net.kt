@@ -2,11 +2,17 @@ package eu.metatools.nw
 
 import eu.metatools.nw.encoding.Encoding
 import eu.metatools.wep2.aspects.saveToMap
+import eu.metatools.wep2.entity.Entity
+import eu.metatools.wep2.entity.SI
 import eu.metatools.wep2.storage.restoreBy
-import eu.metatools.wep2.storage.storeBy
+import eu.metatools.wep2.system.Concurrency
 import eu.metatools.wep2.system.StandardName
 import eu.metatools.wep2.system.StandardSystem
 import eu.metatools.wep2.tools.Time
+import eu.metatools.wep2.util.ComparablePair
+import eu.metatools.wep2.util.collections.ObservableMapListener
+import eu.metatools.wep2.util.listeners.Listener
+import eu.metatools.wep2.util.listeners.MapListener
 import org.jgroups.JChannel
 import org.jgroups.Message
 import org.jgroups.Receiver
@@ -19,12 +25,7 @@ interface Net<N, P> {
     /**
      * The system that is created or initialized from participation.
      */
-    val system: StandardSystem<N, P>
-
-    /**
-     * Pushes all buffered instructions to the [system].
-     */
-    fun update()
+    val system: StandardSystem<N>
 
     /**
      * Stops participation.
@@ -44,12 +45,14 @@ interface Net<N, P> {
 fun <N, P> enter(
     encoding: Encoding<N, P>,
     cluster: String,
-    parameter: () -> P,
     propsName: String = "fast.xml",
-    stateTimeout: Long = 10_000L
+    stateTimeout: Long = 10_000L,
+    playerSelfListener: Listener<Unit, ComparablePair<Short, Short>> = Listener.EMPTY,
+    playerCountListener: Listener<Unit, Short> = Listener.EMPTY,
+    indexListener: ObservableMapListener<SI, Entity<N, Time, SI>> = MapListener.EMPTY
 ): Net<N, P> {
     // Result variable, will receive calls during connection.
-    lateinit var target: StandardSystem<N, P>
+    lateinit var target: StandardSystem<N>
 
     // Create channel with the given properties.
     val channel = JChannel(propsName)
@@ -58,21 +61,14 @@ fun <N, P> enter(
     // Store for applied time delta. TODO: With state echange solution, ping is not included.
     var delta = -System.currentTimeMillis()
 
-    // Buffer of instructions.
-    val buffer = mutableListOf<Triple<StandardName<N>, Time, Any?>>()
-
     // Configure receiver.
     channel.receiver(object : Receiver {
         override fun receive(msg: Message) {
-
             // Create input stream from buffer.
             ByteArrayInputStream(msg.rawBuffer, msg.offset, msg.length).use {
-                // Read instruction from stream, add to buffer.
-                encoding.readInstruction(it).let {
-                    synchronized(buffer) {
-                        buffer.add(it)
-                    }
-                }
+                // Read instruction from stream and receive it.
+                val (name, time, args) = encoding.readInstruction(it)
+                target.receive(name, time, args)
             }
         }
 
@@ -102,10 +98,14 @@ fun <N, P> enter(
                 // Read initializer.
                 val initializer = encoding.readInitializer(it)
 
-
                 // Create target from state exchange.
                 target = restoreBy(initializer::get) { restore ->
-                    StandardSystem(restore, { time -> time + delta }, parameter)
+                    StandardSystem(
+                        restore, { time -> time + delta }, Concurrency.SYNC,
+                        playerSelfListener,
+                        playerCountListener,
+                        indexListener
+                    )
                 }
             }
         }
@@ -137,7 +137,12 @@ fun <N, P> enter(
     if (channel.view.size() > 1)
         channel.getState(null, stateTimeout)
     else
-        target = StandardSystem(null, { time -> time + delta }, parameter)
+        target = StandardSystem(
+            null, { time -> time + delta }, Concurrency.SYNC,
+            playerSelfListener,
+            playerCountListener,
+            indexListener
+        )
 
     // Connect outgoing messages of the cluster.
     target.register { name, time, args ->
@@ -156,18 +161,9 @@ fun <N, P> enter(
 
     // Return target and closing method.
     return object : Net<N, P> {
-        override val system: StandardSystem<N, P>
+        override val system: StandardSystem<N>
             // Return initialized target.
             get() = target
-
-        // TODO: Better sync, elements are still flickering while saving.
-        override fun update() =
-            // Synchronize buffer, receive the copy as a sequence.
-            target.receiveAll(synchronized(buffer) {
-                buffer.toList().asSequence().also {
-                    buffer.clear()
-                }
-            })
 
         override fun stop() {
             // Reset receiver, disconnect and close.
