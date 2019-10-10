@@ -101,21 +101,21 @@ fun main() {
     val generator = TimeGenerator()
 
     // Create some children, if possible.
-    hostA.root.signal("sib", generator.take(0, 10, 0), Unit)
-    hostA.root.signal("sib", generator.take(10, 10, 0), Unit)
-    hostA.root.signal("sib", generator.take(20, 10, 0), Unit)
-    hostA.root.signal("sib", generator.take(30, 10, 0), Unit)
-    hostA.root.signal("sib", generator.take(40, 10, 0), Unit)
+    hostA.root.signal("sib", generator.take(0, 0), Unit)
+    hostA.root.signal("sib", generator.take(10, 0), Unit)
+    hostA.root.signal("sib", generator.take(20, 0), Unit)
+    hostA.root.signal("sib", generator.take(30, 0), Unit)
+    hostA.root.signal("sib", generator.take(40, 0), Unit)
 
     println(hostA)
 
     // Add money before some instructions, re-allowing some creations.
-    hostA.root.signal("earn", generator.take(35, 10, 0), Unit)
+    hostA.root.signal("earn", generator.take(35, 0), Unit)
 
     println(hostA)
 
     // Send a kill signal before most of the creations
-    hostA.root.signal("kill", generator.take(5, 10, 0), Unit)
+    hostA.root.signal("kill", generator.take(5, 0), Unit)
 
     println(hostA)
 
@@ -123,7 +123,7 @@ fun main() {
     // an ID is reclaimed, but differs in recycle count.
     hostA.index.minBy { it.key }
         ?.value
-        ?.signal("sib", generator.take(6, 10, 0), Unit)
+        ?.signal("sib", generator.take(6, 0), Unit)
 
     println(hostA)
 

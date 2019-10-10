@@ -6,7 +6,6 @@ import eu.metatools.wep2.entity.Entity
 import eu.metatools.wep2.entity.SI
 import eu.metatools.wep2.storage.restoreBy
 import eu.metatools.wep2.system.Concurrency
-import eu.metatools.wep2.system.StandardName
 import eu.metatools.wep2.system.StandardSystem
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.util.ComparablePair
@@ -47,7 +46,7 @@ fun <N, P> enter(
     cluster: String,
     propsName: String = "fast.xml",
     stateTimeout: Long = 10_000L,
-    playerSelfListener: Listener<Unit, ComparablePair<Short, Short>> = Listener.EMPTY,
+    playerSelfListener: Listener<Unit, ComparablePair<Short, Short>?> = Listener.EMPTY,
     playerCountListener: Listener<Unit, Short> = Listener.EMPTY,
     indexListener: ObservableMapListener<SI, Entity<N, Time, SI>> = MapListener.EMPTY
 ): Net<N, P> {
@@ -88,18 +87,14 @@ fun <N, P> enter(
 
                     // Set delta from difference.
                     delta = adjustTo - currentTime
-                    println("Delta adjusted to $delta")
-                    println("\tCurrent time: $currentTime")
-                    println("\tRemote time: $remoteTime")
-                    println("\tRemote delta: $remoteDelta")
                 }
 
 
                 // Read initializer.
-                val initializer = encoding.readInitializer(it)
-
+                val data = encoding.readInitializer(it)
+                for ((k, v) in data) println("\t$k=$v")
                 // Create target from state exchange.
-                target = restoreBy(initializer::get) { restore ->
+                target = restoreBy(data::get) { restore ->
                     StandardSystem(
                         restore, { time -> time + delta }, Concurrency.SYNC,
                         playerSelfListener,
@@ -107,6 +102,7 @@ fun <N, P> enter(
                         indexListener
                     )
                 }
+                println("Restored $target")
             }
         }
 
@@ -123,7 +119,10 @@ fun <N, P> enter(
                 }
 
                 // Save data of the target.
+                println("Storing $target")
                 val data = target.saveToMap()
+                for ((k, v) in data) println("\t$k=$v")
+
 
                 // Write data to state exchange.
                 encoding.writeInitializer(it, data)

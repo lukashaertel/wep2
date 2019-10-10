@@ -20,6 +20,15 @@ fun square(dim: Pt, pt: Pt): Float {
 }
 
 /**
+ * Applies a located square.
+ */
+fun squareFromTo(start: Pt, end: Pt, pt: Pt): Float {
+    val dim = (end - start) / 2f
+    val center = (start + end) / 2f
+    return square(dim, pt - center)
+}
+
+/**
  * Binds the first argument.
  */
 fun square(dim: Pt = Pt.One) = { pt: Pt -> square(dim, pt) }
@@ -80,12 +89,12 @@ private val e = 1f / 2.shl(16)
 /**
  * Epsilon as X component.
  */
-private val ex = Pt(x = e)
+private val ex = Pt(e, 0f)
 
 /**
  * Epsilon as Y component.
  */
-private val ey = Pt(y = e)
+private val ey = Pt(0f, e)
 
 /**
  * Computes the derivative of [f] at [pt].

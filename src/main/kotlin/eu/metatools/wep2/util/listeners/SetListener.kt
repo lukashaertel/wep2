@@ -24,17 +24,11 @@ interface SetListener<in R, in E> {
          */
         fun console(name: String) = object : SetListener<Any?, Any?> {
             override fun added(receiver: Any?, element: Any?) {
-                if (receiver == Unit)
-                    println("added $name <- $element")
-                else
-                    println("added $receiver: $name <- $element")
+                println("added $name <- $element")
             }
 
             override fun removed(receiver: Any?, element: Any?) {
-                if (receiver == Unit)
-                    println("removed $name -> $element")
-                else
-                    println("removed $receiver: $name -> $element")
+                println("removed $name -> $element")
             }
         }
     }

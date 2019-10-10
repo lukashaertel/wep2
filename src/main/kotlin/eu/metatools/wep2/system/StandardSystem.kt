@@ -39,6 +39,8 @@ sealed class ManagementName<N> : StandardName<N>(), Serializable
  */
 object ClaimPlayer : ManagementName<Any?>(), Serializable {
     private fun readResolve(): Any? = ClaimPlayer
+
+    override fun toString() = "Claim player"
 }
 
 /**
@@ -46,12 +48,16 @@ object ClaimPlayer : ManagementName<Any?>(), Serializable {
  */
 object ReleasePlayer : ManagementName<Any?>(), Serializable {
     private fun readResolve(): Any? = ReleasePlayer
+
+    override fun toString() = "Release player"
 }
 
 /**
  * Type for actual messages.
  */
-data class ActiveName<N>(val name: SN<N>) : StandardName<N>(), Serializable
+data class ActiveName<N>(val name: SN<N>) : StandardName<N>(), Serializable {
+    override fun toString() = name.toString()
+}
 
 // TODO: Restored times after a load will greatly differ, save. Maybe save and restore a delta?
 //  Probably to be done in the frontend, creating a difference based time.
@@ -90,15 +96,20 @@ class StandardSystem<N>(
     override val restore: Restore?,
     val toSystemTime: (Long) -> Long,
     val concurrency: Concurrency = Concurrency.UNLOCKED,
-    playerSelfListener: Listener<Unit, ComparablePair<Short, Short>> = Listener.EMPTY,
+    playerSelfListener: Listener<Unit, ComparablePair<Short, Short>?> = Listener.EMPTY,
     playerCountListener: Listener<Unit, Short> = Listener.EMPTY,
     indexListener: ObservableMapListener<SI, Entity<N, Time, SI>> = MapListener.EMPTY
 ) : Warp<StandardName<N>, Time>(), StandardContext<N>, Restoring, Saving {
     companion object {
+//        /**
+//         * The player used for pre-all operations.
+//         */
+//        const val playerInf = Short.MIN_VALUE
+
         /**
-         * The player used for ticks etc.
+         * The player used for post-all operations, e.g., ticks etc.
          */
-        const val playerGaia = (-1).toShort()
+        const val playerSup = Short.MAX_VALUE
 
         /**
          * The starting player number.
@@ -167,19 +178,19 @@ class StandardSystem<N>(
     /**
      * The local player, might be restored.
      */
-    var playerSelf by prop(playerSelfListener) { players.claim() }
+    var playerSelf by prop<ComparablePair<Short, Short>?>(playerSelfListener) { null }
         private set
 
     /**
      * The player count, starts at one.
      */
-    var playerCount by prop(playerCountListener) { 1.toShort() }
+    var playerCount by prop(playerCountListener) { 0.toShort() }
         private set
 
     /**
      * The local player name.
      */
-    val self get() = playerSelf.first
+    val self get() = playerSelf?.first
 
     /**
      * The IDs, as needed by the context to claim new entity identities.
@@ -220,8 +231,11 @@ class StandardSystem<N>(
             // Load list of instructions.
             val instructions = restore.load<List<StandardInstruction<N>>>(key)
 
-            // Receive them as a sequence.
-            receiveAll(instructions.asSequence())
+            // Wait until full resolution of references.
+            restore.registerPost {
+                // Receive instructions as a sequence.
+                receiveAll(instructions.asSequence())
+            }
         },
         { store, key ->
             // Save instructions as a list.
@@ -268,24 +282,22 @@ class StandardSystem<N>(
      */
     fun consolidate(local: Long) {
         val actual = toSystemTime(local)
-        consolidate(time.take(actual, playerCount, Short.MIN_VALUE))
+        consolidate(time.take(actual, Short.MIN_VALUE))
         time.consolidate(actual)
     }
 
     /**
-     * Sends a claim player signal for [playerGaia] and on evaluation, assigns the value.
+     * Sends a claim player signal for [playerInf] and on evaluation, assigns the value.
      */
-    fun claimNewPlayer(local: Long) {
-        val actual = toSystemTime(local)
-        signal(ClaimPlayer, time.take(actual, playerCount, playerGaia), serialSelf)
+    fun claimNewPlayer(local: Long = System.currentTimeMillis()) {
+        signal(ClaimPlayer, timeSup(local), serialSelf)
     }
 
     /**
      * Releases the current player number.
      */
-    fun releasePlayer(local: Long) {
-        val actual = toSystemTime(local)
-        signal(ReleasePlayer, time.take(actual, playerCount, playerGaia), playerSelf)
+    fun releasePlayer(local: Long = System.currentTimeMillis()) {
+        signal(ReleasePlayer, time(local), playerSelf)
     }
 
     /**
@@ -316,12 +328,26 @@ class StandardSystem<N>(
     }
 
 
+//    /**
+//     * Takes a time for [playerInf] (and the given [local] time. If no
+//     * general time is given, uses the current time millis.
+//     */
+//    fun timeInf(local: Long = System.currentTimeMillis()) =
+//        time.take(toSystemTime(local), playerInf)
+
+    /**
+     * Takes a time for [playerSup] (and the given [local] time. If no
+     * general time is given, uses the current time millis.
+     */
+    fun timeSup(local: Long = System.currentTimeMillis()) =
+        time.take(toSystemTime(local), playerSup)
+
     /**
      * Takes a time for the current player ([self]) and the given [local] time. If no
      * general time is given, uses the current time millis.
      */
     fun time(local: Long = System.currentTimeMillis()) =
-        time.take(toSystemTime(local), playerCount, self)
+        time.take(toSystemTime(local), self ?: error("No player claimed."))
 }
 
 /**
@@ -332,20 +358,39 @@ typealias StandardEntity<N> = RestoringEntity<N, Time, SI>
 /**
  * Finds the single matching entity or throws an exception.
  */
-inline fun <N, reified R> StandardSystem<N>.single() =
+inline fun <reified R> StandardSystem<*>.single() =
     index.values.asSequence().filterIsInstance<R>().single()
 
 /**
  * Finds the first matching entity or throws an exception.
  */
-inline fun <N, reified R> StandardSystem<N>.find() =
+inline fun <reified R> StandardSystem<*>.find() =
     index.values.asSequence().filterIsInstance<R>().first()
 
 /**
  * Finds the first matching entity or returns null.
  */
-inline fun <N, reified R> StandardSystem<N>.firstOrNull() =
+inline fun <reified R> StandardSystem<*>.firstOrNull() =
     index.values.asSequence().filterIsInstance<R>().firstOrNull()
+
+
+/**
+ * Finds the single matching entity or throws an exception.
+ */
+inline fun <reified R> StandardSystem<*>.single(block: (R) -> Boolean) =
+    index.values.asSequence().filterIsInstance<R>().single(block)
+
+/**
+ * Finds the first matching entity or throws an exception.
+ */
+inline fun <reified R> StandardSystem<*>.find(block: (R) -> Boolean) =
+    index.values.asSequence().filterIsInstance<R>().first(block)
+
+/**
+ * Finds the first matching entity or returns null.
+ */
+inline fun <reified R> StandardSystem<*>.firstOrNull(block: (R) -> Boolean) =
+    index.values.asSequence().filterIsInstance<R>().firstOrNull(block)
 
 /**
  * Generates ticks to the element identified by [name] at the given [time]. The coordinator, player
@@ -355,5 +400,5 @@ fun <N> TickGenerator.tickToWith(standardSystem: StandardSystem<N>, name: SN<N>,
     standardSystem.time, standardSystem,
     ActiveName(name),
     standardSystem.toSystemTime(time),
-    standardSystem.playerCount, StandardSystem.playerGaia
+    StandardSystem.playerSup
 )

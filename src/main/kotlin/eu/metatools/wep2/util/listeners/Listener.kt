@@ -24,17 +24,11 @@ interface Listener<in R, in V> {
          */
         fun console(name: String) = object : Listener<Any?, Any?> {
             override fun initialized(receiver: Any?, value: Any?) {
-                if (receiver == Unit)
-                    println("initialized $name=$value")
-                else
-                    println("initialized $receiver: $name=$value")
+                println("initialized $name=$value")
             }
 
             override fun changed(receiver: Any?, oldValue: Any?, newValue: Any?) {
-                if (receiver == Unit)
-                    println("changed $name=$newValue, was $oldValue")
-                else
-                    println("initialized $receiver: $name=$newValue, was $oldValue")
+                println("changed $name=$newValue, was $oldValue")
             }
         }
     }

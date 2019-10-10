@@ -86,7 +86,7 @@ fun main() {
     b.register(a::receive)
 
     // Claim a new player ID for the new player before doing something.
-    b.claimNewPlayer(System.currentTimeMillis())
+    b.claimNewPlayer()
 
     // Find root entity.
     val f = b.index.values.filterIsInstance<StandardChild>().first()

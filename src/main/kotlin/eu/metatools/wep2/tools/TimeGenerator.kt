@@ -13,28 +13,21 @@ import java.io.Serializable
  * @property local The player-internal time.
  */
 data class Time(
-    val playerCount: Short,
     val time: Long,
     val player: Short,
     val local: Byte
 ) : Comparable<Time>, Serializable {
     override fun compareTo(other: Time) =
         first(other) {
-            // Compare outer time.
             time.compareTo(other.time)
         } then {
-            val mod = maxOf(playerCount, other.playerCount)
-            val shift = (time + player) % mod
-            val otherShift = (other.time + other.player) % mod
-            // Compare player, rotate for fair distribution.
-            shift.compareTo(otherShift)
+            player.compareTo(other.player)
         } then {
-            // Same player on same time, return comparison of local.
             local.compareTo(other.local)
         }
 
     override fun toString() =
-        "$time.$local for $player/$playerCount"
+        "$time@$player+$local"
 }
 
 /**
@@ -57,8 +50,8 @@ class TimeGenerator(val localIDs: ScopedSequence<Long, Byte> = ScopedSequence(de
     /**
      * Takes a time usable to exchange.
      */
-    fun take(time: Long, playerCount: Short, player: Short) =
-        Time(playerCount, time, player, localIDs.take(time))
+    fun take(time: Long, player: Short) =
+        Time(time, player, localIDs.take(time))
 
 }
 
@@ -71,8 +64,7 @@ fun <N> TickGenerator.tickToWith(
     coordinator: Coordinator<N, Time>,
     name: N,
     time: Long,
-    playerCount: Short,
     player: Short
 ) = tickTo(coordinator, name, time) {
-    timeGenerator.take(it, playerCount, player)
+    timeGenerator.take(it, player)
 }

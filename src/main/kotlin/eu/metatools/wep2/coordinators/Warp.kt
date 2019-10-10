@@ -26,7 +26,10 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
         val name: N,
         val args: Any?,
         var undo: () -> Unit
-    )
+    ) {
+        override fun toString() =
+            "$name($args)/[$undo]"
+    }
 
     /**
      * All instructions and their undo operations.
@@ -90,16 +93,24 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
 
         // Undo existing instructions in reverse order.
         part.descendingMap()
-            .forEach { (_, u) -> u.undo() }
+            .forEach { (t, u) ->
+                u.undo()
+                println("Undone $t: ${u.name}(${u.args})")
+            }
 
         // Add newly received instruction with it's undo operation (assert it was unmapped).
-        part.put(time, Instruction(name, args, evaluate(name, time, args))).let {
+        part.put(time, Instruction<N, T>(name, args, evaluate(name, time, args)).also {
+            println("Inserted $time: $name($args)")
+        }).let {
             check(it == null) { "Time slot $time is already occupied by $it" }
         }
 
         // Reevaluate the remaining instructions and reassign undo operations.
         part.tailMap(time, false)
-            .forEach { (t, u) -> u.undo = evaluate(u.name, t, u.args) }
+            .forEach { (t, u) ->
+                println("Redoing $t: ${u.name}(${u.args})")
+                u.undo = evaluate(u.name, t, u.args)
+            }
     }
 
     /**
@@ -107,7 +118,7 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
      * @param triples A list of triples consisting of name, time and arguments
      * of an invocation.
      */
-    override fun receiveAll(triples: Sequence<Triple<N, T, Any?>>) {
+    fun receiveAllX(triples: Sequence<Triple<N, T, Any?>>) {
         // Associate the calls by their time, do nothing if empty.
         val associated = triples
             .associateByTo(TreeMap()) { it.second }
@@ -121,11 +132,11 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
             .forEach { (_, u) -> u.undo() }
 
         // Fold over segments between calls to be inserted.
-        val last = triples
+        val (last, inclusive) = triples
             .sortedBy { it.second }
-            .fold(associated.firstKey()) { from, (name, time, args) ->
+            .fold(associated.firstKey() to true) { (from, inclusive), (name, time, args) ->
                 // Redo the existing instructions.
-                part.subMap(from, false, time, false)
+                part.subMap(from, inclusive, time, false)
                     .forEach { (t, u) -> u.undo = evaluate(u.name, t, u.args) }
 
                 // Insert the new instruction while asserting slot was unoccupied.
@@ -134,11 +145,11 @@ abstract class Warp<N, T : Comparable<T>> : BaseCoordinator<N, T>() {
                 }
 
                 // The next step will start after the currently inserted time.
-                time
+                time to false
             }
 
         // Redo instructions after the last segment.
-        part.tailMap(last, false)
+        part.tailMap(last, inclusive)
             .forEach { (t, u) -> u.undo = evaluate(u.name, t, u.args) }
     }
 }

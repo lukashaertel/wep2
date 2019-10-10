@@ -54,11 +54,11 @@ fun undo(block: () -> Unit) {
  */
 fun <T : Comparable<T>> rec(time: T, function: KFunction1<T, *>) = rec {
     function(time)
-}
+} labeledAs { "Undoing ${function.name}" }
 
 /**
  * Utility to [rec] a call to a function taking an argument, automatically casting that argument.
  */
 fun <T : Comparable<T>, A> rec(time: T, arg: Any?, function: KFunction2<T, A, *>) = rec {
     function.call(time, arg)
-}
+} labeledAs { "Undoing ${function.name}" }

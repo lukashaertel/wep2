@@ -1,11 +1,13 @@
 package eu.metatools.f2d.ex
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.Color
 import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.math.Pt
 import eu.metatools.f2d.tools.AtlasResource
 import eu.metatools.f2d.tools.SolidResource
+import eu.metatools.f2d.tools.tint
 import eu.metatools.wep2.components.map
 import eu.metatools.wep2.components.prop
 import eu.metatools.wep2.components.set
@@ -14,13 +16,16 @@ import eu.metatools.wep2.storage.Restore
 import eu.metatools.wep2.tools.TickGenerator
 import eu.metatools.wep2.tools.Time
 import eu.metatools.wep2.track.rec
+import eu.metatools.wep2.track.undo
 import eu.metatools.wep2.util.first
 import eu.metatools.wep2.util.listeners.mapListener
 import eu.metatools.wep2.util.then
+import eu.metatools.wep2.util.within
 import java.io.Serializable
 
 data class XY(val x: Int, val y: Int) : Comparable<XY>, Serializable {
     val isEmpty get() = x == 0 && y == 0
+
     override fun compareTo(other: XY) =
         first(other) {
             y.compareTo(other.y)
@@ -78,9 +83,40 @@ interface Ticking {
 }
 
 class World(context: GameContext, restore: Restore?) : GameEntity(context, restore), Rendered {
-    val tiles by map<XY, TileKind>(mapListener(added = { k, v ->
-        // TODO: Extend around
-    }))
+    val clipping = SDFComposer()
+
+    private val sdfs = mutableMapOf<Float, (Pt) -> Float>()
+
+    fun sdf(radius: Float) =
+        sdfs.getOrPut(radius) {
+            clipping.sdf(radius)
+        }
+
+
+    val tiles by map<XY, TileKind>(
+        mapListener(
+            added = { k, v ->
+                if (!v.passable) {
+                    clipping.add(k.x, k.y)
+                    sdfs.clear()
+                }
+            },
+            changed = { k, o, n ->
+                if (o.passable != n.passable) {
+                    if (n.passable)
+                        clipping.remove(k.x, k.y)
+                    else
+                        clipping.add(k.x, k.y)
+                    sdfs.clear()
+                }
+            },
+            removed = { k, v ->
+                if (v.passable) {
+                    clipping.remove(k.x, k.y)
+                    sdfs.clear()
+                }
+            })
+    )
 
     val movers by set<Mover>()
 
@@ -93,8 +129,13 @@ class World(context: GameContext, restore: Restore?) : GameEntity(context, resto
             )
     }
 
-    override fun evaluate(name: GameName, time: Time, args: Any?): () -> Unit {
-        return super.evaluate(name, time, args)
+    override fun evaluate(name: GameName, time: Time, args: Any?) = when (name) {
+        "createMover" -> rec {
+            val ent = Mover(context, time, this, Pt(5f, 5f), Movers.S, args as Short?)
+            undo { ent.delete() }
+            movers.add(ent)
+        }
+        else -> super.evaluate(name, time, args)
     }
 
     fun passable(x: Float, y: Float, radius: Float): Boolean {
@@ -111,6 +152,10 @@ class World(context: GameContext, restore: Restore?) : GameEntity(context, resto
     }
 }
 
+interface TraitRadius {
+    val radius: Float
+}
+
 interface MoverKind {
     val radius: Float
 }
@@ -119,7 +164,6 @@ enum class Movers : MoverKind {
     S {
         override val radius: Float
             get() = 0.1f
-
     }
 }
 
@@ -129,16 +173,14 @@ interface TraitWorld {
 }
 
 
-interface TraitMove : TraitWorld {
-    var pos: Vec
+interface TraitMove : TraitWorld, TraitRadius {
+    var pos: Pt
 
     var moveTime: Double
 
-    var vel: Vec
+    var vel: Pt
 
-    val radius: Float
-
-    fun posAt(time: Double): Vec {
+    fun posAt(time: Double): Pt {
         if (vel.isEmpty)
             return pos
 
@@ -146,7 +188,7 @@ interface TraitMove : TraitWorld {
         return pos + vel * dt
     }
 
-    fun receiveMove(time: Time, vel: Vec) {
+    fun receiveMove(time: Time, vel: Pt) {
         pos = posAt(time.time.sec)
         moveTime = time.time.sec
         this.vel = vel
@@ -159,47 +201,66 @@ interface TraitMove : TraitWorld {
         pos = posAt(time.time.sec)
         moveTime = time.time.sec
 
-        while (!world.passable(pos.x, pos.y, radius))
-            pos -= vel * freq.sec.toFloat()
+        val sdf = world.sdf(radius)
+        val distance = sdf(pos)
+        if (distance < 0.0) {
+            val clip = root(sdf, pos)
+            pos = clip * 2f - pos
+        }
     }
 }
 
 class Mover private constructor(
     context: GameContext, restore: Restore?,
+    time: () -> Time = undefined(),
     world: () -> World = undefined(),
-    pos: () -> Vec = undefined(),
-    kind: () -> MoverKind = undefined()
+    pos: () -> Pt = undefined(),
+    kind: () -> MoverKind = undefined(),
+    owner: () -> Short? = undefined()
 ) : GameEntity(context, restore), Rendered, Ticking, Comparable<Mover>, TraitMove {
-    constructor(context: GameContext, world: World, pos: Vec, kind: MoverKind) :
-            this(context, null, { world }, { pos }, { kind })
+    constructor(context: GameContext, time: Time, world: World, pos: Pt, kind: MoverKind, owner: Short?) :
+            this(context, null, { time }, { world }, { pos }, { kind }, { owner })
 
-    /**
-     * The world this tile is contained in.
-     */
+    companion object {
+        val colors = listOf(
+            Color.RED,
+            Color.GREEN,
+            Color.BLUE,
+            Color.YELLOW
+        )
+    }
+
+
+    val time by prop(initial = time)
+
     override val world by prop(initial = world)
 
     override var pos by prop(initial = pos)
 
     override var moveTime by prop { 0.0 }
 
-    override var vel by prop { Vec() }
+    override var vel by prop { Pt() }
 
     val kind by prop(initial = kind)
+
+    val owner by prop(initial = owner)
 
     override val radius get() = kind.radius
 
     var look by prop { XY(0, 0) }
 
     override fun render(time: Double) {
+        val owner = owner ?: return
         val (x, y) = posAt(time)
+        val drawable = Resources.solid.refer().tint(colors[owner.toInt().within(0, colors.size)])
         frontend.continuous.submit(
-            Resources.solid.refer(), time, Mat
+            drawable, time, Mat
                 .translation(Constants.tileWidth * x, Constants.tileHeight * y)
                 .scale(Constants.tileWidth * kind.radius * 2f, Constants.tileHeight * kind.radius * 2f)
         )
     }
 
-    override val ticker by ticker(25L, 0L)
+    override val ticker by ticker(1000L, this.time.time + 1)
 
     fun tick(time: Time, freq: Long) {
         updateMove(time, freq)
@@ -209,7 +270,8 @@ class Mover private constructor(
         "tick" -> rec(time, args, this::tick)
         "dir" -> rec {
             args as XY
-            receiveMove(time, Vec(args.x.toFloat(), args.y.toFloat()))
+            // Fix resets.
+            receiveMove(time, Pt(args.x.toFloat(), args.y.toFloat()))
             if (!args.isEmpty)
                 look = args
         }

@@ -26,24 +26,15 @@ interface MapListener<in R, in K, in V> {
          */
         fun console(name: String) = object : MapListener<Any?, Any?, Any?> {
             override fun added(receiver: Any?, key: Any?, value: Any?) {
-                if (receiver == Unit)
-                    println("added $name[$key]=$value")
-                else
-                    println("added $receiver: $name[$key]=$value")
+                println("added $name[$key]=$value")
             }
 
             override fun changed(receiver: Any?, key: Any?, oldValue: Any?, newValue: Any?) {
-                if (receiver == Unit)
-                    println("changed $name[$key]=$newValue, was $oldValue")
-                else
-                    println("changed $receiver: $name[$key]=$newValue, was $oldValue")
+                println("changed $name[$key]=$newValue, was $oldValue")
             }
 
             override fun removed(receiver: Any?, key: Any?, value: Any?) {
-                if (receiver == Unit)
-                    println("removed $name[$key], was $value")
-                else
-                    println("removed $receiver: $name[$key], was $value")
+                println("removed $name[$key], was $value")
             }
         }
     }

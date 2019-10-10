@@ -52,7 +52,7 @@ fun <K : Comparable<K>, V> map(listener: ObservableMapListener<K, V> = MapListen
                         undos.get()?.let {
                             // Add removing the just added entry.
                             it.add({ silent.remove(k); Unit } labeledAs {
-                                "remove $k on $this"
+                                "remove $k on ${property.name}"
                             })
                         }
                     },
@@ -60,7 +60,7 @@ fun <K : Comparable<K>, V> map(listener: ObservableMapListener<K, V> = MapListen
                         undos.get()?.let {
                             // Add resetting entry to previous value.
                             it.add({ silent[k] = v } labeledAs {
-                                "set $k=$v on $this"
+                                "set $k=$v on ${property.name}"
                             })
                         }
                     },
@@ -68,7 +68,7 @@ fun <K : Comparable<K>, V> map(listener: ObservableMapListener<K, V> = MapListen
                         undos.get()?.let {
                             // Add re-adding the just removed entry.
                             it.add({ silent[k] = v } labeledAs {
-                                "add $k=$v on $this"
+                                "add $k=$v on ${property.name}"
                             })
                         }
                     }) + listener

@@ -52,7 +52,7 @@ fun <E : Comparable<E>> set(listener: ObservableSetListener<E> = SetListener.EMP
                         undos.get()?.let {
                             // Add removing the just added element.
                             it.add({ silent.remove(e); Unit } labeledAs {
-                                "remove $e on $this"
+                                "remove $e on ${property.name}"
                             })
                         }
                     },
@@ -60,7 +60,7 @@ fun <E : Comparable<E>> set(listener: ObservableSetListener<E> = SetListener.EMP
                         undos.get()?.let {
                             // Add re-adding the just removed element.
                             it.add({ silent.add(e); Unit } labeledAs {
-                                "add $e on $this"
+                                "add $e on ${property.name}"
                             })
                         }
                     }) + listener

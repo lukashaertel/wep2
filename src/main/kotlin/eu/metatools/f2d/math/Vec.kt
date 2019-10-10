@@ -66,7 +66,7 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Externalizable {
     /**
      * Constructs the vector from the given values.
      */
-    constructor(x: Float = 0f, y: Float = 0f, z: Float = 0f) : this(floatArrayOf(x, y, z))
+    constructor(x: Float, y: Float, z: Float) : this(floatArrayOf(x, y, z))
 
     /**
      * Adds the vector component-wise.
@@ -201,7 +201,7 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Externalizable {
 
     override fun equals(other: Any?) =
         this === other || (other as? Vec)?.let {
-            x == it.x && y == it.x && z == it.z
+            x == it.x && y == it.y && z == it.z
         } ?: false
 
     override fun hashCode(): Int {

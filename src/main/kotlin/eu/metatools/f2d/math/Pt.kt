@@ -61,7 +61,7 @@ class Pt(val values: FloatArray, val offset: Int = 0) : Externalizable {
     /**
      * Constructs the point from the given values.
      */
-    constructor(x: Float = 0f, y: Float = 0f) : this(floatArrayOf(x, y))
+    constructor(x: Float, y: Float) : this(floatArrayOf(x, y))
 
     /**
      * Adds the point component-wise.
@@ -182,7 +182,7 @@ class Pt(val values: FloatArray, val offset: Int = 0) : Externalizable {
 
     override fun equals(other: Any?) =
         this === other || (other as? Pt)?.let {
-            x == it.x && y == it.x
+            x == it.x && y == it.y
         } ?: false
 
     override fun hashCode(): Int {
