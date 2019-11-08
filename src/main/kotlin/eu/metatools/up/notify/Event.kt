@@ -1,4 +1,4 @@
-package eu.metatools.wep2.nes.notify
+package eu.metatools.up.notify
 
 /**
  * A keyed event.

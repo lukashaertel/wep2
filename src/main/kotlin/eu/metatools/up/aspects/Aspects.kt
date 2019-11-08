@@ -1,4 +1,4 @@
-package eu.metatools.wep2.nes.aspects
+package eu.metatools.up.aspects
 
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
@@ -42,23 +42,47 @@ abstract class With(val on: Aspects? = null) : Aspects {
             on?.with(type)
 }
 
+
 /**
- * Removes the given [KClass]es from the set of implemented [Aspect]s.
- * @property on The actual aspects.
- * @property removed The set of removed [KClass]es.
+ * Aspect composition receiver.
  */
-data class Redact(val on: Aspects, val removed: Set<KClass<*>>) : Aspects {
-    override fun <T : Aspect> with(type: KClass<T>) =
-        // If the requested aspect is in the removed set, return null.
-        if (type in removed) null else on.with(type)
+interface Compose {
+    /**
+     * Receives the [aspect].
+     */
+    fun receive(aspect: Aspect)
 }
 
 /**
- * Redacts the given class [T] from the set of implemented [Aspect]s.
+ * Composes a set of aspects via the [Compose.receive] method. The set of constructed aspects is also available to
+ * the scope as the single parameter to the [block].
  */
-inline fun <reified T : Aspect> Aspects.redact() =
-    // If already in redaction, add the removed element to the set, otherwise create a new set.
-    if (this is Redact)
-        Redact(this.on, this.removed + T::class)
-    else
-        Redact(this, setOf(T::class))
+fun compose(block: Compose.(Aspects) -> Unit): Aspects {
+    // Receive instances and cache results of with.
+    val received = mutableListOf<Aspect>()
+    val cached = mutableMapOf<KClass<*>, Aspect?>()
+
+    // Receiver sends to list of instances and clears the cache.
+    val receiver = object : Compose {
+        override fun receive(aspect: Aspect) {
+            received.add(aspect)
+            cached.clear()
+        }
+    }
+
+    // Aspects find instances of the type.
+    val aspects = object : Aspects {
+        override fun <T : Aspect> with(type: KClass<T>) =
+            cached.getOrPut(type) {
+                // Get first value that is an instance.
+                received.firstOrNull(type::isInstance)
+            }?.let {
+                // If value is not null, cast it.
+                type.cast(it)
+            }
+    }
+
+    // Collect user created aspects, return the resulting set.
+    block(receiver, aspects)
+    return aspects
+}

@@ -1,17 +1,20 @@
-package eu.metatools.wep2.nes.aspects
+package eu.metatools.up.aspects
 
-import eu.metatools.wep2.nes.dt.Instruction
-import eu.metatools.wep2.nes.dt.Lx
-import eu.metatools.wep2.nes.notify.Event
+import eu.metatools.up.dt.Instruction
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.notify.Event
 
+/**
+ * Dispatches and receives instructions to an identified object.
+ */
 interface Dispatch : Aspect {
     /**
      * Listen to for receiving instructions on key.
      */
-    val receive: Event<Lx, Instruction>
+    val handleReceive: Event<Lx, Instruction>
 
     /**
-     * Send an instruction as [id], counterpart of [receive].
+     * Send an instruction as [id], counterpart of [handleReceive].
      */
     fun send(id: Lx, instruction: Instruction)
 }

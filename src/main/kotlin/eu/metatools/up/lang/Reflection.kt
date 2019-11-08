@@ -1,5 +1,6 @@
-package eu.metatools.wep2.nes.lang
+package eu.metatools.up.lang
 
+import eu.metatools.up.dt.Box
 import kotlin.reflect.KClass
 import kotlin.reflect.KParameter
 import kotlin.reflect.KType
@@ -15,21 +16,33 @@ operator fun KType.contains(value: Any?) =
 /**
  * Constructs the class by a map of parameter names to values.
  */
-fun <T : Any> KClass<T>.constructBy(args: Map<String, Any?>): T {
+fun <T : Any> KClass<T>.constructBy(args: Map<String, Any?>, overflow: (KParameter) -> Box<Any?>? = { null }): T {
     // Try all present constructors.
     next@ for (constructor in constructors) {
         // Associate parameters by their name and create the actual assignment map.
-        val associated = constructor.parameters.associateBy { it.name }
+        val associated = constructor.parameters.associateByTo(hashMapOf()) { it.name }
         val actual = mutableMapOf<KParameter, Any?>()
 
         // Transform all arguments.
         for ((name, value) in args) {
             // Get the actual parameter, skip constructor if parameter not present.
-            val target = associated[name] ?: continue@next
+            val target = associated.remove(name) ?: continue@next
 
             // Match value against type or skip constructor.
             if (value in target.type)
                 actual[target] = value
+            else
+                continue@next
+        }
+
+        // Associate remaining parameters.
+        for (param in associated.values) {
+            // Get from the overflow mapper.
+            val extra = overflow(param)
+
+            // If overflow mapper had value, use it, otherwise skip constructor.
+            if (extra != null)
+                actual[param] = extra.value
             else
                 continue@next
         }

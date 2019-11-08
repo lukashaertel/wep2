@@ -1,4 +1,4 @@
-package eu.metatools.wep2.nes.lang
+package eu.metatools.up.lang
 
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty

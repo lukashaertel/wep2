@@ -65,7 +65,7 @@ sealed class Entity<N, T : Comparable<T>, I : Comparable<I>>(
     /**
      * The actual value of the identity, initially empty.
      */
-    private var idValue: Option<I> = None
+    private var idValue: Option<I> = None()
 
     init {
         // Run post init, `this` won't leak, as accessed properties are only base instance.

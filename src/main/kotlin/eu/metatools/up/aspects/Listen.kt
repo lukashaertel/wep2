@@ -1,6 +1,6 @@
-package eu.metatools.wep2.nes.aspects
+package eu.metatools.up.aspects
 
-import eu.metatools.wep2.nes.dt.Lx
+import eu.metatools.up.dt.Lx
 
 /**
  * A structured change.

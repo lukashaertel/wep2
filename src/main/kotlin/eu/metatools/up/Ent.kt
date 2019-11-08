@@ -1,16 +1,27 @@
-package eu.metatools.wep2.nes
+package eu.metatools.up
 
-import eu.metatools.wep2.nes.aspects.*
-import eu.metatools.wep2.nes.dt.Instruction
-import eu.metatools.wep2.nes.dt.Lx
-import eu.metatools.wep2.nes.dt.div
-import eu.metatools.wep2.nes.dt.subtract
-import eu.metatools.wep2.nes.lang.autoClosing
-import eu.metatools.wep2.nes.lang.constructBy
-import eu.metatools.wep2.nes.structure.Container
-import eu.metatools.wep2.nes.structure.Part
+import eu.metatools.up.aspects.*
+import eu.metatools.up.dt.*
+import eu.metatools.up.lang.autoClosing
+import eu.metatools.up.lang.constructBy
+import eu.metatools.up.lang.label
+import eu.metatools.up.lang.never
+import eu.metatools.up.structure.Container
+import eu.metatools.up.structure.Part
 import java.util.*
 import kotlin.reflect.KClass
+import kotlin.reflect.full.createType
+import kotlin.reflect.full.isSupertypeOf
+
+/**
+ * Unique ID of the system domain. Do not use this key as a root node.
+ */
+val systemDomain = (UUID.fromString("6aa03267-b187-415d-8b8f-2e93ae27cc1b") ?: never)
+    .label("systemDomain")
+/**
+ * Primary entity table.
+ */
+val PET = lx / systemDomain / "PET"
 
 abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Part {
     /**
@@ -39,15 +50,15 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         // If dispatch is provided.
         this<Dispatch> {
             // Assign close.
-            closeReceive = receive.register(id) { perform(it) }
+            closeReceive = handleReceive.register(id) { perform(it) }
         }
 
         // Register saving if needed. Loading must be done externally, as existence is self dependent.
         this<Store> {
             // Register storing the entity to the primary entity table.
-            closeSave = save.register {
+            closeSave = handleSave.register {
                 // Get the arguments or use empty to signal default construction rules should be applied.
-                val args = with<Construct>()?.constructorArgs.orEmpty()
+                val args = with<Args>()?.extraArgs.orEmpty()
 
                 // Store to PET under the entities own identity.
                 it(PET / id, this@Ent::class to args)
@@ -81,11 +92,35 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
     }
 }
 
-inline fun Store.reconstructPET(receive: (Lx, Ent) -> Unit) {
-    for (id in lsr(PET)) {
-        // Load class and data.
-        @Suppress("unchecked_cast")
-        val data = load(id) as Pair<KClass<out Ent>, Map<String, Any?>>
-        receive(id, data.first.constructBy(data.second))
+/**
+ * Reconstructs all [Ent]s that are stored in the receivers [Store] aspects, constructs them on the receiver.
+ */
+inline fun Aspects.reconstructPET(receive: (Lx, Ent) -> Unit) {
+    this<Store> {
+        for (petEntry in lsr(PET)) {
+            // Load class and data.
+            @Suppress("unchecked_cast")
+            val data = load(petEntry) as Pair<KClass<out Ent>, Map<String, Any?>>
+
+            // Get the ID as relative to the PET.
+            val id = petEntry subtract PET
+
+            // Receive new entity, constructed by the data and the receiver aspects.
+            receive(id subtract PET, data.first.constructBy(data.second) {
+                when {
+                    // If type is the aspects receiver, return the aspects passed to the function.
+                    it.type.isSupertypeOf(Aspects::class.createType(nullable = true)) ->
+                        Box(this@reconstructPET)
+
+                    // If type is identity receiver, return the given id.
+                    it.type.isSupertypeOf(Lx::class.createType(nullable = false)) ->
+                        Box(id)
+
+                    // Other parameters should not be assigned.
+                    else ->
+                        null
+                }
+            })
+        }
     }
 }

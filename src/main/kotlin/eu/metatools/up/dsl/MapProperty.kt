@@ -1,14 +1,14 @@
-package eu.metatools.wep2.nes.dsl
+package eu.metatools.up.dsl
 
-import eu.metatools.wep2.nes.aspects.*
-import eu.metatools.wep2.nes.dt.Lx
-import eu.metatools.wep2.nes.dt.div
-import eu.metatools.wep2.nes.dt.lx
-import eu.metatools.wep2.nes.lang.ObservedMap
-import eu.metatools.wep2.nes.lang.autoClosing
-import eu.metatools.wep2.nes.structure.Container
-import eu.metatools.wep2.nes.structure.Id
-import eu.metatools.wep2.nes.structure.Part
+import eu.metatools.up.aspects.*
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.dt.div
+import eu.metatools.up.dt.lx
+import eu.metatools.up.lang.ObservedMap
+import eu.metatools.up.lang.autoClosing
+import eu.metatools.up.structure.Container
+import eu.metatools.up.structure.Id
+import eu.metatools.up.structure.Part
 import eu.metatools.wep2.util.delegates.ReadOnlyPropertyProvider
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -108,6 +108,20 @@ data class MapChange<K, V>(
         // Add all added entries.
         map.putAll(added)
     }
+
+    override fun toString() =
+        if (added.isEmpty()) {
+            if (removed.isEmpty())
+                "unchanged"
+            else
+                "-$removed"
+        } else {
+
+            if (removed.isEmpty())
+                "+$added"
+            else
+                "+$added, -$removed"
+        }
 }
 
 /**
@@ -161,7 +175,7 @@ class MapProperty<K : Comparable<K>, V>(
                 createObservedMap(init())
 
             // Register saving method.
-            closeSave = save.register {
+            closeSave = handleSave.register {
                 // Save value with optional proxification.
                 it(id, aspects.toProxy(current))
             }

@@ -1,38 +1,30 @@
-package eu.metatools.wep2.nes.aspects
+package eu.metatools.up.aspects
 
-import eu.metatools.wep2.nes.dt.Lx
-import eu.metatools.wep2.nes.dt.div
-import eu.metatools.wep2.nes.dt.lx
-import eu.metatools.wep2.nes.dt.parent
-import eu.metatools.wep2.nes.lang.label
-import eu.metatools.wep2.nes.lang.never
-import eu.metatools.wep2.nes.notify.Handler
-import java.util.*
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.dt.parent
+import eu.metatools.up.notify.Handler
 
 /**
- * Unique ID of the system domain. Do not use this key as a root node.
+ * Stores and restores identified components..
  */
-val systemDomain = (UUID.fromString("6aa03267-b187-415d-8b8f-2e93ae27cc1b") ?: never)
-    .label("systemDomain")
-
-/**
- * Primary entity table.
- */
-val PET = lx / systemDomain / "PET"
-
 interface Store : Aspect {
     /**
      * True if the store should be used to initialize values.
      */
-    val isLoading:Boolean
+    var isLoading: Boolean
 
     /**
      * Listen to for saving.
      */
-    val save: Handler<(Lx, Any?) -> Unit>
+    val handleSave: Handler<(Lx, Any?) -> Unit>
 
     /**
-     * Loads data as [id], counterpart of [save].
+     * Saves the data.
+     */
+    fun save()
+
+    /**
+     * Loads data as [id], counterpart of [handleSave].
      */
     fun load(id: Lx): Any?
 

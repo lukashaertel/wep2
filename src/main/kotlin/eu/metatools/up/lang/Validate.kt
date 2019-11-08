@@ -1,4 +1,4 @@
-package eu.metatools.wep2.nes.lang
+package eu.metatools.up.lang
 
 /**
  * Checks that the [value] is true. Then returns `null`. Refers ot [check].

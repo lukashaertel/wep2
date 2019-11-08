@@ -1,7 +1,7 @@
-package eu.metatools.wep2.nes.structure
+package eu.metatools.up.structure
 
-import eu.metatools.wep2.nes.aspects.Aspect
-import eu.metatools.wep2.nes.dt.Lx
+import eu.metatools.up.aspects.Aspect
+import eu.metatools.up.dt.Lx
 
 interface Id : Aspect {
     /**

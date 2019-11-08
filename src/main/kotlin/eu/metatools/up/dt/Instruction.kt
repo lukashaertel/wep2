@@ -1,4 +1,4 @@
-package eu.metatools.wep2.nes.dt
+package eu.metatools.up.dt
 
 import java.io.Serializable
 

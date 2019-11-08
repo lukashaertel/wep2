@@ -46,7 +46,7 @@ inline fun <P, V> loadProxified(
         /**
          * The current value, initialized on [None].
          */
-        private var current: Option<V?> = None
+        private var current: Option<V?> = None()
 
         init {
             // Register a post operation to resolve the proxy.

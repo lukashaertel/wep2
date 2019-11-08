@@ -1,7 +1,7 @@
-package eu.metatools.wep2.nes.dt
+package eu.metatools.up.dt
 
-import eu.metatools.wep2.nes.lang.continuedBy
-import eu.metatools.wep2.nes.lang.validate
+import eu.metatools.up.lang.continuedBy
+import eu.metatools.up.lang.validate
 import java.io.Serializable
 
 /**
