@@ -3,10 +3,10 @@ package eu.metatools.up.basic
 import eu.metatools.up.aspects.*
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
-import eu.metatools.up.notify.Event
+import eu.metatools.up.notify.EventList
 
 /**
- * Runs the [Dispatch] by feeding [send] back into [handleReceive] directly and transferring a potentially [Proxify]
+ * Runs the [Dispatch] by feeding [send] back into [handlePerform] directly and transferring a potentially [Proxify]
  * converted version to [xferOut]. The inward handle is passed to [xferIn], proxies passed to it will be resolved if
  * the [Proxify] aspect is present.
  *
@@ -19,23 +19,33 @@ class FeedbackDispatch(
     val xferOut: (Lx, Instruction) -> Unit,
     val xferIn: ((Lx, Instruction) -> Unit) -> Unit
 ) : With(on), Dispatch {
-    override val handleReceive = Event<Lx, Instruction>()
+    override val handlePrepare = EventList<Lx, Instruction>()
+
+    override val handlePerform = EventList<Lx, Instruction>()
+
+    override val handleComplete = EventList<Lx, Instruction>()
+
+    private fun invokeHandlers(id: Lx, instruction: Instruction) {
+        handlePrepare(id, instruction)
+        handlePerform(id, instruction)
+        handleComplete(id, instruction)
+    }
 
     init {
         // Transfer in as calling the handler.
         xferIn { id, instruction ->
             // If proxification is available, use it
             this<Proxify> {
-                handleReceive(id, Instruction(instruction.name, instruction.time, toValue(instruction.args)))
+                invokeHandlers(id, Instruction(instruction.name, instruction.time, toValue(instruction.args)))
             } ?: run {
-                handleReceive(id, instruction)
+                invokeHandlers(id, instruction)
             }
         }
     }
 
     override fun send(id: Lx, instruction: Instruction) {
         // Feedback.
-        handleReceive(id, instruction)
+        invokeHandlers(id, instruction)
 
         // If proxification is available, use it.
         this<Proxify> {

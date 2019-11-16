@@ -3,6 +3,7 @@ package eu.metatools.up.aspects
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.parent
 import eu.metatools.up.notify.Handler
+import eu.metatools.up.notify.HandlerList
 
 /**
  * Stores and restores identified components..

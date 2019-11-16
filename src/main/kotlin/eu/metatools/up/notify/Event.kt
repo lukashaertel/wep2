@@ -1,20 +1,47 @@
 package eu.metatools.up.notify
 
-/**
- * A keyed event.
- */
-class Event<K, T> : (K, T) -> Unit {
+interface Event<K, T> : (K, T) -> Unit {
     /**
-     * Private map of keys to handlers.
+     * Registers a handler for all keys, returns an auto closable removing it.
      */
-    private val handlers = mutableMapOf<K, MutableList<(T) -> Unit>>()
+    fun register(handler: (K, T) -> Unit): AutoCloseable
 
     /**
      * Registers a handler for the key, returns an auto closable removing it.
      */
-    fun register(key: K, handler: (T) -> Unit): AutoCloseable {
+    fun register(key: K, handler: (T) -> Unit): AutoCloseable
+}
+
+/**
+ * A keyed event.
+ */
+class EventList<K, T> : Event<K, T> {
+    private val globalHandlers = mutableListOf<(K, T) -> Unit>()
+
+    /**
+     * Private map of keys to handlers.
+     */
+    private val localHandlers = mutableMapOf<K, MutableList<(T) -> Unit>>()
+
+    /**
+     * Registers a handler for all keys, returns an auto closable removing it.
+     */
+    override fun register(handler: (K, T) -> Unit): AutoCloseable {
+        // Add handler.
+        globalHandlers.add(handler)
+
+        // Return removing the handler.
+        return AutoCloseable {
+            globalHandlers.remove(handler)
+        }
+    }
+
+    /**
+     * Registers a handler for the key, returns an auto closable removing it.
+     */
+    override fun register(key: K, handler: (T) -> Unit): AutoCloseable {
         // Get the target list to put the handler in.
-        val target = handlers.getOrPut(key, ::ArrayList)
+        val target = localHandlers.getOrPut(key, ::ArrayList)
 
         // Add handler.
         target.add(handler)
@@ -22,7 +49,7 @@ class Event<K, T> : (K, T) -> Unit {
         // Return removing the handler and cleaning the key if necessary.
         return AutoCloseable {
             if (target.remove(handler) && target.isEmpty())
-                handlers.remove(key)
+                localHandlers.remove(key)
         }
     }
 
@@ -30,6 +57,10 @@ class Event<K, T> : (K, T) -> Unit {
      * Runs all handlers for the [key] with the [arg] in the sequence they were added.
      */
     override fun invoke(key: K, arg: T) {
-        handlers[key]?.forEach { it(arg) }
+        // Invoke all global handlers.
+        globalHandlers.forEach { it(key, arg) }
+
+        // Invoke all local handlers.
+        localHandlers[key]?.forEach { it(arg) }
     }
 }

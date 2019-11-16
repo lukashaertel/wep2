@@ -12,7 +12,7 @@ data class Time(val global: Long, val player: Short, val local: Byte) : Comparab
         first(other) {
             global.compareTo(other.global)
         } then {
-            player.compareTo(other.global)
+            player.compareTo(other.player)
         } then {
             local.compareTo(other.local)
         }

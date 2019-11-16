@@ -39,18 +39,27 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
      */
     private val parts = TreeMap<Lx, Part>()
 
+    /**
+     * True if the container is connected, invocation of [include] will connect the received part.
+     */
+    private var connected = false
+
     override fun resolve(id: Lx) =
         parts[id subtract this.id]
 
     override fun include(id: Lx, part: Part) {
         parts[id subtract this.id] = part
+
+        // Connect the part if already running.
+        if (connected)
+            part.connect()
     }
 
     override fun connect() {
         // If dispatch is provided.
         this<Dispatch> {
             // Assign close.
-            closeReceive = handleReceive.register(id) { perform(it) }
+            closeReceive = handlePerform.register(id) { perform(it) }
         }
 
         // Register saving if needed. Loading must be done externally, as existence is self dependent.
@@ -69,9 +78,15 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         parts.forEach { (_, part) ->
             part.connect()
         }
+
+        // Mark connected.
+        connected = true
     }
 
     override fun disconnect() {
+        // Mark not connected.
+        connected = false
+
         // Stop in descending order.
         parts.descendingMap().forEach { (_, part) ->
             part.disconnect()
@@ -92,11 +107,18 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
     }
 }
 
+private val aspectType = Aspects::class.createType(nullable = true)
+
+private val lxType = Lx::class.createType(nullable = false)
+
+
 /**
  * Reconstructs all [Ent]s that are stored in the receivers [Store] aspects, constructs them on the receiver.
  */
-inline fun Aspects.reconstructPET(receive: (Lx, Ent) -> Unit) {
+fun Aspects.reconstructPET(receive: (Lx, Ent) -> Unit) {
     this<Store> {
+
+        // Iterate PET entries.
         for (petEntry in lsr(PET)) {
             // Load class and data.
             @Suppress("unchecked_cast")
@@ -109,16 +131,13 @@ inline fun Aspects.reconstructPET(receive: (Lx, Ent) -> Unit) {
             receive(id subtract PET, data.first.constructBy(data.second) {
                 when {
                     // If type is the aspects receiver, return the aspects passed to the function.
-                    it.type.isSupertypeOf(Aspects::class.createType(nullable = true)) ->
-                        Box(this@reconstructPET)
+                    it.type.isSupertypeOf(aspectType) -> Box(this@reconstructPET)
 
                     // If type is identity receiver, return the given id.
-                    it.type.isSupertypeOf(Lx::class.createType(nullable = false)) ->
-                        Box(id)
+                    it.type.isSupertypeOf(lxType) -> Box(id)
 
                     // Other parameters should not be assigned.
-                    else ->
-                        null
+                    else -> null
                 }
             })
         }

@@ -1,9 +1,16 @@
 package eu.metatools.up.notify
 
+interface Handler<T> : (T) -> Unit {
+    /**
+     * Registers a handler, returns an auto closable removing it.
+     */
+    fun register(handler: (T) -> Unit): AutoCloseable
+}
+
 /**
  * A general event.
  */
-class Handler<T> : (T) -> Unit {
+class HandlerList<T> : Handler<T> {
     /**
      * Private list of handlers.
      */
@@ -12,7 +19,7 @@ class Handler<T> : (T) -> Unit {
     /**
      * Registers a handler, returns an auto closable removing it.
      */
-    fun register(handler: (T) -> Unit): AutoCloseable {
+    override fun register(handler: (T) -> Unit): AutoCloseable {
         // Add handler.
         handlers.add(handler)
 
