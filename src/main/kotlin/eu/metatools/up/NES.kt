@@ -2,42 +2,45 @@ package eu.metatools.up
 
 import eu.metatools.up.aspects.*
 import eu.metatools.up.basic.*
-import eu.metatools.up.dsl.map
 import eu.metatools.up.dsl.prop
-import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.*
+import eu.metatools.up.structure.Container
+import eu.metatools.up.structure.Part
 
 fun insSend(id: Lx, instruction: Instruction) {
-    println("Sending $instruction on $id")
+    println("Sending $id.$instruction ")
 }
 
 lateinit var insReceive: (Lx, Instruction) -> Unit
 
 fun main() {
-    class S(on: Aspects?, id: Lx, val bol: Int) : Ent(on, id), Args {
-        override val extraArgs
-            get() = fromValuesOf(::bol)
-
+    class S(on: Aspects?, id: Lx) : Ent(on, id) {
         var x by prop { 0 }
 
-        var y by prop<S?> { null }
+        var lastChild by prop<S?> { null }
 
-        val z by set { listOf(1, 2, 3) }
 
-        val w by map { mapOf(1 to "no") }
-
-        fun inst(arg: Int) {
-            if (arg < 0)
-                x = arg
-            else
-                x += arg
+        /**
+         * If value is less than zero, resets, if greater, increments [x].
+         */
+        val inst = exchange(::doInst)
+        private fun doInst() {
+            if (x % 2 == 0)
+                lastChild = constructed(S(on, id / "child" / time))
+            x++
         }
 
-        override fun perform(instruction: Instruction) =
-            dispatch(instruction)
+        /**
+         * Says hello to another entity.
+         */
+        val hello = exchange(::doHello)
+        private fun doHello(s: S) {
+            println("$id says hello to $s")
+        }
+
 
         override fun toString(): String {
-            return "S(id=$id, bol=$bol, x=$x, y=@${y?.id}, z=$z, w=$w)"
+            return "S(id=$id, x=$x, lastChild=@${lastChild?.id})"
         }
     }
 
@@ -45,20 +48,57 @@ fun main() {
     val data = mutableMapOf<Lx, Any?>()
 
     val scope = compose { on ->
+        receive(object : Container {
+            override val id: Lx
+                get() = lx / "ROOT"
+
+            override fun resolve(id: Lx): Part? {
+                return cet[id]
+            }
+
+            override fun include(id: Lx, part: Part) {
+                cet[id] = part as? Ent ?: error("Can only include entities")
+                part.connect()
+                println("Included $id=$part")
+            }
+
+            override fun exclude(id: Lx) {
+                cet.remove(id)?.let {
+                    println("Excluded $id=$it")
+                    it.disconnect()
+                }
+            }
+        })
         receive(RecursiveProxify(on, cet::getValue))
         receive(AssociativeStore(on, data))
         receive(FeedbackDispatch(on, ::insSend, ::insReceive::set))
         receive(CommitListener(on) { id, instruction, commit ->
-            println("id: $id, instruction: $instruction, commit: $commit")
+            //println("id: $id, instruction: $instruction, commit: $commit")
         })
         receive(WarpPerformGuard(on))
     }
-    val e = S(scope, lx / "A", 3).also { cet[it.id] = it }
-
+    val e = S(scope, lx / "A").also { cet[it.id] = it }
     e.connect()
-    println(e)
-    e.send(Instruction("inst", Time(10, 0, 0), 3))
-    println(e)
-    e.send(Instruction("inst", Time(5, 0, 0), -1))
-    println(e)
+
+    println(cet);println()
+    e.inst(Time(5, 0, 0))
+    println(cet);println()
+    e.inst(Time(0, 0, 0))
+    println(cet);println()
+    e.inst(Time(15, 0, 0))
+    println(cet);println()
+    e.inst(Time(10, 0, 0))
+    println(cet);println()
+
+//    println(e)
+//    e.inst(Time(10, 0, 0), 10)
+//    println(e)
+//    e.inst(Time(15, 0, 0), 3)
+//    println(e)
+//    e.inst(Time(5, 0, 0), -1)
+//    println(e)
+//    e.inst(Time(20, 0, 0), -2)
+//    println(e)
+
+    e.disconnect()
 }

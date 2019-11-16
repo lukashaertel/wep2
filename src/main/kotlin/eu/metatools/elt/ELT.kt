@@ -1,4 +1,4 @@
-package eu.metatools.up.lang
+package eu.metatools.elt
 
 import kotlin.reflect.full.companionObjectInstance
 

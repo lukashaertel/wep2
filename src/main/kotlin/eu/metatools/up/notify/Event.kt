@@ -1,5 +1,8 @@
 package eu.metatools.up.notify
 
+/**
+ * A keyed event.
+ */
 interface Event<K, T> : (K, T) -> Unit {
     /**
      * Registers a handler for all keys, returns an auto closable removing it.
@@ -13,7 +16,7 @@ interface Event<K, T> : (K, T) -> Unit {
 }
 
 /**
- * A keyed event.
+ * A keyed event implemented by a handler-list.
  */
 class EventList<K, T> : Event<K, T> {
     private val globalHandlers = mutableListOf<(K, T) -> Unit>()

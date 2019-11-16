@@ -1,5 +1,8 @@
 package eu.metatools.up.notify
 
+/**
+ * A general event.
+ */
 interface Handler<T> : (T) -> Unit {
     /**
      * Registers a handler, returns an auto closable removing it.
@@ -8,7 +11,7 @@ interface Handler<T> : (T) -> Unit {
 }
 
 /**
- * A general event.
+ * A general event implemented by a handler-list.
  */
 class HandlerList<T> : Handler<T> {
     /**

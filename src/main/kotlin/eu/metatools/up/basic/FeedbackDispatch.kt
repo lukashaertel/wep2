@@ -36,7 +36,11 @@ class FeedbackDispatch(
         xferIn { id, instruction ->
             // If proxification is available, use it
             this<Proxify> {
-                invokeHandlers(id, Instruction(instruction.name, instruction.time, toValue(instruction.args)))
+                // Un-proxify arguments.
+                val args = instruction.args.map { toValue(it) }
+
+                // Invoke handler with un-proxified proxies.
+                invokeHandlers(id, Instruction(instruction.methodName, instruction.time, args))
             } ?: run {
                 invokeHandlers(id, instruction)
             }
@@ -49,7 +53,11 @@ class FeedbackDispatch(
 
         // If proxification is available, use it.
         this<Proxify> {
-            xferOut(id, Instruction(instruction.name, instruction.time, toProxy(instruction.args)))
+            // Proxify arguments.
+            val args = instruction.args.map { toProxy(it) }
+
+            // Transfer with proxified values.
+            xferOut(id, Instruction(instruction.methodName, instruction.time, args))
         } ?: run {
             xferOut(id, instruction)
         }

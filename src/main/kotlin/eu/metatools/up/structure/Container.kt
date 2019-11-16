@@ -26,4 +26,9 @@ interface Container : Aspect, Id {
      * Includes a [part] with the given absolute [id].
      */
     fun include(id: Lx, part: Part)
+
+    /**
+     * Removes a [Part].
+     */
+    fun exclude(id: Lx)
 }

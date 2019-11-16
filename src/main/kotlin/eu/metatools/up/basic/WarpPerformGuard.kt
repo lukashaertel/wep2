@@ -11,28 +11,46 @@ import java.util.*
  */
 class WarpPerformGuard(on: Aspects?) : With(on), Track {
     /**
+     * [WarpPerformGuard] entry.
+     * @property id The ID to run on.
+     * @property instruction The instruction to run.
+     * @property undo The currently assigned undo value.
+     */
+    private data class GuardEntry(val id: Lx, val instruction: Instruction, var undo: () -> Unit)
+
+    /**
      * Stores the per-ID reset method.
      */
     private val currentResets = hashMapOf<Lx, () -> Unit>()
 
-    private val store = TreeMap<Time, Array<Any>>()
+    /**
+     * The store of guard entries per time slot.
+     */
+    private val store = TreeMap<Time, GuardEntry>()
 
     init {
         this<Dispatch> {
             handlePrepare.register { _, i ->
-                store.tailMap(i.time, true).descendingMap().values.forEach { (_, _, undo) ->
-                    undo as () -> Unit
-                    undo()
+                // Undo in reverse order.
+                store.tailMap(i.time, true).descendingMap().values.forEach { entry ->
+                    // Undo performed guard entry.
+                    entry.undo()
                 }
             }
 
             handleComplete.register { k, i ->
-                store[i.time] = arrayOf(k, i, compile())
-                store.tailMap(i.time, false).values.forEach { a ->
-                    val id = a[0] as Lx
-                    val instruction = a[1] as Instruction
-                    handlePerform(id, instruction)
-                    a[2] = compile()
+                // Put new slot assignment, assert was empty.
+                store.put(i.time, GuardEntry(k, i, compile()))?.let {
+                    error("Slot already ${i.time} already occupied by $it")
+                }
+
+                // Re-execute from after execution.
+                store.tailMap(i.time, false).values.forEach { entry ->
+                    // Re-perform guard entry.
+                    handlePerform(entry.id, entry.instruction)
+
+                    // Overwrite undo.
+                    entry.undo = compile()
                 }
             }
         }

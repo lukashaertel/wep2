@@ -3,27 +3,22 @@ package eu.metatools.up
 import eu.metatools.up.aspects.*
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.autoClosing
-import eu.metatools.up.lang.constructBy
-import eu.metatools.up.lang.label
-import eu.metatools.up.lang.never
 import eu.metatools.up.structure.Container
 import eu.metatools.up.structure.Part
 import java.util.*
-import kotlin.reflect.KClass
-import kotlin.reflect.full.createType
-import kotlin.reflect.full.isSupertypeOf
-
-/**
- * Unique ID of the system domain. Do not use this key as a root node.
- */
-val systemDomain = (UUID.fromString("6aa03267-b187-415d-8b8f-2e93ae27cc1b") ?: never)
-    .label("systemDomain")
-/**
- * Primary entity table.
- */
-val PET = lx / systemDomain / "PET"
+import kotlin.reflect.*
 
 abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Part {
+    /**
+     * Current execution's time.
+     */
+    private val executionTime = ThreadLocal<Time>()
+
+    /**
+     * Local dispatch table.
+     */
+    private val dispatchTable = mutableListOf<(List<Any?>) -> Unit>()
+
     /**
      * Receiver connection, automatically closed on reassign.
      */
@@ -44,6 +39,11 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
      */
     private var connected = false
 
+    /**
+     * The time at which the current instruction is evaluated.
+     */
+    protected val time: Time get() = executionTime.get()
+
     override fun resolve(id: Lx) =
         parts[id subtract this.id]
 
@@ -53,6 +53,15 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         // Connect the part if already running.
         if (connected)
             part.connect()
+    }
+
+    override fun exclude(id: Lx) {
+        // Remove part.
+        parts.remove(id)?.let {
+            // If was removed and this is connected, disconnect the target.
+            if (connected)
+                it.disconnect()
+        }
     }
 
     override fun connect() {
@@ -83,6 +92,20 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         connected = true
     }
 
+    protected fun <T : Ent> constructed(ent: T): T {
+        // todo: Direct to proper root container.
+        on<Container> {
+            include(ent.id, ent)
+            on<Track> {
+                resetWith(presence / ent.id) {
+                    exclude(ent.id)
+                }
+            }
+        }
+
+        return ent
+    }
+
     override fun disconnect() {
         // Mark not connected.
         connected = false
@@ -96,50 +119,117 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         closeReceive = null
     }
 
-    protected open fun perform(instruction: Instruction) {
-        throw IllegalArgumentException("Unknown instruction $instruction")
+    /**
+     * Instruction-in node. Called by registered handlers.
+     */
+    private fun perform(instruction: Instruction) {
+        // Assign execution time.
+        executionTime.set(instruction.time)
+
+        // Invoke callable.
+        dispatchTable[instruction.methodName.toInt()](instruction.args)
+
+        // Reset execution time.
+        executionTime.set(null)
     }
 
-    fun send(instruction: Instruction) {
+    /**
+     * Instruction-out node. Called by dispatching wrappers.
+     */
+    private fun send(instruction: Instruction) {
         this<Dispatch> {
             send(id, instruction)
         }
     }
-}
 
-private val aspectType = Aspects::class.createType(nullable = true)
+    /**
+     * Creates an exchanged send/perform wrapper for the function.
+     */
+    @JvmName("exchangedFunction0")
+    protected fun exchange(function: KFunction0<*>)
+            : (Time) -> Unit {
+        // Resolve name and add to dispatch table.
+        val name = dispatchTable.size.toMethodName()
+        dispatchTable.add { function.invoke() }
 
-private val lxType = Lx::class.createType(nullable = false)
-
-
-/**
- * Reconstructs all [Ent]s that are stored in the receivers [Store] aspects, constructs them on the receiver.
- */
-fun Aspects.reconstructPET(receive: (Lx, Ent) -> Unit) {
-    this<Store> {
-
-        // Iterate PET entries.
-        for (petEntry in lsr(PET)) {
-            // Load class and data.
-            @Suppress("unchecked_cast")
-            val data = load(petEntry) as Pair<KClass<out Ent>, Map<String, Any?>>
-
-            // Get the ID as relative to the PET.
-            val id = petEntry subtract PET
-
-            // Receive new entity, constructed by the data and the receiver aspects.
-            receive(id subtract PET, data.first.constructBy(data.second) {
-                when {
-                    // If type is the aspects receiver, return the aspects passed to the function.
-                    it.type.isSupertypeOf(aspectType) -> Box(this@reconstructPET)
-
-                    // If type is identity receiver, return the given id.
-                    it.type.isSupertypeOf(lxType) -> Box(id)
-
-                    // Other parameters should not be assigned.
-                    else -> null
-                }
-            })
-        }
+        // Return send invocation.
+        return { time -> send(Instruction(name, time, listOf())) }
     }
+
+    /**
+     * Creates an exchanged send/perform wrapper for the function.
+     */
+    @JvmName("exchangedFunction1")
+    protected fun <T> exchange(function: KFunction1<T, *>)
+            : (Time, T) -> Unit {
+        // Resolve name.
+        val name = dispatchTable.size.toMethodName()
+
+        // Add to dispatch table.
+        dispatchTable.add { (arg) ->
+            @Suppress("unchecked_cast")
+            (function.invoke(arg as T))
+        }
+
+        // Return send invocation.
+        return { time, arg -> send(Instruction(name, time, listOf(arg))) }
+    }
+
+    /**
+     * Creates an exchanged send/perform wrapper for the function.
+     */
+    @JvmName("exchangedFunction2")
+    protected fun <T, U> exchange(function: KFunction2<T, U, *>)
+            : (Time, T, U) -> Unit {
+        // Resolve name.
+        val name = dispatchTable.size.toMethodName()
+
+        // Add to dispatch table.
+        dispatchTable.add { (arg1, arg2) ->
+            @Suppress("unchecked_cast")
+            (function.invoke(arg1 as T, arg2 as U))
+        }
+
+        // Return send invocation.
+        return { time, arg1, arg2 -> send(Instruction(name, time, listOf(arg1, arg2))) }
+    }
+
+    /**
+     * Creates an exchanged send/perform wrapper for the function.
+     */
+    @JvmName("exchangedFunction3")
+    protected fun <T, U, V> exchange(function: KFunction3<T, U, V, *>)
+            : (Time, T, U, V) -> Unit {
+        // Resolve name.
+        val name = dispatchTable.size.toMethodName()
+
+        // Add to dispatch table.
+        dispatchTable.add { (arg1, arg2, arg3) ->
+            @Suppress("unchecked_cast")
+            (function.invoke(arg1 as T, arg2 as U, arg3 as V))
+        }
+
+        // Return send invocation.
+        return { time, arg1, arg2, arg3 -> send(Instruction(name, time, listOf(arg1, arg2, arg3))) }
+    }
+
+    /**
+     * Creates an exchanged send/perform wrapper for the function.
+     */
+    @JvmName("exchangedFunction4")
+    protected fun <T, U, V, W> exchange(function: KFunction4<T, U, V, W, *>)
+            : (Time, T, U, V, W) -> Unit {
+        // Resolve name.
+        val name = dispatchTable.size.toMethodName()
+
+        // Add to dispatch table.
+        dispatchTable.add { (arg1, arg2, arg3, arg4) ->
+            @Suppress("unchecked_cast")
+            (function.invoke(arg1 as T, arg2 as U, arg3 as V, arg4 as W))
+        }
+
+        // Return send invocation.
+        return { time, arg1, arg2, arg3, arg4 -> send(Instruction(name, time, listOf(arg1, arg2, arg3, arg4))) }
+    }
+
 }

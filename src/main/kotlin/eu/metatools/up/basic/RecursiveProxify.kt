@@ -21,6 +21,11 @@ class RecursiveProxify(on: Aspects, val resolve: (Lx) -> Id) : With(on), Proxify
                 toProxy(it)
             }
 
+            // Recursively apply to array elements.
+            is Array<*> -> Array(value.size) {
+                toProxy(value[it])
+            }
+
             // Recursively apply to set entries.
             is Set<*> -> value.mapTo(mutableSetOf()) {
                 toProxy(it)
@@ -50,6 +55,12 @@ class RecursiveProxify(on: Aspects, val resolve: (Lx) -> Id) : With(on), Proxify
             is List<*> -> proxy.mapTo(arrayListOf()) {
                 toValue(it)
             }
+
+            // Recursively apply to array elements.
+            is Array<*> -> Array(proxy.size) {
+                toValue(proxy[it])
+            }
+
 
             // Recursively apply to set entries.
             is Set<*> -> proxy.mapTo(mutableSetOf()) {
