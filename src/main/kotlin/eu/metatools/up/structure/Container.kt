@@ -16,6 +16,18 @@ interface Part : Id {
     fun disconnect()
 }
 
+/**
+ * Runs the block with the part, calling [Part.connect] before invocation and [Part.disconnect] after invocation.
+ */
+inline fun <R> Part.connectIn(block: () -> R) =
+    try {
+        connect()
+        block()
+    } finally {
+        disconnect()
+    }
+
+
 interface Container : Aspect, Id {
     /**
      * Resolves an absolute [id] to a [Part].

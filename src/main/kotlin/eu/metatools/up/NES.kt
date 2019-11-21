@@ -2,10 +2,12 @@ package eu.metatools.up
 
 import eu.metatools.up.aspects.*
 import eu.metatools.up.basic.*
+import eu.metatools.up.dsl.TimeSource
 import eu.metatools.up.dsl.prop
 import eu.metatools.up.dt.*
 import eu.metatools.up.structure.Container
 import eu.metatools.up.structure.Part
+import eu.metatools.up.structure.connectIn
 
 fun insSend(id: Lx, instruction: Instruction) {
     println("Sending $id.$instruction ")
@@ -24,6 +26,7 @@ fun main() {
          * If value is less than zero, resets, if greater, increments [x].
          */
         val inst = exchange(::doInst)
+
         private fun doInst() {
             if (x % 2 == 0)
                 lastChild = constructed(S(on, id / "child" / time))
@@ -34,6 +37,7 @@ fun main() {
          * Says hello to another entity.
          */
         val hello = exchange(::doHello)
+
         private fun doHello(s: S) {
             println("$id says hello to $s")
         }
@@ -77,28 +81,35 @@ fun main() {
         })
         receive(WarpPerformGuard(on))
     }
-    val e = S(scope, lx / "A").also { cet[it.id] = it }
-    e.connect()
 
-    println(cet);println()
-    e.inst(Time(5, 0, 0))
-    println(cet);println()
-    e.inst(Time(0, 0, 0))
-    println(cet);println()
-    e.inst(Time(15, 0, 0))
-    println(cet);println()
-    e.inst(Time(10, 0, 0))
-    println(cet);println()
+    val ts = TimeSource(scope, Short.MIN_VALUE)
+    ts.connectIn {
+        val e = S(scope, lx / "A").also { cet[it.id] = it }
+        e.connect()
+        // TODO: ^^^ This should be handles by some entity magic, ...
 
-//    println(e)
-//    e.inst(Time(10, 0, 0), 10)
-//    println(e)
-//    e.inst(Time(15, 0, 0), 3)
-//    println(e)
-//    e.inst(Time(5, 0, 0), -1)
-//    println(e)
-//    e.inst(Time(20, 0, 0), -2)
-//    println(e)
+        ts.bind(1) {
+            e.inst()
+            e.inst()
+            e.inst()
+        }
+        ts.bind(2) {
+            e.inst()
+            e.hello(e)
+        }
+        ts.bind(3) {
+            e.inst()
+        }
+        ts.bind(3) {
+            e.inst()
+        }
 
-    e.disconnect()
+        // TODO vvv ... as well as this.
+        e.disconnect()
+
+        scope.with<Store>()?.save()
+        println(data)
+
+        // TODO: While time is connected, save should for example store the time, or restore.
+    }
 }

@@ -146,11 +146,11 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
      * Creates an exchanged send/perform wrapper for the function.
      */
     @JvmName("exchangedFunction0")
-    protected fun exchange(function: KFunction0<*>)
+    protected fun exchange(function: () -> Any?)
             : (Time) -> Unit {
         // Resolve name and add to dispatch table.
         val name = dispatchTable.size.toMethodName()
-        dispatchTable.add { function.invoke() }
+        dispatchTable.add { function() }
 
         // Return send invocation.
         return { time -> send(Instruction(name, time, listOf())) }
@@ -160,7 +160,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
      * Creates an exchanged send/perform wrapper for the function.
      */
     @JvmName("exchangedFunction1")
-    protected fun <T> exchange(function: KFunction1<T, *>)
+    protected fun <T> exchange(function: (T) -> Any?)
             : (Time, T) -> Unit {
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -168,7 +168,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         // Add to dispatch table.
         dispatchTable.add { (arg) ->
             @Suppress("unchecked_cast")
-            (function.invoke(arg as T))
+            (function(arg as T))
         }
 
         // Return send invocation.
@@ -179,7 +179,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
      * Creates an exchanged send/perform wrapper for the function.
      */
     @JvmName("exchangedFunction2")
-    protected fun <T, U> exchange(function: KFunction2<T, U, *>)
+    protected fun <T, U> exchange(function: (T, U) -> Any?)
             : (Time, T, U) -> Unit {
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -187,7 +187,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         // Add to dispatch table.
         dispatchTable.add { (arg1, arg2) ->
             @Suppress("unchecked_cast")
-            (function.invoke(arg1 as T, arg2 as U))
+            (function(arg1 as T, arg2 as U))
         }
 
         // Return send invocation.
@@ -198,7 +198,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
      * Creates an exchanged send/perform wrapper for the function.
      */
     @JvmName("exchangedFunction3")
-    protected fun <T, U, V> exchange(function: KFunction3<T, U, V, *>)
+    protected fun <T, U, V> exchange(function: (T, U, V) -> Any?)
             : (Time, T, U, V) -> Unit {
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -206,7 +206,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         // Add to dispatch table.
         dispatchTable.add { (arg1, arg2, arg3) ->
             @Suppress("unchecked_cast")
-            (function.invoke(arg1 as T, arg2 as U, arg3 as V))
+            (function(arg1 as T, arg2 as U, arg3 as V))
         }
 
         // Return send invocation.
@@ -217,7 +217,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
      * Creates an exchanged send/perform wrapper for the function.
      */
     @JvmName("exchangedFunction4")
-    protected fun <T, U, V, W> exchange(function: KFunction4<T, U, V, W, *>)
+    protected fun <T, U, V, W> exchange(function: (T, U, V, W) -> Any?)
             : (Time, T, U, V, W) -> Unit {
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -225,7 +225,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         // Add to dispatch table.
         dispatchTable.add { (arg1, arg2, arg3, arg4) ->
             @Suppress("unchecked_cast")
-            (function.invoke(arg1 as T, arg2 as U, arg3 as V, arg4 as W))
+            (function(arg1 as T, arg2 as U, arg3 as V, arg4 as W))
         }
 
         // Return send invocation.

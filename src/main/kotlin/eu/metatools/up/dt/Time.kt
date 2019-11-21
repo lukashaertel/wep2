@@ -18,5 +18,5 @@ data class Time(val global: Long, val player: Short, val local: Byte) : Comparab
         }
 
     override fun toString() =
-        "$global-$player-$local"
+        "$global-${player - Short.MIN_VALUE}-${local - Byte.MIN_VALUE}"
 }
