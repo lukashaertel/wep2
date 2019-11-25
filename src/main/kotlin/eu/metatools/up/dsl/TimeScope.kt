@@ -87,12 +87,14 @@ class TimeSource(val aspects: Aspects?, val player: Short) : Part {
     /**
      * The last global time used.
      */
-    private var lastGlobal = Long.MIN_VALUE
+    var lastGlobal = Long.MIN_VALUE
+        private set
 
     /**
      * The last inner time used for the [lastGlobal] time.
      */
-    private var lastInner = Byte.MIN_VALUE
+    var lastInner = Byte.MIN_VALUE
+        private set
 
     /**
      * Runs a block with a time scope. Once one [global] time is used, no smaller global time may be used. Passing a

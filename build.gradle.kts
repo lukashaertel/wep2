@@ -17,11 +17,12 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
     compile(kotlin("reflect"))
 
-    compile("org.jgroups:jgroups:4.1.2.Final")
+    compile("org.jgroups:jgroups:4.1.8.Final")
 
     compile("com.badlogicgames.gdx:gdx:$gdxVersion")
     compile("com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion")
     compile("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
+    implementation("com.esotericsoftware:kryo:5.0.0-RC4")
 
     testImplementation("junit:junit:4.12")
 }

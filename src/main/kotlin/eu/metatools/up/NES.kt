@@ -5,15 +5,13 @@ import eu.metatools.up.basic.*
 import eu.metatools.up.dsl.TimeSource
 import eu.metatools.up.dsl.prop
 import eu.metatools.up.dt.*
+import eu.metatools.up.net.Network
+import eu.metatools.up.net.makeNetwork
 import eu.metatools.up.structure.Container
 import eu.metatools.up.structure.Part
 import eu.metatools.up.structure.connectIn
-
-fun insSend(id: Lx, instruction: Instruction) {
-    println("Sending $id.$instruction ")
-}
-
-lateinit var insReceive: (Lx, Instruction) -> Unit
+import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 fun main() {
     class S(on: Aspects?, id: Lx) : Ent(on, id) {
@@ -51,6 +49,9 @@ fun main() {
     val cet = mutableMapOf<Lx, Ent>()
     val data = mutableMapOf<Lx, Any?>()
 
+    lateinit var nw: Network
+
+
     val scope = compose { on ->
         receive(object : Container {
             override val id: Lx
@@ -75,41 +76,54 @@ fun main() {
         })
         receive(RecursiveProxify(on, cet::getValue))
         receive(AssociativeStore(on, data))
-        receive(FeedbackDispatch(on, ::insSend, ::insReceive::set))
-        receive(CommitListener(on) { id, instruction, commit ->
-            //println("id: $id, instruction: $instruction, commit: $commit")
+        nw = makeNetwork("nes", {
+            on.with<Store>()?.save()
+            data
+        })
+        receive(FeedbackDispatch(on, nw::instruction) {
+            nw.received.register(it) // TODO: No disconnect.
         })
         receive(WarpPerformGuard(on))
     }
 
-    val ts = TimeSource(scope, Short.MIN_VALUE)
+    val player = nw.claimSlot()
+
+    val ts = TimeSource(scope, player)
+    var deltaTime = 0L
+
+    val updater = ScheduledThreadPoolExecutor(1).scheduleAtFixedRate({
+        deltaTime = nw.deltaTime()
+    }, 0, 3, TimeUnit.SECONDS)
+
     ts.connectIn {
-        val e = S(scope, lx / "A").also { cet[it.id] = it }
+        // TODO: Figure out nice way to activate store loading.
+        nw.bundle().let {
+            if (it !== data)
+                scope<Store> {
+                    isLoading = true
+                    scope.reconstructPET(cet::set)
+                    isLoading = false
+                }
+        }
+
+        val eid = lx / "A"
+        val e = cet[eid] as? S
+            ?: S(scope, eid).also { cet[it.id] = it }
+
         e.connect()
         // TODO: ^^^ This should be handles by some entity magic, ...
 
-        ts.bind(1) {
-            e.inst()
-            e.inst()
-            e.inst()
-        }
-        ts.bind(2) {
-            e.inst()
-            e.hello(e)
-        }
-        ts.bind(3) {
-            e.inst()
-        }
-        ts.bind(3) {
-            e.inst()
+        while (readLine() != "exit") {
+            ts.bind(System.currentTimeMillis() + deltaTime) {
+                e.inst()
+            }
         }
 
         // TODO vvv ... as well as this.
         e.disconnect()
-
-        scope.with<Store>()?.save()
-        println(data)
-
         // TODO: While time is connected, save should for example store the time, or restore.
     }
+
+    updater.cancel(false)
+    nw.close()
 }

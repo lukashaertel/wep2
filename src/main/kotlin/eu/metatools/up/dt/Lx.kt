@@ -2,12 +2,11 @@ package eu.metatools.up.dt
 
 import eu.metatools.up.lang.continuedBy
 import eu.metatools.up.lang.validate
-import java.io.Serializable
 
 /**
  * A local node in the [Lx] sequence.
  */
-sealed class Local : Serializable {
+sealed class Local {
     /**
      * If true, this object does not represent a concrete coordinate but a conceptual boundary.
      */
@@ -17,8 +16,7 @@ sealed class Local : Serializable {
 /**
  * Object that is less then every other.
  */
-object Inf : Local(), Serializable {
-    private fun readResolve(): Any? = Inf
+object Inf : Local() {
 
     override val isAbstract = true
 }
@@ -26,9 +24,7 @@ object Inf : Local(), Serializable {
 /**
  * Object that is greater then every other.
  */
-object Sup : Local(), Serializable {
-    private fun readResolve(): Any? = Inf
-
+object Sup : Local() {
     override val isAbstract = true
 }
 
@@ -36,7 +32,7 @@ object Sup : Local(), Serializable {
  * Exact object coordinate.
  * @property value The value of this coordinate.
  */
-data class At<T : Comparable<T>>(val value: T) : Local(), Serializable {
+data class At<T : Comparable<T>>(val value: T) : Local() {
     override val isAbstract = false
 
     override fun toString() =
@@ -46,7 +42,7 @@ data class At<T : Comparable<T>>(val value: T) : Local(), Serializable {
 /**
  * Lexicographic hierarchy supporting [Inf] and [Sup] queries.
  */
-data class Lx(val nodes: List<Local>) : Comparable<Lx>, Serializable {
+data class Lx(val nodes: List<Local>) : Comparable<Lx> {
     /**
      * If true, any of the [nodes] is a conceptual boundary ([Local.isAbstract]).
      */
