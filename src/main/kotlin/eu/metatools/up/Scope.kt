@@ -1,6 +1,7 @@
 package eu.metatools.up
 
 import eu.metatools.up.dt.*
+import eu.metatools.up.lang.Bind
 import eu.metatools.up.notify.*
 
 /**
@@ -31,6 +32,8 @@ enum class Mode {
      */
     Invoke
 }
+
+// TODO Private interface for system functionality.
 
 /**
  * Definition of a scope.
@@ -84,7 +87,12 @@ interface Scope {
     /**
      * Performs the operation, invoke via the [Ent.exchange] wrappers.
      */
-    fun perform(instruction: Instruction)
+    fun exchange(instruction: Instruction)
+
+    /**
+     * Performs the operations locally. For [Instruction]s that are manually synchronized.
+     */
+    fun local(instructions: Sequence<Instruction>)
 
     /**
      * Includes an [Ent] in the table. Connects it.
@@ -95,6 +103,11 @@ interface Scope {
      * Excludes an [Ent] from the table. Disconnects it.
      */
     fun exclude(id: Lx)
+
+    /**
+     * The time the scope was initialized, loaded from store or set on initialize.
+     */
+    val initializedTime: Long
 
     /**
      * Provides the unified time for the given global time. Usually [Time.player] is bound by a scope.
@@ -125,14 +138,21 @@ fun Instruction.toProxyWith(scope: Scope) =
 fun Instruction.toValueWith(scope: Scope) =
     Instruction(target, methodName, time, args.map(scope::toValue))
 
-/**
- * Runs the [block] with a [TimeScope] on [Scope.time].
- */
-inline fun Scope.withTime(global: Long, block: TimeScope.() -> Unit) =
-    block(TimeScope(time(global)))
 
 /**
- * Runs the [block] with a [TimeScope] on [Scope.time].
+ * Runs the local method with the var-arg list.
  */
-inline fun Scope.withTime(clock: Clock, block: TimeScope.() -> Unit) =
+fun Scope.local(vararg instructions: Instruction) =
+    local(instructions.asSequence())
+
+/**
+ * Runs the [block] with a [Bind] on [Scope.time].
+ */
+inline fun Scope.withTime(global: Long, block: Bind<Time>.() -> Unit) =
+    block(Bind(time(global)))
+
+/**
+ * Runs the [block] with a [Bind] on [Scope.time].
+ */
+inline fun Scope.withTime(clock: Clock, block: Bind<Time>.() -> Unit) =
     withTime(clock.time, block)

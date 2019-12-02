@@ -89,8 +89,12 @@ class StandardScope(val player: Short) : Scope {
         // Clear instruction register.
         register.clear()
 
-        // Load list of all entities.
+
+        // Load initialized time.
         mode = Mode.RestoreData
+        initializedTime = load(SIT) as Long
+
+        // Load list of all entities.
         @Suppress("unchecked_cast")
         (load(PET) as List<Lx>).forEach {
             // Get entity class and extra arguments.
@@ -139,35 +143,38 @@ class StandardScope(val player: Short) : Scope {
     /**
      * Stores the scope to the bundle.
      */
-    fun saveTo(to: (id: Lx, value: Any?) -> Unit) {
-        saveToHandler = to
+    fun saveTo(save: (id: Lx, value: Any?) -> Unit) {
+        saveToHandler = save
 
         // Reset state for storing.
         mode = Mode.Revoke
         limit = Time.MIN_VALUE
 
-        // Save all existing IDs.
+        // Store system initialized time.
         mode = Mode.StoreData
+        save(SIT, initializedTime)
+
+        // Save all existing IDs.
         central.keys.toList().let {
-            to(PET, it)
+            save(PET, it)
         }
 
         // Save primary entity table.
         central.values.forEach {
             // Save under key and ID, store constructed class and potential extra arguments.
-            to(PET / it.id, it::class to it.extraArgs.orEmpty())
+            save(PET / it.id, it::class to it.extraArgs.orEmpty())
         }
 
         // Save local time slots.
         locals.entries.map { it.key to it.value }.let {
             // Save whole list under local per global.
-            to(LPG / player, it)
+            save(LPG / player, it)
         }
 
         // Save instruction register.
         register.values.map { it.instruction }.let {
             // Save whole list under instruction replay table.
-            to(IRT, it.map { inst -> inst.toProxyWith(this) })
+            save(IRT, it.map { inst -> inst.toProxyWith(this) })
         }
 
         // Handle detached saves.
@@ -320,32 +327,41 @@ class StandardScope(val player: Short) : Scope {
     /**
      * Incoming connection node, call with a received proxified instruction.
      */
-    fun receive(instruction: Instruction) {
+    fun receive(instructions: Sequence<Instruction>) {
+        // Create sorted insertion set
+        val sorted = TreeMap<Time, Instruction>()
+        instructions.associateByTo(sorted) { it.time }
+
+        // Skip if nothing to do.
+        if (sorted.isEmpty())
+            return
+
         // Set mode to revoke.
         mode = Mode.Revoke
 
         // Memorize limit, reset to instruction.
         val before = limit
-        if (before > instruction.time)
-            limit = instruction.time
+        if (before > sorted.firstKey())
+            limit = sorted.firstKey()
 
-        // Add to register, assert was empty.
-        require(register.put(instruction.time, Reg(instruction.toValueWith(this)) {}) == null) {
-            "Instruction slot for $instruction occupied"
-        }
+        // Add all to register, assert was empty.
+        for (instruction in sorted.values)
+            require(register.put(instruction.time, Reg(instruction.toValueWith(this)) {}) == null) {
+                "Instruction slot for $instruction occupied"
+            }
 
         // Set mode to invoke.
         mode = Mode.Invoke
 
         // Reset to previous.
-        if (before > instruction.time)
+        if (before > sorted.firstKey())
             limit = before
 
         // Reset mode.
         mode = Mode.Idle
     }
 
-    override fun perform(instruction: Instruction) {
+    override fun exchange(instruction: Instruction) {
         // Set mode to revoke.
         mode = Mode.Revoke
 
@@ -367,6 +383,40 @@ class StandardScope(val player: Short) : Scope {
 
         // Reset to previous.
         if (before > instruction.time)
+            limit = before
+
+        // Reset mode.
+        mode = Mode.Idle
+    }
+
+    override fun local(instructions: Sequence<Instruction>) {
+        // Create sorted insertion set
+        val sorted = TreeMap<Time, Instruction>()
+        instructions.associateByTo(sorted) { it.time }
+
+        // Skip if nothing to do.
+        if (sorted.isEmpty())
+            return
+
+        // Set mode to revoke.
+        mode = Mode.Revoke
+
+        // Memorize limit, reset to instruction.
+        val before = limit
+        if (before > sorted.firstKey())
+            limit = sorted.firstKey()
+
+        // Add all to register, assert was empty.
+        for (instruction in sorted.values)
+            require(register.put(instruction.time, Reg(instruction) {}) == null) {
+                "Instruction slot for $instruction occupied"
+            }
+
+        // Set mode to invoke.
+        mode = Mode.Invoke
+
+        // Reset to previous.
+        if (before > sorted.firstKey())
             limit = before
 
         // Reset mode.
@@ -397,6 +447,9 @@ class StandardScope(val player: Short) : Scope {
         }
     }
 
+    override var initializedTime = System.currentTimeMillis()
+        private set
+
     override fun time(global: Long): Time {
         // Get local time from local scopes.
         val local = locals.compute(global) { _, v ->
@@ -414,3 +467,9 @@ class StandardScope(val player: Short) : Scope {
         locals.headMap(global).clear()
     }
 }
+
+/**
+ * Runs the receive method with the var-arg list.
+ */
+fun StandardScope.receive(vararg instructions: Instruction) =
+    receive(instructions.asSequence())

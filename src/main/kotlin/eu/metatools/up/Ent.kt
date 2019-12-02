@@ -3,21 +3,24 @@ package eu.metatools.up
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.autoClosing
 import eu.metatools.up.dsl.Part
+import eu.metatools.up.lang.frequencyProgression
 import java.util.*
 
 /**
  * Base class for exchanged entity in [scope].
  */
 abstract class Ent(val scope: Scope, val id: Lx) {
+    companion object {
+        /**
+         * Current execution's time.
+         */
+        private val executionTime = ThreadLocal<Time>()
+    }
+
     /**
      * Provides extra arguments for entity construction by name and value.
      */
     open val extraArgs: Map<String, Any?>? get() = null
-
-    /**
-     * Current execution's time.
-     */
-    private val executionTime = ThreadLocal<Time>()
 
     /**
      * Local dispatch table.
@@ -118,7 +121,12 @@ abstract class Ent(val scope: Scope, val id: Lx) {
      * Instruction-in node. Called by registered handlers.
      */
     private fun perform(instruction: Instruction) {
-        // Assign execution time.
+        // Check if fresh invoke.
+        require(executionTime.get() == null) {
+            "Running in open exchanged callback."
+        }
+
+        // Push execution time.
         executionTime.set(instruction.time)
 
         // Invoke callable.
@@ -139,7 +147,7 @@ abstract class Ent(val scope: Scope, val id: Lx) {
         dispatchTable.add { function() }
 
         // Return send invocation.
-        return { time -> scope.perform(Instruction(id, name, time, listOf())) }
+        return { time -> scope.exchange(Instruction(id, name, time, listOf())) }
     }
 
     /**
@@ -158,7 +166,7 @@ abstract class Ent(val scope: Scope, val id: Lx) {
         }
 
         // Return send invocation.
-        return { time, arg -> scope.perform(Instruction(id, name, time, listOf(arg))) }
+        return { time, arg -> scope.exchange(Instruction(id, name, time, listOf(arg))) }
     }
 
     /**
@@ -177,7 +185,7 @@ abstract class Ent(val scope: Scope, val id: Lx) {
         }
 
         // Return send invocation.
-        return { time, arg1, arg2 -> scope.perform(Instruction(id, name, time, listOf(arg1, arg2))) }
+        return { time, arg1, arg2 -> scope.exchange(Instruction(id, name, time, listOf(arg1, arg2))) }
     }
 
     /**
@@ -196,7 +204,7 @@ abstract class Ent(val scope: Scope, val id: Lx) {
         }
 
         // Return send invocation.
-        return { time, arg1, arg2, arg3 -> scope.perform(Instruction(id, name, time, listOf(arg1, arg2, arg3))) }
+        return { time, arg1, arg2, arg3 -> scope.exchange(Instruction(id, name, time, listOf(arg1, arg2, arg3))) }
     }
 
     /**
@@ -216,7 +224,7 @@ abstract class Ent(val scope: Scope, val id: Lx) {
 
         // Return send invocation.
         return { time, arg1, arg2, arg3, arg4 ->
-            scope.perform(
+            scope.exchange(
                 Instruction(
                     id,
                     name,
@@ -227,4 +235,72 @@ abstract class Ent(val scope: Scope, val id: Lx) {
         }
     }
 
+    // TODO: Full verification necessary.
+    // TODO: Initial as generator not nice.
+    protected fun repeating(
+        frequency: Long,
+        init: () -> Long,
+        player: Short = Short.MAX_VALUE,
+        local: Byte = Byte.MIN_VALUE,
+        function: () -> Any?
+    ): (Long) -> Unit {
+        // Resolve name.
+        val name = dispatchTable.size.toMethodName()
+
+        // Add to dispatch table.
+        dispatchTable.add {
+            @Suppress("unchecked_cast")
+            (function())
+        }
+
+        var initial: Long = Long.MAX_VALUE
+        var last: Long = Long.MAX_VALUE
+
+        // Get ticker name for storing and loading.
+        val tickerId = id / ".tickers" / name
+
+        // Include a part handling store aspects.
+        include(tickerId, object : Part {
+            /**
+             * Close handle for store connection.
+             */
+            var closeSave by autoClosing()
+
+            override fun connect() {
+                // Restore last value if loading.
+                if (scope.mode == Mode.RestoreData) {
+                    initial = scope.load(tickerId / "initial") as Long
+                    last = scope.load(tickerId / "last") as Long
+                } else {
+                    initial = init()
+                    last = init()
+                }
+
+                // Save by writing last.
+                closeSave = scope.onSave.register {
+                    scope.save(tickerId / "initial", initial)
+                    scope.save(tickerId / "last", last)
+                }
+            }
+
+            override fun disconnect() {
+                closeSave = null
+            }
+        })
+
+        // Return non-exchanged local invocation.
+        return { time ->
+            // Generate local instructions.
+            val locals = frequencyProgression(initial, frequency, last, time).asSequence().map {
+                // TODO: This is bound to be permafucked.
+                Instruction(id, name, Time(it, player, local), emptyList())
+            }
+
+            // Transfer last time.
+            last = time
+
+            // Call unsafe local receive.
+            scope.local(locals)
+        }
+    }
 }

@@ -11,6 +11,11 @@ import java.util.*
 val systemDomain = ".sd"
 
 /**
+ * System initialized time.
+ */
+val SIT = lx / systemDomain / "SIT"
+
+/**
  * Primary entity table.
  */
 val PET = lx / systemDomain / "PET"
