@@ -2,6 +2,10 @@ package eu.metatools.up
 
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
+import java.io.PrintStream
+import java.io.PrintWriter
+import java.io.Writer
+import java.lang.Appendable
 
 /**
  * Driver implementing actual entity adminstrative options.
@@ -27,4 +31,9 @@ interface Driver {
      * Instruction-in node. Called by registered handlers.
      */
     fun perform(instruction: Instruction)
+
+    /**
+     * Prints the [Ent] to an [Appendable], defaults to [System.out]
+     */
+    fun cat(appendable: Appendable = System.out)
 }

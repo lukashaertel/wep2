@@ -19,11 +19,7 @@ fun main() {
 
         val update = repeating(1000, shell::initializedTime) {
             y++
-            val y = y
-            println("> Update y=$y")
-            shell.engine.capture(id / ".ctu") {
-                println("< Update y=$y")
-            }
+            driver.cat()
         }
 
         /**
@@ -50,6 +46,7 @@ fun main() {
 
 
         override fun toString(): String {
+            // TODO: Super method can be used but generates messy indents.
             return "S(id=$id, x=$x, lastChild=@${lastChild?.id})"
         }
     }

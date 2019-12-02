@@ -3,6 +3,10 @@ package eu.metatools.up
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.autoClosing
 import eu.metatools.up.lang.frequencyProgression
+import java.io.PrintStream
+import java.io.StringWriter
+import java.io.Writer
+import java.lang.Appendable
 import java.util.*
 
 /**
@@ -35,7 +39,6 @@ abstract class Ent(val shell: Shell, val id: Lx) {
      * exposing critical API.
      */
     val driver = object : Driver {
-
         /**
          * Adds a part to the entity. This maintains connection status and allows resolution. Automatically performed by
          * the property creators and DSL methods.
@@ -97,6 +100,32 @@ abstract class Ent(val shell: Shell, val id: Lx) {
 
             // Reset execution time.
             executionTime.set(null)
+        }
+
+        override fun cat(appendable: Appendable) {
+            // Header.
+            appendable.append(Ent::class.simpleName)
+            appendable.append(": ")
+            appendable.append(id.toString())
+
+            // Extra args.
+            extraArgs?.let {
+                appendable.append(it.toString())
+            }
+
+            // Print detached.
+            if (connected)
+                appendable.appendln()
+            else
+                appendable.appendln(" (detached)")
+
+            // List parts.
+            for ((id, part) in parts) {
+                appendable.append("  ")
+                appendable.append(id.toString())
+                appendable.append(": ")
+                appendable.appendln(part.toString())
+            }
         }
     }
 
@@ -326,7 +355,7 @@ abstract class Ent(val shell: Shell, val id: Lx) {
         var last: Long = Long.MAX_VALUE
 
         // Get ticker name for storing and loading.
-        val tickerId = id / ".tickers" / name
+        val tickerId = id / "tickers-$name"
 
         // Include a part handling store aspects.
         driver.include(tickerId, object : Part {
@@ -355,6 +384,12 @@ abstract class Ent(val shell: Shell, val id: Lx) {
             override fun disconnect() {
                 closeSave = null
             }
+
+            override fun toString() =
+                if (player != Short.MAX_VALUE || local != Byte.MIN_VALUE)
+                    "<repeating, ~$frequency - $initial, ${player - Short.MIN_VALUE}-${local - Byte.MIN_VALUE}>"
+                else
+                    "<repeating, ~$frequency - $initial>"
         })
 
         // Return non-exchanged local invocation.
@@ -374,4 +409,8 @@ abstract class Ent(val shell: Shell, val id: Lx) {
             }
         }
     }
+
+    override fun toString() =
+        // Print to a string writer, return value.
+        StringWriter().also(driver::cat).toString()
 }
