@@ -1,14 +1,14 @@
 package eu.metatools.up.dsl
 
-import eu.metatools.up.aspects.*
+import eu.metatools.elt.Change
+import eu.metatools.elt.Listen
+import eu.metatools.up.Ent
+import eu.metatools.up.Mode
+import eu.metatools.up.Scope
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
-import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.ObservedMap
 import eu.metatools.up.lang.autoClosing
-import eu.metatools.up.structure.Container
-import eu.metatools.up.structure.Id
-import eu.metatools.up.structure.Part
 import eu.metatools.wep2.util.delegates.ReadOnlyPropertyProvider
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -125,12 +125,11 @@ data class MapChange<K, V>(
 }
 
 /**
- * A map property dealing with [Listen], [Track] and [Store] of [aspects]. Uses the full [id] and the given initial
- * value assignment [init] if needed.
+ * Map property, uses the full [id] and the given initial value assignment [init] if needed.
  */
 class MapProperty<K : Comparable<K>, V>(
-    val aspects: Aspects?, override val id: Lx, val init: () -> Map<K, V>
-) : Id, Part, ReadOnlyProperty<Any?, NavigableMap<K, V>> {
+    val scope: Scope, val id: Lx, val init: () -> Map<K, V>
+) : Part, ReadOnlyProperty<Any?, NavigableMap<K, V>> {
 
     /**
      * The observed map dealing with notification of changes.
@@ -144,44 +143,36 @@ class MapProperty<K : Comparable<K>, V>(
 
     private fun createObservedMap(from: Map<K, V>) =
         ObservedMap(TreeMap(from)) { add, remove ->
-            aspects<Listen> {
-                changed(id, MapChange(add, remove))
-            }
+            // If listening, notify changed.
+            if (scope is Listen)
+                scope.changed(id, MapChange(add, remove))
 
-            aspects<Track> {
-                resetWith(id) {
-                    // Undo changes properly.
-                    current.actual.entries.removeAll(add.entries)
-                    current.actual.putAll(remove)
+            // Capture undo.
+            scope.capture(id) {
+                // Undo changes properly.
+                current.actual.entries.removeAll(add.entries)
+                current.actual.putAll(remove)
 
-                    // If listening, notify changed back.
-                    aspects<Listen> {
-                        // Switch add and remove, invert change.
-                        changed(id, MapChange(remove, add))
-                    }
-                }
+                // If listening, notify changed back.
+                if (scope is Listen)
+                    scope.changed(id, MapChange(remove, add))
             }
         }
 
     override fun connect() {
-        // Load from store and register saving if needed.
-        aspects<Store> {
-            // Assign current value.
-            current = if (isLoading)
-            // If loading, retrieve from the store and deproxify.
-                createObservedMap(aspects.toValue(load(id)) as Map<K, V>)
-            else
-            // Not loading, just initialize.
-                createObservedMap(init())
 
-            // Register saving method.
-            closeSave = handleSave.register {
-                // Save value with optional proxification.
-                it(id, aspects.toProxy(current))
-            }
-        } ?: run {
-            // Just initialize the value.
-            current = createObservedMap(init())
+        // Load from store and register saving if needed.
+        current = if (scope.mode == Mode.RestoreData)
+        // If loading, retrieve from the store and deproxify.
+            createObservedMap(scope.toValue(scope.load(id)) as Map<K, V>)
+        else
+        // Not loading, just initialize.
+            createObservedMap(init())
+
+        // Register saving method.
+        closeSave = scope.onSave.register {
+            // Save value with optional proxification.
+            scope.save(id, scope.toProxy(current))
         }
     }
 
@@ -191,10 +182,9 @@ class MapProperty<K : Comparable<K>, V>(
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
         current.also {
-            // Notify map was viewed.
-            aspects<Listen> {
-                viewed(id, it)
-            }
+            // If listening, notify map was viewed.
+            if (scope is Listen)
+                scope.viewed(id, it)
         }
 
     override fun toString() =
@@ -207,17 +197,13 @@ class MapProperty<K : Comparable<K>, V>(
  * value assignment [init]. If the receiver has a [Container] aspect, the created component will be housed in it.
  */
 fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
-    ReadOnlyPropertyProvider { aspects: Aspects?, property ->
-        // Append to parent ID if present, otherwise start root.
-        val id = aspects.with<Id>()?.let {
-            it.id / property.name
-        } ?: lx / property.name
+    ReadOnlyPropertyProvider { ent: Ent, property ->
+        // Append to containing entity.
+        val id = ent.id / property.name
 
         // Create map from implied values.
-        MapProperty(aspects, id, init).also {
-            // If receiver is a container, add it.
-            aspects<Container> {
-                include(id, it)
-            }
+        MapProperty(ent.scope, id, init).also {
+            // Include in entity.
+            ent.include(id, it)
         }
     }

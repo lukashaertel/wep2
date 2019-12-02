@@ -1,14 +1,19 @@
 package eu.metatools.up
 
-import eu.metatools.up.aspects.*
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.autoClosing
-import eu.metatools.up.structure.Container
-import eu.metatools.up.structure.Part
+import eu.metatools.up.dsl.Part
 import java.util.*
-import kotlin.reflect.*
 
-abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Part {
+/**
+ * Base class for exchanged entity in [scope].
+ */
+abstract class Ent(val scope: Scope, val id: Lx) {
+    /**
+     * Provides extra arguments for entity construction by name and value.
+     */
+    open val extraArgs: Map<String, Any?>? get() = null
+
     /**
      * Current execution's time.
      */
@@ -44,10 +49,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
      */
     protected val time: Time get() = executionTime.get()
 
-    override fun resolve(id: Lx) =
-        parts[id subtract this.id]
-
-    override fun include(id: Lx, part: Part) {
+    fun include(id: Lx, part: Part) {
         parts[id subtract this.id] = part
 
         // Connect the part if already running.
@@ -55,7 +57,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
             part.connect()
     }
 
-    override fun exclude(id: Lx) {
+    fun exclude(id: Lx) {
         // Remove part.
         parts.remove(id)?.let {
             // If was removed and this is connected, disconnect the target.
@@ -64,24 +66,9 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         }
     }
 
-    override fun connect() {
-        // If dispatch is provided.
-        this<Dispatch> {
-            // Assign close.
-            closeReceive = handlePerform.register(id) { perform(it) }
-        }
-
-        // Register saving if needed. Loading must be done externally, as existence is self dependent.
-        this<Store> {
-            // Register storing the entity to the primary entity table.
-            closeSave = handleSave.register {
-                // Get the arguments or use empty to signal default construction rules should be applied.
-                val args = with<Args>()?.extraArgs.orEmpty()
-
-                // Store to PET under the entities own identity.
-                it(PET / id, this@Ent::class to args)
-            }
-        }
+    fun connect() {
+        // Register detached perform.
+        closeReceive = scope.onPerform.register(id) { perform(it) }
 
         // Connect in ascending order.
         parts.forEach { (_, part) ->
@@ -93,20 +80,28 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
     }
 
     protected fun <T : Ent> constructed(ent: T): T {
-        // todo: Direct to proper root container.
-        on<Container> {
-            include(ent.id, ent)
-            on<Track> {
-                resetWith(presence / ent.id) {
-                    exclude(ent.id)
-                }
-            }
+        // Include in scope.
+        scope.include(ent)
+
+        // Undo by excluding.
+        scope.capture(presence / ent.id) {
+            scope.exclude(ent.id)
         }
 
         return ent
     }
 
-    override fun disconnect() {
+    protected fun delete(ent: Ent) {
+        // Exclude from scope.
+        scope.exclude(ent.id)
+
+        // Undo by adding.
+        scope.capture(presence / ent.id) {
+            scope.include(ent)
+        }
+    }
+
+    fun disconnect() {
         // Mark not connected.
         connected = false
 
@@ -134,15 +129,6 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
     }
 
     /**
-     * Instruction-out node. Called by dispatching wrappers.
-     */
-    private fun send(instruction: Instruction) {
-        this<Dispatch> {
-            send(id, instruction)
-        }
-    }
-
-    /**
      * Creates an exchanged send/perform wrapper for the function.
      */
     @JvmName("exchangedFunction0")
@@ -153,7 +139,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         dispatchTable.add { function() }
 
         // Return send invocation.
-        return { time -> send(Instruction(name, time, listOf())) }
+        return { time -> scope.perform(Instruction(id, name, time, listOf())) }
     }
 
     /**
@@ -172,7 +158,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         }
 
         // Return send invocation.
-        return { time, arg -> send(Instruction(name, time, listOf(arg))) }
+        return { time, arg -> scope.perform(Instruction(id, name, time, listOf(arg))) }
     }
 
     /**
@@ -191,7 +177,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         }
 
         // Return send invocation.
-        return { time, arg1, arg2 -> send(Instruction(name, time, listOf(arg1, arg2))) }
+        return { time, arg1, arg2 -> scope.perform(Instruction(id, name, time, listOf(arg1, arg2))) }
     }
 
     /**
@@ -210,7 +196,7 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         }
 
         // Return send invocation.
-        return { time, arg1, arg2, arg3 -> send(Instruction(name, time, listOf(arg1, arg2, arg3))) }
+        return { time, arg1, arg2, arg3 -> scope.perform(Instruction(id, name, time, listOf(arg1, arg2, arg3))) }
     }
 
     /**
@@ -229,7 +215,16 @@ abstract class Ent(on: Aspects?, override val id: Lx) : With(on), Container, Par
         }
 
         // Return send invocation.
-        return { time, arg1, arg2, arg3, arg4 -> send(Instruction(name, time, listOf(arg1, arg2, arg3, arg4))) }
+        return { time, arg1, arg2, arg3, arg4 ->
+            scope.perform(
+                Instruction(
+                    id,
+                    name,
+                    time,
+                    listOf(arg1, arg2, arg3, arg4)
+                )
+            )
+        }
     }
 
 }

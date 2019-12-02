@@ -1,4 +1,4 @@
-package eu.metatools.up.aspects
+package eu.metatools.elt
 
 import eu.metatools.up.dt.Lx
 
@@ -27,7 +27,7 @@ fun Change<*>.mergeForce(other: Change<*>) =
 /**
  * Listens to views and changes.
  */
-interface Listen : Aspect {
+interface Listen  {
     /**
      * Notifies that the element with the [id] was viewed.
      */

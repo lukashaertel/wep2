@@ -10,7 +10,7 @@ typealias MethodName = Byte
  */
 fun Number.toMethodName() = toByte()
 
-data class Instruction(val methodName: MethodName, val time: Time, val args: List<Any?>) {
+data class Instruction(val target: Lx, val methodName: MethodName, val time: Time, val args: List<Any?>) {
     override fun toString() =
-        "$methodName(${args.joinToString(", ")})@$time"
+        "$target.$methodName(${args.joinToString(", ")})@$time"
 }

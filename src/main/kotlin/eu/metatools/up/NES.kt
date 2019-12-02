@@ -1,20 +1,12 @@
 package eu.metatools.up
 
-import eu.metatools.up.aspects.*
-import eu.metatools.up.basic.*
-import eu.metatools.up.dsl.TimeSource
 import eu.metatools.up.dsl.prop
 import eu.metatools.up.dt.*
-import eu.metatools.up.net.Network
+import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
-import eu.metatools.up.structure.Container
-import eu.metatools.up.structure.Part
-import eu.metatools.up.structure.connectIn
-import java.util.concurrent.ScheduledThreadPoolExecutor
-import java.util.concurrent.TimeUnit
 
 fun main() {
-    class S(on: Aspects?, id: Lx) : Ent(on, id) {
+    class S(scope: Scope, id: Lx) : Ent(scope, id) {
         var x by prop { 0 }
 
         var lastChild by prop<S?> { null }
@@ -27,7 +19,9 @@ fun main() {
 
         private fun doInst() {
             if (x % 2 == 0)
-                lastChild = constructed(S(on, id / "child" / time))
+                lastChild = constructed(S(scope, id / "child" / time)).also {
+                    println("CONSTRUCTED $it")
+                }
             x++
         }
 
@@ -46,84 +40,58 @@ fun main() {
         }
     }
 
-    val cet = mutableMapOf<Lx, Ent>()
-    val data = mutableMapOf<Lx, Any?>()
+    // Network handlers.
+    var onBundle: () -> Map<Lx, Any?> = { emptyMap() }
+    var onReceive: (Instruction) -> Unit = {}
 
-    lateinit var nw: Network
+    // Create network and synchronized clock.
+    val network = makeNetwork("NES", { onBundle() }, { onReceive(it) })
+    val clock = NetworkClock(network)
 
+    // Claim player.
+    val player = network.claimSlot()
 
-    val scope = compose { on ->
-        receive(object : Container {
-            override val id: Lx
-                get() = lx / "ROOT"
+    // Initialize scope with player.
+    val scope = StandardScope(player)
 
-            override fun resolve(id: Lx): Part? {
-                return cet[id]
-            }
-
-            override fun include(id: Lx, part: Part) {
-                cet[id] = part as? Ent ?: error("Can only include entities")
-                part.connect()
-                println("Included $id=$part")
-            }
-
-            override fun exclude(id: Lx) {
-                cet.remove(id)?.let {
-                    println("Excluded $id=$it")
-                    it.disconnect()
-                }
-            }
-        })
-        receive(RecursiveProxify(on, cet::getValue))
-        receive(AssociativeStore(on, data))
-        nw = makeNetwork("nes", {
-            on.with<Store>()?.save()
-            data
-        })
-        receive(FeedbackDispatch(on, nw::instruction) {
-            nw.received.register(it) // TODO: No disconnect.
-        })
-        receive(WarpPerformGuard(on))
+    // Connect bundling to scope.
+    onBundle = {
+        val result = hashMapOf<Lx, Any?>()
+        scope.saveTo(result::set)
+        result
     }
 
-    val player = nw.claimSlot()
-
-    val ts = TimeSource(scope, player)
-    var deltaTime = 0L
-
-    val updater = ScheduledThreadPoolExecutor(1).scheduleAtFixedRate({
-        deltaTime = nw.deltaTime()
-    }, 0, 3, TimeUnit.SECONDS)
-
-    ts.connectIn {
-        // TODO: Figure out nice way to activate store loading.
-        nw.bundle().let {
-            if (it !== data)
-                scope<Store> {
-                    isLoading = true
-                    scope.reconstructPET(cet::set)
-                    isLoading = false
-                }
-        }
-
-        val eid = lx / "A"
-        val e = cet[eid] as? S
-            ?: S(scope, eid).also { cet[it.id] = it }
-
-        e.connect()
-        // TODO: ^^^ This should be handles by some entity magic, ...
-
-        while (readLine() != "exit") {
-            ts.bind(System.currentTimeMillis() + deltaTime) {
-                e.inst()
-            }
-        }
-
-        // TODO vvv ... as well as this.
-        e.disconnect()
-        // TODO: While time is connected, save should for example store the time, or restore.
+    // Connect sending to network.
+    scope.onTransmit.register {
+        network.instruction(it)
     }
 
-    updater.cancel(false)
-    nw.close()
+    // Connect receiving to scope.
+    onReceive = {
+        scope.receive(it)
+    }
+
+    // If coordinating, create, otherwise restore.
+    val root = if (network.isCoordinating) {
+        // Create root, include.
+        S(scope, lx / "root")
+            .also(scope::include)
+    } else {
+        // Restore, resolve root.
+        val bundle = network.bundle()
+        scope.loadFrom(bundle::get)
+        scope.resolve(lx / "root") as S
+    }
+
+    while (readLine() != "exit") {
+        scope.withTime(clock) {
+            root.inst()
+        }
+    }
+
+    // TODO: Probably not needed for now.
+    root.disconnect()
+
+    clock.close()
+    network.close()
 }

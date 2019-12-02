@@ -5,32 +5,25 @@ import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
+import eu.metatools.up.kryo.makeKryo
 import eu.metatools.up.notify.Event
 import eu.metatools.up.notify.EventList
 import eu.metatools.up.notify.Handler
 import eu.metatools.up.notify.HandlerList
 import org.jgroups.JChannel
-import org.jgroups.ReceiverAdapter
 import org.jgroups.blocks.MessageDispatcher
 import org.jgroups.blocks.RequestOptions
-import java.io.InputStream
-import java.io.OutputStream
 
 interface Network {
     /**
-     * Called on instruction receive.
+     * True if coordinating.
      */
-    val received: Event<Lx, Instruction>
-
-    /**
-     * Called on claims changed.
-     */
-    val claimsChanged: Handler<Set<Short>>
+    val isCoordinating: Boolean
 
     /**
      * Claims a slot, returns it or throws an exception.
      */
-    fun claimSlot(): Short
+    fun claimSlot(/* TODO uuid:UUID */): Short
 
     /**
      * Releases the slot, must be one of those claimed on this interface.
@@ -45,7 +38,7 @@ interface Network {
     /**
      * Sends an instruction via the adapter.
      */
-    fun instruction(id: Lx, instruction: Instruction)
+    fun instruction(instruction: Instruction)
 
     /**
      * Returns the bundle.
@@ -58,9 +51,19 @@ interface Network {
     fun close()
 }
 
+/**
+ * Makes the network.
+ *
+ * @param cluster The cluster name.
+ * @param onBundle The bundling method.
+ * @param onReceive The receive method.
+ * @param stack The stack file to use for JGroups.
+ * @param kryo The Kryo configuration to use.
+ */
 fun makeNetwork(
     cluster: String,
-    bundle: () -> Map<Lx, Any?>,
+    onBundle: () -> Map<Lx, Any?>,
+    onReceive: (Instruction) -> Unit,
     stack: String = "fast.xml",
     kryo: Kryo = makeKryo()
 ): Network {
@@ -68,8 +71,6 @@ fun makeNetwork(
 
     // Connect to cluster.
     channel.connect(cluster)
-
-    // Request options.
 
     return object : Network {
         /**
@@ -87,16 +88,6 @@ fun makeNetwork(
          * Set of own claims.
          */
         private val ownClaims = mutableSetOf<Short>()
-
-        /**
-         * Received instruction.
-         */
-        override val received = EventList<Lx, Instruction>()
-
-        /**
-         * Claims changed.
-         */
-        override val claimsChanged = HandlerList<Set<Short>>()
 
         /**
          * Universal dispatcher.
@@ -121,14 +112,12 @@ fun makeNetwork(
             return claimed.toList()
         }
 
-
         private fun handleClaimSlot(input: Input): Short {
             // Iterate all valid IDs, find one not in claims.
             for (id in Short.MIN_VALUE..Short.MAX_VALUE)
                 if (id.toShort() !in claimed) {
-                    // Add to list of claims, notify and return it.
+                    // Add to list of claims and return it.
                     claimed.add(id.toShort())
-                    claimsChanged(claimed.toSet())
                     return id.toShort()
                 }
 
@@ -141,9 +130,8 @@ fun makeNetwork(
             // Get ID from arguments.
             val id = input.readShort()
 
-            // Remove from claims, notify and return void null.
+            // Remove from claims and return void null.
             claimed.remove(id)
-            claimsChanged(claimed.toSet())
             return null
         }
 
@@ -152,21 +140,18 @@ fun makeNetwork(
 
 
         private fun handleInstruction(input: Input): Nothing? {
-            // Read ID.
-            val id = kryo.readObject(input, Lx::class.java)
-
             // Read instruction.
             val instruction = kryo.readObject(input, Instruction::class.java)
 
             // Send to handler.
-            received(id, instruction)
+            onReceive(instruction)
 
             // Return null as void.
             return null
         }
 
         private fun handleBundle(input: Input): Any? {
-            val value = bundle()
+            val value = onBundle()
             val output = Output(0, 65535)
             output.writeInt(value.size, true)
             for ((k, v) in value) {
@@ -176,6 +161,9 @@ fun makeNetwork(
             return output.toBytes()
         }
 
+        override val isCoordinating
+            get() = channel.address == channel.view.coord
+
 
         override fun claimSlot(): Short {
             // If claims not initialized yet, retrieve from coordinator and then add to set.
@@ -183,7 +171,13 @@ fun makeNetwork(
                 val output = Output(1)
                 output.writeType(MessageType.ClaimList)
                 dispatcher
-                    .sendMessage<List<Short>>(channel.view.coord, output.buffer, 0, output.position(), RequestOptions.SYNC())
+                    .sendMessage<List<Short>>(
+                        channel.view.coord,
+                        output.buffer,
+                        0,
+                        output.position(),
+                        RequestOptions.SYNC()
+                    )
                     .forEach {
                         claimed.add(it)
                     }
@@ -248,11 +242,10 @@ fun makeNetwork(
             return adjusted - end
         }
 
-        override fun instruction(id: Lx, instruction: Instruction) {
+        override fun instruction(instruction: Instruction) {
             // Generate output.
             val output = Output(0, 65535)
             output.writeType(MessageType.Instruction)
-            kryo.writeObject(output, id)
             kryo.writeObject(output, instruction)
 
             // Create options.
@@ -265,7 +258,7 @@ fun makeNetwork(
         override fun bundle(): Map<Lx, Any?> {
             // Self-bundle.
             if (channel.view.coord == channel.address)
-                return bundle()
+                return onBundle()
 
             // Create request message.
             val output = Output(1)

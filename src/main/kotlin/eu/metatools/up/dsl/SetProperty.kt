@@ -1,14 +1,14 @@
 package eu.metatools.up.dsl
 
-import eu.metatools.up.aspects.*
+import eu.metatools.elt.Change
+import eu.metatools.elt.Listen
+import eu.metatools.up.Ent
+import eu.metatools.up.Mode
+import eu.metatools.up.Scope
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
-import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.ObservedSet
 import eu.metatools.up.lang.autoClosing
-import eu.metatools.up.structure.Container
-import eu.metatools.up.structure.Id
-import eu.metatools.up.structure.Part
 import eu.metatools.wep2.util.delegates.ReadOnlyPropertyProvider
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -72,8 +72,8 @@ data class SetChange<E>(
  * value assignment [init] if needed.
  */
 class SetProperty<E : Comparable<E>>(
-    val aspects: Aspects?, override val id: Lx, val init: () -> List<E>
-) : Id, Part, ReadOnlyProperty<Any?, NavigableSet<E>> {
+    val scope: Scope,  val id: Lx, val init: () -> List<E>
+) : Part, ReadOnlyProperty<Any?, NavigableSet<E>> {
 
     /**
      * The observed set dealing with notification of changes.
@@ -87,45 +87,34 @@ class SetProperty<E : Comparable<E>>(
 
     private fun createObservedSet(from: List<E>) =
         ObservedSet(TreeSet(from)) { add, remove ->
-            aspects<Listen> {
-                changed(id, SetChange(add, remove))
-            }
+            // If listening, notify changed.
+            if (scope is Listen)
+                scope.changed(id, SetChange(add, remove))
+            scope.capture(id) {
 
-            aspects<Track> {
-                resetWith(id) {
-                    // Undo changes properly.
-                    current.actual.removeAll(add)
-                    current.actual.addAll(remove)
+                // Undo changes properly.
+                current.actual.removeAll(add)
+                current.actual.addAll(remove)
 
-                    // If listening, notify changed back.
-                    aspects<Listen> {
-                        // Switch add and remove.
-                        changed(id, SetChange(remove, add))
-                    }
-                }
+                // If listening, notify changed back.
+                if (scope is Listen)
+                    scope.changed(id, SetChange(remove, add))
             }
         }
 
     override fun connect() {
-        // Load from store and register saving if needed.
-        aspects<Store> {
-            // Assign current value.
-            current = if (isLoading)
-            // If loading, retrieve from the store and deproxify.
-                createObservedSet(aspects.toValue(load(id)) as List<E>)
-            else
-            // Not loading, just initialize.
-                createObservedSet(init())
+        // Assign current value.
+        current = if (scope.mode == Mode.RestoreData)
+        // If loading, retrieve from the store and deproxify.
+            createObservedSet(scope.toValue(scope.load(id)) as List<E>)
+        else
+        // Not loading, just initialize.
+            createObservedSet(init())
 
-            // Register saving method.
-            closeSave = handleSave.register {
-                // Save value with optional proxification.
-                it(id, aspects.toProxy(current.toList()))
-            }
-        } ?: run {
-            // Just initialize the value.
-            val initValue = init()
-            current = createObservedSet(initValue)
+        // Register saving method.
+        closeSave = scope.onSave.register {
+            // Save value with optional proxification.
+            scope.save(id, scope.toProxy(current.toList()))
         }
     }
 
@@ -136,33 +125,22 @@ class SetProperty<E : Comparable<E>>(
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
         current.also {
             // Notify set was viewed.
-            aspects<Listen> {
-                viewed(id, it)
-            }
+            if (scope is Listen)
+                scope.viewed(id, it)
         }
 
     override fun toString() =
         current.toString()
 }
 
-/**
- * Creates a [SetProperty] from the aspect scope. Determines the id from the [Id] aspect of the receiver combined
- * with the property name. If receiver has no [Id] aspect, the property name alone is used. Passes the given initial
- * value assignment [init]. If the receiver has a [Container] aspect, the created component will be housed in it.
- */
 fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) =
-    ReadOnlyPropertyProvider { aspects: Aspects?, property ->
-        // Compose ID if receiver provides ID, otherwise just use property.
-        // Append to parent ID if present, otherwise start root.
-        val id = aspects.with<Id>()?.let {
-            it.id / property.name
-        } ?: lx / property.name
+    ReadOnlyPropertyProvider { ent: Ent, property ->
+        // Append to containing entity.
+        val id = ent.id / property.name
 
         // Create set from implied values.
-        SetProperty(aspects, id, init).also {
-            // If receiver is a container, add it.
-            aspects<Container> {
-                include(id, it)
-            }
+        SetProperty(ent.scope, id, init).also {
+            // Include in entity.
+            ent.include(id, it)
         }
     }
