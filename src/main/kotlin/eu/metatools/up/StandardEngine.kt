@@ -11,21 +11,47 @@ import kotlin.collections.HashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.full.createType
 import kotlin.reflect.full.isSupertypeOf
+import kotlin.reflect.full.safeCast
 
 /**
- * Standard scope with bound player and proxy nodes for incoming and outgoing instructions.
+ * Standard shell and engine with bound player and proxy nodes for incoming and outgoing instructions.
  */
-class StandardScope(val player: Short) : Scope {
+class StandardEngine(val player: Short) : Engine {
     companion object {
         /**
-         * Type of the [Scope], used for restore.
+         * Type of the [Shell], used for restore.
          */
-        private val scopeType = Scope::class.createType()
+        private val scopeType = Shell::class.createType()
 
         /**
          * Type of the [Lx], used for restore.
          */
         private val lxType = Lx::class.createType()
+
+        /**
+         * Unique ID of the engine domain. Do not use this key as a root node.
+         */
+        private val engineDomain = ".ed"
+
+        /**
+         * System initialized time.
+         */
+        private val SIT = lx / engineDomain / "SIT"
+
+        /**
+         * Primary entity table.
+         */
+        private  val PET = lx / engineDomain / "PET"
+
+        /**
+         * Local time per global.
+         */
+        private val LPG = lx / engineDomain / "LPG"
+
+        /**
+         * Instruction replay table.
+         */
+        private  val IRT = lx / engineDomain / "IRT"
     }
 
     /**
@@ -80,7 +106,7 @@ class StandardScope(val player: Short) : Scope {
 
         // Disconnect and clear entity table.
         mode = Mode.Idle
-        central.values.forEach(Ent::disconnect)
+        central.values.forEach { it.driver.disconnect() }
         central.clear()
 
         // Clear local time assignments.
@@ -114,7 +140,7 @@ class StandardScope(val player: Short) : Scope {
         }
 
         // Connect all restored values.
-        central.values.forEach(Ent::connect)
+        central.values.forEach { it.driver.connect() }
 
         // Load local per global.
         @Suppress("unchecked_cast")
@@ -187,6 +213,9 @@ class StandardScope(val player: Short) : Scope {
         // Reset state for idle.
         mode = Mode.Idle
     }
+
+    override val engine: Engine
+        get() = this
 
     override var mode: Mode = Mode.Idle
         private set
@@ -315,7 +344,7 @@ class StandardScope(val player: Short) : Scope {
         EventList<Lx, Instruction>()
 
     override fun capture(id: Lx, undo: () -> Unit) {
-        currentUndo[id] = undo
+        currentUndo.putIfAbsent(id, undo)
     }
 
     /**
@@ -423,7 +452,7 @@ class StandardScope(val player: Short) : Scope {
         mode = Mode.Idle
     }
 
-    override fun include(ent: Ent) {
+    override fun add(ent: Ent) {
         // Put entity, get existing.
         val existing = central.put(ent.id, ent)
 
@@ -431,21 +460,28 @@ class StandardScope(val player: Short) : Scope {
         require(existing == null) { "Cannot include $ent as ${ent.id}, already assigned to $existing " }
 
         // Connect entity.
-        ent.connect()
+        ent.driver.connect()
     }
 
-    override fun exclude(id: Lx) {
+    override fun remove(id: Lx) {
         central.compute(id) { k, v ->
             // Assert value is present.
             require(v != null) { "Cannot exclude $k, not assigned." }
 
             // Disconnect.
-            v.disconnect()
+            v.driver.disconnect()
 
             // Remove.
             null
         }
     }
+
+    override fun resolve(id: Lx) =
+        central[id]
+
+    override fun <T : Ent> list(kClass: KClass<T>) =
+        central.values.mapNotNull { kClass.safeCast(it) }.sortedBy { it.id }
+
 
     override var initializedTime = System.currentTimeMillis()
         private set
@@ -471,5 +507,5 @@ class StandardScope(val player: Short) : Scope {
 /**
  * Runs the receive method with the var-arg list.
  */
-fun StandardScope.receive(vararg instructions: Instruction) =
+fun StandardEngine.receive(vararg instructions: Instruction) =
     receive(instructions.asSequence())

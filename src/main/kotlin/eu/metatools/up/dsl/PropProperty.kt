@@ -2,13 +2,12 @@ package eu.metatools.up.dsl
 
 import eu.metatools.elt.Change
 import eu.metatools.elt.Listen
-import eu.metatools.up.Ent
-import eu.metatools.up.Mode
-import eu.metatools.up.Scope
+import eu.metatools.up.*
 import eu.metatools.up.dt.Box
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.lang.autoClosing
+import eu.metatools.up.Mode
 import eu.metatools.wep2.util.delegates.ReadWritePropertyProvider
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -29,9 +28,12 @@ data class PropChange<T>(val from: T, val to: T) : Change<PropChange<T>> {
         "$from -> $to"
 }
 
+/**
+ * Value property, uses the full [id] and the given initial value assignment [init] on non-restore.
+ */
 class PropProperty<T>(
-    val scope: Scope,  val id: Lx, val init: () -> T
-) :  Part, ReadWriteProperty<Any?, T> {
+    val shell: Shell, val id: Lx, val init: () -> T
+) : Part, ReadWriteProperty<Any?, T> {
 
     /**
      * The actual value.
@@ -45,17 +47,18 @@ class PropProperty<T>(
 
     override fun connect() {
         // Assign current value.
-        current = if (scope.mode == Mode.RestoreData)
+        current = if (shell.engine.mode == Mode.RestoreData)
         // If loading, retrieve from the store and deproxify.
-            Box(scope.toValue(scope.load(id)) as T)
+            @Suppress("unchecked_cast")
+            Box(shell.engine.toValue(shell.engine.load(id)) as T)
         else
         // Not loading, just initialize.
             Box(init())
 
         // Register saving method.
-        closeSave = scope.onSave.register {
+        closeSave = shell.engine.onSave.register {
             // Save value content with optional proxification.
-            scope.save(id, scope.toProxy(current.value))
+            shell.engine.save(id, shell.engine.toProxy(current.value))
         }
     }
 
@@ -66,8 +69,8 @@ class PropProperty<T>(
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
         current.value.also {
             // Notify property was viewed.
-            if (scope is Listen)
-                scope.viewed(id, it)
+            (shell.engine as? Listen)
+                ?.viewed(id, it)
         }
 
     override operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
@@ -76,16 +79,16 @@ class PropProperty<T>(
         current = Box(value)
 
         // If listening, notify changed.
-        if (scope is Listen)
-            scope.changed(id, PropChange(previous, value))
+        (shell.engine as? Listen)
+            ?.changed(id, PropChange(previous, value))
 
         // Capture undo.
-        scope.capture(id) {
+        shell.engine.capture(id) {
             current = Box(previous)
 
             // If listening, notify changed back.
-            if (scope is Listen)
-                scope.changed(id, PropChange(value, previous))
+            (shell.engine as? Listen)
+                ?.changed(id, PropChange(value, previous))
         }
     }
 
@@ -94,8 +97,7 @@ class PropProperty<T>(
 }
 
 /**
- * Creates a [PropProperty] with the name of the receiving entity plus the property name. Passes the receivers aspects. Also
- * adds the result to the components of the entity.
+ * Creates a tracked property.
  */
 fun <T> prop(init: () -> T) =
     ReadWritePropertyProvider { ent: Ent, property ->
@@ -103,8 +105,8 @@ fun <T> prop(init: () -> T) =
         val id = ent.id / property.name
 
         // Create property from implied values.
-        PropProperty(ent.scope, id, init).also {
+        PropProperty(ent.shell, id, init).also {
             // Include in entity.
-            ent.include(id, it)
+            ent.driver.include(id, it)
         }
     }

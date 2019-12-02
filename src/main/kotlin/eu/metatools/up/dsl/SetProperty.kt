@@ -2,13 +2,12 @@ package eu.metatools.up.dsl
 
 import eu.metatools.elt.Change
 import eu.metatools.elt.Listen
-import eu.metatools.up.Ent
-import eu.metatools.up.Mode
-import eu.metatools.up.Scope
+import eu.metatools.up.*
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.lang.ObservedSet
 import eu.metatools.up.lang.autoClosing
+import eu.metatools.up.Mode
 import eu.metatools.wep2.util.delegates.ReadOnlyPropertyProvider
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -68,11 +67,10 @@ data class SetChange<E>(
 }
 
 /**
- * A set property dealing with [Listen], [Track] and [Store] of [aspects]. Uses the full [id] and the given initial
- * value assignment [init] if needed.
+ * Set property, uses the full [id] and the given initial value assignment [init] on non-restore.
  */
 class SetProperty<E : Comparable<E>>(
-    val scope: Scope,  val id: Lx, val init: () -> List<E>
+    val shell: Shell, val id: Lx, val init: () -> List<E>
 ) : Part, ReadOnlyProperty<Any?, NavigableSet<E>> {
 
     /**
@@ -88,33 +86,34 @@ class SetProperty<E : Comparable<E>>(
     private fun createObservedSet(from: List<E>) =
         ObservedSet(TreeSet(from)) { add, remove ->
             // If listening, notify changed.
-            if (scope is Listen)
-                scope.changed(id, SetChange(add, remove))
-            scope.capture(id) {
+            (shell.engine as? Listen)
+                ?.changed(id, SetChange(add, remove))
+            shell.engine.capture(id) {
 
                 // Undo changes properly.
                 current.actual.removeAll(add)
                 current.actual.addAll(remove)
 
                 // If listening, notify changed back.
-                if (scope is Listen)
-                    scope.changed(id, SetChange(remove, add))
+                (shell.engine as? Listen)
+                    ?.changed(id, SetChange(remove, add))
             }
         }
 
     override fun connect() {
         // Assign current value.
-        current = if (scope.mode == Mode.RestoreData)
+        current = if (shell.engine.mode == Mode.RestoreData)
         // If loading, retrieve from the store and deproxify.
-            createObservedSet(scope.toValue(scope.load(id)) as List<E>)
+            @Suppress("unchecked_cast")
+            createObservedSet(shell.engine.toValue(shell.engine.load(id)) as List<E>)
         else
         // Not loading, just initialize.
             createObservedSet(init())
 
         // Register saving method.
-        closeSave = scope.onSave.register {
+        closeSave = shell.engine.onSave.register {
             // Save value with optional proxification.
-            scope.save(id, scope.toProxy(current.toList()))
+            shell.engine.save(id, shell.engine.toProxy(current.toList()))
         }
     }
 
@@ -125,22 +124,25 @@ class SetProperty<E : Comparable<E>>(
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
         current.also {
             // Notify set was viewed.
-            if (scope is Listen)
-                scope.viewed(id, it)
+            (shell.engine as? Listen)
+                ?.viewed(id, it)
         }
 
     override fun toString() =
         current.toString()
 }
 
+/**
+ * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
+ */
 fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) =
     ReadOnlyPropertyProvider { ent: Ent, property ->
         // Append to containing entity.
         val id = ent.id / property.name
 
         // Create set from implied values.
-        SetProperty(ent.scope, id, init).also {
+        SetProperty(ent.shell, id, init).also {
             // Include in entity.
-            ent.include(id, it)
+            ent.driver.include(id, it)
         }
     }

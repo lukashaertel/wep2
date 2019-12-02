@@ -2,13 +2,12 @@ package eu.metatools.up.dsl
 
 import eu.metatools.elt.Change
 import eu.metatools.elt.Listen
-import eu.metatools.up.Ent
-import eu.metatools.up.Mode
-import eu.metatools.up.Scope
+import eu.metatools.up.*
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.lang.ObservedMap
 import eu.metatools.up.lang.autoClosing
+import eu.metatools.up.Mode
 import eu.metatools.wep2.util.delegates.ReadOnlyPropertyProvider
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -125,10 +124,10 @@ data class MapChange<K, V>(
 }
 
 /**
- * Map property, uses the full [id] and the given initial value assignment [init] if needed.
+ * Map property, uses the full [id] and the given initial value assignment [init] on non-restore..
  */
 class MapProperty<K : Comparable<K>, V>(
-    val scope: Scope, val id: Lx, val init: () -> Map<K, V>
+    val shell: Shell, val id: Lx, val init: () -> Map<K, V>
 ) : Part, ReadOnlyProperty<Any?, NavigableMap<K, V>> {
 
     /**
@@ -144,35 +143,36 @@ class MapProperty<K : Comparable<K>, V>(
     private fun createObservedMap(from: Map<K, V>) =
         ObservedMap(TreeMap(from)) { add, remove ->
             // If listening, notify changed.
-            if (scope is Listen)
-                scope.changed(id, MapChange(add, remove))
+            (shell.engine as? Listen)
+                ?.changed(id, MapChange(add, remove))
 
             // Capture undo.
-            scope.capture(id) {
+            shell.engine.capture(id) {
                 // Undo changes properly.
                 current.actual.entries.removeAll(add.entries)
                 current.actual.putAll(remove)
 
                 // If listening, notify changed back.
-                if (scope is Listen)
-                    scope.changed(id, MapChange(remove, add))
+                (shell.engine as? Listen)
+                    ?.changed(id, MapChange(remove, add))
             }
         }
 
     override fun connect() {
 
         // Load from store and register saving if needed.
-        current = if (scope.mode == Mode.RestoreData)
+        current = if (shell.engine.mode == Mode.RestoreData)
         // If loading, retrieve from the store and deproxify.
-            createObservedMap(scope.toValue(scope.load(id)) as Map<K, V>)
+            @Suppress("unchecked_cast")
+            createObservedMap(shell.engine.toValue(shell.engine.load(id)) as Map<K, V>)
         else
         // Not loading, just initialize.
             createObservedMap(init())
 
         // Register saving method.
-        closeSave = scope.onSave.register {
+        closeSave = shell.engine.onSave.register {
             // Save value with optional proxification.
-            scope.save(id, scope.toProxy(current))
+            shell.engine.save(id, shell.engine.toProxy(current))
         }
     }
 
@@ -183,8 +183,8 @@ class MapProperty<K : Comparable<K>, V>(
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
         current.also {
             // If listening, notify map was viewed.
-            if (scope is Listen)
-                scope.viewed(id, it)
+            (shell.engine as? Listen)
+                ?.viewed(id, it)
         }
 
     override fun toString() =
@@ -192,9 +192,7 @@ class MapProperty<K : Comparable<K>, V>(
 }
 
 /**
- * Creates a [MapProperty] from the aspect scope. Determines the id from the [Id] aspect of the receiver combined
- * with the property name. If receiver has no [Id] aspect, the property name alone is used. Passes the given initial
- * value assignment [init]. If the receiver has a [Container] aspect, the created component will be housed in it.
+ * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
  */
 fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
     ReadOnlyPropertyProvider { ent: Ent, property ->
@@ -202,8 +200,8 @@ fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
         val id = ent.id / property.name
 
         // Create map from implied values.
-        MapProperty(ent.scope, id, init).also {
+        MapProperty(ent.shell, id, init).also {
             // Include in entity.
-            ent.include(id, it)
+            ent.driver.include(id, it)
         }
     }

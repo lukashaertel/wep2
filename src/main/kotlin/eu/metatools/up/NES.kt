@@ -4,25 +4,24 @@ import eu.metatools.up.dsl.prop
 import eu.metatools.up.dt.*
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
-import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 val executor = ScheduledThreadPoolExecutor(4)
 
 fun main() {
-    class S(scope: Scope, id: Lx) : Ent(scope, id) {
+    class S(shell: Shell, id: Lx) : Ent(shell, id) {
         var x by prop { 0 }
 
         var y by prop { 0 }
 
         var lastChild by prop<S?> { null }
 
-        val update = repeating(1000, scope::initializedTime) {
+        val update = repeating(1000, shell::initializedTime) {
             y++
             val y = y
             println("> Update y=$y")
-            scope.capture(id / ".ctu") {
+            shell.engine.capture(id / ".ctu") {
                 println("< Update y=$y")
             }
         }
@@ -34,7 +33,7 @@ fun main() {
 
         private fun doInst() {
             if (x % 2 == 0)
-                lastChild = constructed(S(scope, id / "child" / time)).also {
+                lastChild = constructed(S(shell, id / "child" / time)).also {
                     println("CONSTRUCTED $it")
                 }
             x++
@@ -67,17 +66,17 @@ fun main() {
     val player = network.claimSlot()
 
     // Initialize scope with player.
-    val scope = StandardScope(player)
+    val engine = StandardEngine(player)
 
     // Connect bundling to scope.
     onBundle = {
         val result = hashMapOf<Lx, Any?>()
-        scope.saveTo(result::set)
+        engine.saveTo(result::set)
         result
     }
 
     // Connect sending to network.
-    scope.onTransmit.register {
+    engine.onTransmit.register {
         if (it.time.player == Short.MAX_VALUE)
             System.err.println("Leaked repeated instruction $it")
         network.instruction(it)
@@ -85,36 +84,36 @@ fun main() {
 
     // Connect receiving to scope.
     onReceive = {
-        scope.receive(it)
+        engine.receive(it)
     }
 
     // If coordinating, create, otherwise restore.
     val root = if (network.isCoordinating) {
         // Create root, include.
-        S(scope, lx / "root").also(scope::include)
+        S(engine, lx / "root").also(engine::add)
     } else {
         // Restore, resolve root.
         val bundle = network.bundle()
-        scope.loadFrom(bundle::get)
-        scope.resolve(lx / "root") as S
+        engine.loadFrom(bundle::get)
+        engine.resolve(lx / "root") as S
     }
 
     val updater = executor.scheduleAtFixedRate({
         try {
-            synchronized(scope) {
+            synchronized(engine) {
                 root.update(clock.time)
-                scope.invalidate(clock.time - 10_000L)
+                engine.invalidate(clock.time - 10_000L)
             }
         } catch (e: Throwable) {
             e.printStackTrace()
         }
     }, 0L, 1L, TimeUnit.SECONDS)
 
-    println(scope.initializedTime)
+    println(engine.initializedTime)
 
     while (readLine() != "exit") {
-        synchronized(scope) {
-            scope.withTime(clock) {
+        synchronized(engine) {
+            engine.withTime(clock) {
                 root.inst()
             }
         }
@@ -123,7 +122,7 @@ fun main() {
     updater.cancel(false)
 
     // TODO: Probably not needed for now.
-    root.disconnect()
+    root.driver.disconnect()
 
     clock.close()
     network.close()
