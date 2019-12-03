@@ -15,7 +15,7 @@ import java.util.*
  * administration options, only the shell type is passed.
  * @property id The unique identity of the entity.
  */
-abstract class Ent(val shell: Shell, val id: Lx) {
+abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     companion object {
         /**
          * Current execution's time.
@@ -32,6 +32,13 @@ abstract class Ent(val shell: Shell, val id: Lx) {
          * Presence attribute.
          */
         private val presence = lx / driverDomain / "EX"
+
+        /**
+         * Disambiguation code for [repeating]. // TODO: Maybe research if pulling more data from instruction can help
+         * auto-disambiguation.
+         */
+        @Deprecated("Unverified global, temporary solution.")
+        private var repeatingDC = Byte.MIN_VALUE
     }
 
     /**
@@ -155,7 +162,8 @@ abstract class Ent(val shell: Shell, val id: Lx) {
     protected val time: Time get() = executionTime.get()
 
     /**
-     * Provides extra arguments for entity construction by name and value.
+     * Provides extra arguments for entity construction by name and value. **Do not pass references here or use values
+     * outside of initialization.**
      */
     open val extraArgs: Map<String, Any?>? get() = null
 
@@ -327,16 +335,11 @@ abstract class Ent(val shell: Shell, val id: Lx) {
      * @param frequency The frequency of times to generate.
      * @param init The initial time generator, might be linked to retrieving the [Shell.initializedTime] or a property
      * remembering when the [Ent] was constructed.
-     * @param player The player to use as the instruction invoker. Defaults to [Short.MAX_VALUE]. Should be set
-     * explicitly when multiple [repeating] are used.
-     * @param local The local disambiguation code. Can be used instead or in conjunction with [player].
      * @param function The function to run. Itself will have [time] properly assigned during it's invocation.
      */
     protected fun repeating(
         frequency: Long,
         init: () -> Long,
-        player: Short = Short.MAX_VALUE,
-        local: Byte = Byte.MIN_VALUE,
         function: () -> Any?
     ): (Long) -> Unit {
         // Mark errors.
@@ -351,8 +354,9 @@ abstract class Ent(val shell: Shell, val id: Lx) {
             (function())
         }
 
-        var initial: Long = Long.MAX_VALUE
-        var last: Long = Long.MAX_VALUE
+        var initial = Long.MAX_VALUE
+        var last = Long.MAX_VALUE
+        var rdc = Byte.MIN_VALUE
 
         // Get ticker name for storing and loading.
         val tickerId = id / "tickers-$name"
@@ -369,15 +373,18 @@ abstract class Ent(val shell: Shell, val id: Lx) {
                 if (shell.engine.mode == Mode.RestoreData) {
                     initial = shell.engine.load(tickerId / "initial") as Long
                     last = shell.engine.load(tickerId / "last") as Long
+                    rdc = shell.engine.load(tickerId / "rdc") as Byte
                 } else {
                     initial = init()
                     last = init()
+                    rdc = repeatingDC++
                 }
 
                 // Save by writing last.
                 closeSave = shell.engine.onSave.register {
                     shell.engine.save(tickerId / "initial", initial)
                     shell.engine.save(tickerId / "last", last)
+                    shell.engine.save(tickerId / "rdc", rdc)
                 }
             }
 
@@ -386,10 +393,7 @@ abstract class Ent(val shell: Shell, val id: Lx) {
             }
 
             override fun toString() =
-                if (player != Short.MAX_VALUE || local != Byte.MIN_VALUE)
-                    "<repeating, ~$frequency - $initial, ${player - Short.MIN_VALUE}-${local - Byte.MIN_VALUE}>"
-                else
-                    "<repeating, ~$frequency - $initial>"
+                "<repeating, ~$frequency - $initial>"
         })
 
         // Return non-exchanged local invocation.
@@ -397,8 +401,7 @@ abstract class Ent(val shell: Shell, val id: Lx) {
             if (time > last) {
                 // Generate local instructions.
                 val locals = frequencyProgression(initial, frequency, last, time).asSequence().map {
-                    // TODO: This is bound to be permafucked.
-                    Instruction(id, name, Time(it, player, local), emptyList())
+                    Instruction(id, name, Time(it, (-shell.player).toShort(), rdc), emptyList())
                 }
 
                 // Transfer last time.
@@ -409,6 +412,9 @@ abstract class Ent(val shell: Shell, val id: Lx) {
             }
         }
     }
+
+    override fun compareTo(other: Ent) =
+        id.compareTo(other.id)
 
     override fun toString() =
         // Print to a string writer, return value.

@@ -32,7 +32,7 @@ data class PropChange<T>(val from: T, val to: T) : Change<PropChange<T>> {
  * Value property, uses the full [id] and the given initial value assignment [init] on non-restore.
  */
 class PropProperty<T>(
-    val shell: Shell, val id: Lx, val init: () -> T
+    val shell: Shell, val id: Lx, val init: () -> T, val changed: ((PropChange<T>) -> Unit)?
 ) : Part, ReadWriteProperty<Any?, T> {
 
     /**
@@ -67,11 +67,7 @@ class PropProperty<T>(
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
-        current.value.also {
-            // Notify property was viewed.
-            (shell.engine as? Listen)
-                ?.viewed(id, it)
-        }
+        current.value
 
     override operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
         // Change value.
@@ -79,16 +75,14 @@ class PropProperty<T>(
         current = Box(value)
 
         // If listening, notify changed.
-        (shell.engine as? Listen)
-            ?.changed(id, PropChange(previous, value))
+        changed?.invoke(PropChange(previous, value))
 
         // Capture undo.
         shell.engine.capture(id) {
             current = Box(previous)
 
             // If listening, notify changed back.
-            (shell.engine as? Listen)
-                ?.changed(id, PropChange(value, previous))
+            changed?.invoke(PropChange(value, previous))
         }
     }
 
@@ -105,7 +99,22 @@ fun <T> prop(init: () -> T) =
         val id = ent.id / property.name
 
         // Create property from implied values.
-        PropProperty(ent.shell, id, init).also {
+        PropProperty(ent.shell, id, init, null).also {
+            // Include in entity.
+            ent.driver.include(id, it)
+        }
+    }
+
+/**
+ * Creates a tracked property.
+ */
+fun <T> propObserved(init: () -> T, changed: (PropChange<T>) -> Unit) =
+    ReadWritePropertyProvider { ent: Ent, property ->
+        // Append to containing entity.
+        val id = ent.id / property.name
+
+        // Create property from implied values.
+        PropProperty(ent.shell, id, init, changed).also {
             // Include in entity.
             ent.driver.include(id, it)
         }

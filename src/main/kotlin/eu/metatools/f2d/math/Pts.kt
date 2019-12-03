@@ -1,11 +1,9 @@
 package eu.metatools.f2d.math
 
-import java.io.Serializable
-
 /**
  * A list of vectors sharing a backing array.
  */
-class Pts(vararg val values: Float) : Iterable<Pt>, Serializable {
+class Pts(vararg val values: Float) : Iterable<Pt> {
     constructor(size: Int) : this(*FloatArray(size * 2))
 
     constructor(size: Int, init: (Int) -> Pt) : this(*FloatArray(size * 2)) {
@@ -32,12 +30,13 @@ class Pts(vararg val values: Float) : Iterable<Pt>, Serializable {
      * The x-components.
      */
     val x by lazy {
-        object : Component {
+        object : Component<Pts> {
             override fun get(n: Int) = values[n * 2 + 0]
 
-            override fun set(n: Int, value: Float) {
-                values[n * 2 + 0] = value
-            }
+            override fun set(n: Int, value: Float) =
+                Pts(*values.clone().also {
+                    it[n * 2 + 0] = value
+                })
         }
     }
 
@@ -45,12 +44,13 @@ class Pts(vararg val values: Float) : Iterable<Pt>, Serializable {
      * The y-components.
      */
     val y by lazy {
-        object : Component {
+        object : Component<Pts> {
             override fun get(n: Int) = values[n * 2 + 1]
 
-            override fun set(n: Int, value: Float) {
-                values[n * 2 + 1] = value
-            }
+            override fun set(n: Int, value: Float) =
+                Pts(*values.clone().also {
+                    it[n * 2 + 1] = value
+                })
         }
     }
 

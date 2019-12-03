@@ -3,20 +3,27 @@ package eu.metatools.up
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.constructBy
 import eu.metatools.up.lang.never
+import eu.metatools.up.lang.validate
 import eu.metatools.up.notify.CallbackList
 import eu.metatools.up.notify.EventList
 import eu.metatools.up.notify.HandlerList
 import java.util.*
 import kotlin.collections.HashMap
 import kotlin.reflect.KClass
-import kotlin.reflect.full.createType
-import kotlin.reflect.full.isSupertypeOf
-import kotlin.reflect.full.safeCast
+import kotlin.reflect.full.*
 
 /**
  * Standard shell and engine with bound player and proxy nodes for incoming and outgoing instructions.
  */
-class StandardEngine(val player: Short) : Engine {
+class StandardEngine(player: Short) : Engine {
+    /**
+     * The player number.
+     */
+    override val player = validate(player < 0) {
+        // TODO: Should in the end not be actually limiting.
+        "For standard engine, player IDs are limited to negative section."
+    } ?: player
+
     companion object {
         /**
          * Type of the [Shell], used for restore.
@@ -41,7 +48,7 @@ class StandardEngine(val player: Short) : Engine {
         /**
          * Primary entity table.
          */
-        private  val PET = lx / engineDomain / "PET"
+        private val PET = lx / engineDomain / "PET"
 
         /**
          * Local time per global.
@@ -51,7 +58,7 @@ class StandardEngine(val player: Short) : Engine {
         /**
          * Instruction replay table.
          */
-        private  val IRT = lx / engineDomain / "IRT"
+        private val IRT = lx / engineDomain / "IRT"
     }
 
     /**
@@ -181,7 +188,8 @@ class StandardEngine(val player: Short) : Engine {
         save(SIT, initializedTime)
 
         // Save all existing IDs.
-        central.keys.toList().let {
+        central.keys.sorted().let {
+            // Save all existing IDs.
             save(PET, it)
         }
 
@@ -375,8 +383,12 @@ class StandardEngine(val player: Short) : Engine {
 
         // Add all to register, assert was empty.
         for (instruction in sorted.values)
-            require(register.put(instruction.time, Reg(instruction.toValueWith(this)) {}) == null) {
-                "Instruction slot for $instruction occupied"
+            try {
+                require(register.put(instruction.time, Reg(instruction.toValueWith(this)) {}) == null) {
+                    "Instruction slot for $instruction occupied"
+                }
+            }catch(ex:IllegalArgumentException){
+                throw ex
             }
 
         // Set mode to invoke.
@@ -479,8 +491,11 @@ class StandardEngine(val player: Short) : Engine {
     override fun resolve(id: Lx) =
         central[id]
 
-    override fun <T : Ent> list(kClass: KClass<T>) =
-        central.values.mapNotNull { kClass.safeCast(it) }.sortedBy { it.id }
+    override fun <T : Any> list(kClass: KClass<T>) =
+        central.values
+            .filter { kClass.isInstance(it) }
+            .sortedBy { it.id }
+            .map { kClass.cast(it) }
 
 
     override var initializedTime = System.currentTimeMillis()

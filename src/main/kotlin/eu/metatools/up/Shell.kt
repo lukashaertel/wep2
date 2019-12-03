@@ -9,6 +9,11 @@ import kotlin.reflect.KClass
  */
 interface Shell {
     /**
+     * The bound player number.
+     */
+    val player: Short
+
+    /**
      * Gets the actual engine. These operations are used by [Ent]s and private methods to properly link up the entity
      * without exposing critical API.
      */
@@ -22,7 +27,7 @@ interface Shell {
     /**
      * Lists all entities of type, this operation returns sorted output.
      */
-    fun <T : Ent> list(kClass: KClass<T>): List<T>
+    fun <T : Any> list(kClass: KClass<T>): List<T>
 
     /**
      * The time the scope was initialized, loaded from store or set on initialize.
@@ -44,14 +49,14 @@ interface Shell {
 /**
  * Lists all [Ent]s of type [T]
  */
-inline fun <reified T : Ent> Shell.list() =
+inline fun <reified T : Any> Shell.list() =
     list(T::class)
 
 /**
  * Lists all [Ent].
  */
 fun Shell.listAll() =
-    list(Ent::class)
+    list(Any::class)
 
 /**
  * Runs the [block] with a [Bind] on [Shell.time].

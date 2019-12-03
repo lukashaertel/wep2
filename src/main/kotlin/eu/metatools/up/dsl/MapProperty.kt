@@ -127,7 +127,7 @@ data class MapChange<K, V>(
  * Map property, uses the full [id] and the given initial value assignment [init] on non-restore..
  */
 class MapProperty<K : Comparable<K>, V>(
-    val shell: Shell, val id: Lx, val init: () -> Map<K, V>
+    val shell: Shell, val id: Lx, val init: () -> Map<K, V>, val changed: ((MapChange<K, V>) -> Unit)?
 ) : Part, ReadOnlyProperty<Any?, NavigableMap<K, V>> {
 
     /**
@@ -143,8 +143,7 @@ class MapProperty<K : Comparable<K>, V>(
     private fun createObservedMap(from: Map<K, V>) =
         ObservedMap(TreeMap(from)) { add, remove ->
             // If listening, notify changed.
-            (shell.engine as? Listen)
-                ?.changed(id, MapChange(add, remove))
+            changed?.invoke(MapChange(add, remove))
 
             // Capture undo.
             shell.engine.capture(id) {
@@ -153,8 +152,7 @@ class MapProperty<K : Comparable<K>, V>(
                 current.actual.putAll(remove)
 
                 // If listening, notify changed back.
-                (shell.engine as? Listen)
-                    ?.changed(id, MapChange(remove, add))
+                changed?.invoke(MapChange(remove, add))
             }
         }
 
@@ -181,11 +179,7 @@ class MapProperty<K : Comparable<K>, V>(
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
-        current.also {
-            // If listening, notify map was viewed.
-            (shell.engine as? Listen)
-                ?.viewed(id, it)
-        }
+        current
 
     override fun toString() =
         current.toString()
@@ -200,7 +194,22 @@ fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
         val id = ent.id / property.name
 
         // Create map from implied values.
-        MapProperty(ent.shell, id, init).also {
+        MapProperty(ent.shell, id, init, null).also {
+            // Include in entity.
+            ent.driver.include(id, it)
+        }
+    }
+
+/**
+ * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
+ */
+fun <K : Comparable<K>, V> mapObserved(init: () -> Map<K, V> = ::emptyMap, changed: (MapChange<K, V>) -> Unit) =
+    ReadOnlyPropertyProvider { ent: Ent, property ->
+        // Append to containing entity.
+        val id = ent.id / property.name
+
+        // Create map from implied values.
+        MapProperty(ent.shell, id, init, changed).also {
             // Include in entity.
             ent.driver.include(id, it)
         }

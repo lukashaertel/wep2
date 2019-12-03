@@ -5,14 +5,11 @@ import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
-import eu.metatools.up.kryo.makeKryo
-import eu.metatools.up.notify.Event
-import eu.metatools.up.notify.EventList
-import eu.metatools.up.notify.Handler
-import eu.metatools.up.notify.HandlerList
+import eu.metatools.up.kryo.makeUpKryo
 import org.jgroups.JChannel
 import org.jgroups.blocks.MessageDispatcher
 import org.jgroups.blocks.RequestOptions
+import java.lang.Exception
 
 interface Network {
     /**
@@ -65,7 +62,7 @@ fun makeNetwork(
     onBundle: () -> Map<Lx, Any?>,
     onReceive: (Instruction) -> Unit,
     stack: String = "fast.xml",
-    kryo: Kryo = makeKryo()
+    kryo: Kryo = makeUpKryo()
 ): Network {
     val channel = JChannel(stack)
 
@@ -151,6 +148,7 @@ fun makeNetwork(
         }
 
         private fun handleBundle(input: Input): Any? {
+            // TODO: Discard messages before. E.g., via activate receive or something.
             val value = onBundle()
             val output = Output(0, 65535)
             output.writeInt(value.size, true)

@@ -70,7 +70,7 @@ data class SetChange<E>(
  * Set property, uses the full [id] and the given initial value assignment [init] on non-restore.
  */
 class SetProperty<E : Comparable<E>>(
-    val shell: Shell, val id: Lx, val init: () -> List<E>
+    val shell: Shell, val id: Lx, val init: () -> List<E>, val changed: ((SetChange<E>) -> Unit)?
 ) : Part, ReadOnlyProperty<Any?, NavigableSet<E>> {
 
     /**
@@ -86,8 +86,7 @@ class SetProperty<E : Comparable<E>>(
     private fun createObservedSet(from: List<E>) =
         ObservedSet(TreeSet(from)) { add, remove ->
             // If listening, notify changed.
-            (shell.engine as? Listen)
-                ?.changed(id, SetChange(add, remove))
+            changed?.invoke(SetChange(add, remove))
             shell.engine.capture(id) {
 
                 // Undo changes properly.
@@ -95,8 +94,7 @@ class SetProperty<E : Comparable<E>>(
                 current.actual.addAll(remove)
 
                 // If listening, notify changed back.
-                (shell.engine as? Listen)
-                    ?.changed(id, SetChange(remove, add))
+                changed?.invoke(SetChange(remove, add))
             }
         }
 
@@ -122,11 +120,7 @@ class SetProperty<E : Comparable<E>>(
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
-        current.also {
-            // Notify set was viewed.
-            (shell.engine as? Listen)
-                ?.viewed(id, it)
-        }
+        current
 
     override fun toString() =
         current.toString()
@@ -141,7 +135,22 @@ fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) =
         val id = ent.id / property.name
 
         // Create set from implied values.
-        SetProperty(ent.shell, id, init).also {
+        SetProperty(ent.shell, id, init, null).also {
+            // Include in entity.
+            ent.driver.include(id, it)
+        }
+    }
+
+/**
+ * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
+ */
+fun <E : Comparable<E>> setObserved(init: () -> List<E> = ::emptyList, changed: (SetChange<E>) -> Unit) =
+    ReadOnlyPropertyProvider { ent: Ent, property ->
+        // Append to containing entity.
+        val id = ent.id / property.name
+
+        // Create set from implied values.
+        SetProperty(ent.shell, id, init, changed).also {
             // Include in entity.
             ent.driver.include(id, it)
         }

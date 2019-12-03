@@ -5,51 +5,21 @@ import com.badlogic.gdx.graphics.Color
 import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Pt
+import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.tools.AtlasResource
 import eu.metatools.f2d.tools.SolidResource
 import eu.metatools.f2d.tools.tint
-import eu.metatools.wep2.components.map
-import eu.metatools.wep2.components.prop
-import eu.metatools.wep2.components.set
-import eu.metatools.wep2.components.ticker
-import eu.metatools.wep2.storage.Restore
-import eu.metatools.wep2.tools.TickGenerator
-import eu.metatools.wep2.tools.Time
-import eu.metatools.wep2.track.rec
-import eu.metatools.wep2.track.undo
-import eu.metatools.wep2.util.first
-import eu.metatools.wep2.util.listeners.mapListener
-import eu.metatools.wep2.util.then
+import eu.metatools.up.Ent
+import eu.metatools.up.Shell
+import eu.metatools.up.dsl.mapObserved
+import eu.metatools.up.dsl.prop
+import eu.metatools.up.dsl.set
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.dt.Time
+import eu.metatools.up.dt.div
+import eu.metatools.up.dt.lx
+import eu.metatools.up.list
 import eu.metatools.wep2.util.within
-import java.io.Serializable
-
-data class XY(val x: Int, val y: Int) : Comparable<XY>, Serializable {
-    val isEmpty get() = x == 0 && y == 0
-
-    override fun compareTo(other: XY) =
-        first(other) {
-            y.compareTo(other.y)
-        } then {
-            x.compareTo(other.x)
-        }
-
-    override fun toString() = "($x, $y)"
-}
-
-data class Dimension(val minX: Int, val minY: Int, val maxX: Int, val maxY: Int) {
-    val width get() = 1 + maxX - minX
-
-    val height get() = 1 + maxY - minY
-
-    fun include(xy: XY) =
-        Dimension(
-            minOf(minX, xy.x), minOf(minY, xy.y),
-            maxOf(maxX, xy.x), maxOf(maxY, xy.y)
-        )
-}
-
-var viewUnderground = false
-
 
 object Constants {
     /**
@@ -61,11 +31,6 @@ object Constants {
      * Height of the tile.
      */
     val tileHeight = 32f
-
-    /**
-     * Depth of the tile, i.e., how much is an underground tile displaced.
-     */
-    val tileDepth = 24f
 }
 
 object Resources {
@@ -79,10 +44,10 @@ interface Rendered {
 }
 
 interface Ticking {
-    val ticker: TickGenerator
+    fun update(sec: Double, freq: Long)
 }
 
-class World(context: GameContext, restore: Restore?) : GameEntity(context, restore), Rendered {
+class World(shell: Shell, id: Lx) : Ent(shell, id), Rendered {
     val clipping = SDFComposer()
 
     private val sdfs = mutableMapOf<Float, (Pt) -> Float>()
@@ -92,31 +57,21 @@ class World(context: GameContext, restore: Restore?) : GameEntity(context, resto
             clipping.sdf(radius)
         }
 
+    val worldUpdate = repeating(40, shell::initializedTime) {
+        shell.list<Ticking>().forEach {
+            it.update((time.global - shell.initializedTime).sec, 40)
+        }
+    }
 
-    val tiles by map<XY, TileKind>(
-        mapListener(
-            added = { k, v ->
-                if (!v.passable) {
-                    clipping.add(k.x, k.y)
-                    sdfs.clear()
-                }
-            },
-            changed = { k, o, n ->
-                if (o.passable != n.passable) {
-                    if (n.passable)
-                        clipping.remove(k.x, k.y)
-                    else
-                        clipping.add(k.x, k.y)
-                    sdfs.clear()
-                }
-            },
-            removed = { k, v ->
-                if (v.passable) {
-                    clipping.remove(k.x, k.y)
-                    sdfs.clear()
-                }
-            })
-    )
+    val tiles by mapObserved<Cell, TileKind>(::emptyMap) {
+        for ((k, v) in it.removed)
+            if (!v.passable)
+                clipping.remove(k.x, k.y)
+        for ((k, v) in it.added)
+            if (!v.passable)
+                clipping.add(k.x, k.y)
+        sdfs.clear()
+    }
 
     val movers by set<Mover>()
 
@@ -129,13 +84,10 @@ class World(context: GameContext, restore: Restore?) : GameEntity(context, resto
             )
     }
 
-    override fun evaluate(name: GameName, time: Time, args: Any?) = when (name) {
-        "createMover" -> rec {
-            val ent = Mover(context, time, this, Pt(5f, 5f), Movers.S, args as Short?)
-            undo { ent.delete() }
-            movers.add(ent)
-        }
-        else -> super.evaluate(name, time, args)
+    val createMover = exchange(::onCreateMover)
+
+    private fun onCreateMover(owner: Short) {
+        movers.add(constructed(Mover(shell, id / "child" / time, time, Pt(5f, 5f), Movers.S, owner)))
     }
 
     fun passable(x: Float, y: Float, radius: Float): Boolean {
@@ -144,7 +96,7 @@ class World(context: GameContext, restore: Restore?) : GameEntity(context, resto
             for (b in sequenceOf(-radius, 0f, radius)) {
                 val ix = (x + a + 0.5f).toInt()
                 val iy = (y + b + 0.5f).toInt()
-                if (tiles[XY(ix, iy)]?.passable == false)
+                if (tiles[Cell(ix, iy)]?.passable == false)
                     return false
             }
 
@@ -188,18 +140,18 @@ interface TraitMove : TraitWorld, TraitRadius {
         return pos + vel * dt
     }
 
-    fun receiveMove(time: Time, vel: Pt) {
-        pos = posAt(time.time.sec)
-        moveTime = time.time.sec
+    fun receiveMove(sec: Double, vel: Pt) {
+        pos = posAt(sec)
+        moveTime = sec
         this.vel = vel
     }
 
-    fun updateMove(time: Time, freq: Long) {
+    fun updateMove(sec: Double, freq: Long) {
         if (vel.isEmpty)
             return
 
-        pos = posAt(time.time.sec)
-        moveTime = time.time.sec
+        pos = posAt(sec)
+        moveTime = sec
 
         val sdf = world.sdf(radius)
         val distance = sdf(pos)
@@ -210,44 +162,52 @@ interface TraitMove : TraitWorld, TraitRadius {
     }
 }
 
-class Mover private constructor(
-    context: GameContext, restore: Restore?,
-    time: () -> Time = undefined(),
-    world: () -> World = undefined(),
-    pos: () -> Pt = undefined(),
-    kind: () -> MoverKind = undefined(),
-    owner: () -> Short? = undefined()
-) : GameEntity(context, restore), Rendered, Ticking, Comparable<Mover>, TraitMove {
-    constructor(context: GameContext, time: Time, world: World, pos: Pt, kind: MoverKind, owner: Short?) :
-            this(context, null, { time }, { world }, { pos }, { kind }, { owner })
+class Mover(
+    shell: Shell, id: Lx,
+    initCreated: Time,
+    initPos: Pt,
+    initKind: MoverKind,
+    initOwner: Short
+) : Ent(shell, id), Rendered, Ticking, TraitMove {
+    override val extraArgs: Map<String, Any?>?
+        get() = mapOf(
+            "initCreated" to created,
+            "initPos" to pos,
+            "initKind" to kind,
+            "initOwner" to owner
+        )
 
     companion object {
         val colors = listOf(
             Color.RED,
             Color.GREEN,
             Color.BLUE,
-            Color.YELLOW
+            Color.YELLOW,
+            Color.PINK,
+            Color.PURPLE,
+            Color.CHARTREUSE,
+            Color.DARK_GRAY
         )
     }
 
 
-    val time by prop(initial = time)
+    val created by prop { initCreated }
 
-    override val world by prop(initial = world)
+    override val world get() = shell.resolve(lx / "root") as World
 
-    override var pos by prop(initial = pos)
+    override var pos by prop { initPos }
 
     override var moveTime by prop { 0.0 }
 
     override var vel by prop { Pt() }
 
-    val kind by prop(initial = kind)
+    val kind by prop { initKind }
 
-    val owner by prop(initial = owner)
+    val owner by prop { initOwner }
 
     override val radius get() = kind.radius
 
-    var look by prop { XY(0, 0) }
+    var look by prop { Cell(0, 0) }
 
     override fun render(time: Double) {
         val owner = owner ?: return
@@ -260,27 +220,19 @@ class Mover private constructor(
         )
     }
 
-    override val ticker by ticker(1000L, this.time.time + 1)
-
-    fun tick(time: Time, freq: Long) {
-        updateMove(time, freq)
+    override fun update(sec: Double, freq: Long) {
+        updateMove(sec, freq)
     }
 
-    override fun evaluate(name: GameName, time: Time, args: Any?) = when (name) {
-        "tick" -> rec(time, args, this::tick)
-        "dir" -> rec {
-            args as XY
-            // Fix resets.
-            receiveMove(time, Pt(args.x.toFloat(), args.y.toFloat()))
-            if (!args.isEmpty)
-                look = args
-        }
 
-        else -> super.evaluate(name, time, args)
+    val dir = exchange(::doDir)
+
+    private fun doDir(cell: Cell) {
+        val sec = (time.global - shell.initializedTime).sec
+
+        // Fix resets.
+        receiveMove(sec, Pt(cell.x.toFloat(), cell.y.toFloat()))
+        if (!cell.isEmpty)
+            look = cell
     }
-
-    override fun compareTo(other: Mover) =
-        first(other) {
-            id.compareTo(other.id)
-        }
 }

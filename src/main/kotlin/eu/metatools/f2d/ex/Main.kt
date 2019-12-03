@@ -5,27 +5,24 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
+import com.esotericsoftware.kryo.serializers.DefaultSerializers
 import eu.metatools.f2d.F2DListener
+import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Pt
 import eu.metatools.f2d.math.Vec
-import eu.metatools.f2d.wep2.encoding.GdxEncoding
-import eu.metatools.nw.enter
-import eu.metatools.wep2.aspects.wasRestored
-import eu.metatools.wep2.entity.name
-import eu.metatools.wep2.system.*
-import eu.metatools.wep2.util.listeners.Listener
-import eu.metatools.wep2.util.listeners.MapListener
-
-// Shortened type declarations as aliases.
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-typealias GameName = String
-typealias GameParam = Unit
-typealias GameSystem = StandardSystem<GameName>
-typealias GameEntity = StandardEntity<GameName>
-typealias GameContext = StandardContext<GameName>
-
+import eu.metatools.f2d.up.kryo.makeF2DKryo
+import eu.metatools.f2d.up.kryo.makeGDXKryo
+import eu.metatools.up.StandardEngine
+import eu.metatools.up.dt.Instruction
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.dt.div
+import eu.metatools.up.dt.lx
+import eu.metatools.up.list
+import eu.metatools.up.net.NetworkClock
+import eu.metatools.up.net.makeNetwork
+import eu.metatools.up.receive
+import eu.metatools.up.withTime
+import java.util.concurrent.CopyOnWriteArrayList
 
 val Long.sec get() = this / 1000.0
 
@@ -33,57 +30,74 @@ val Long.sec get() = this / 1000.0
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Frontend : F2DListener(-100f, 100f) {
-    val encoding = GdxEncoding<GameName, GameParam>()
+    val encoding = makeF2DKryo().apply {
+        register(Movers::class.java, DefaultSerializers.EnumSerializer(Movers::class.java))
+        register(Tiles::class.java, DefaultSerializers.EnumSerializer(Tiles::class.java))
+    }
 
-    /**
-     * Cluster contribution methods.
-     */
-    val net = enter(
-        encoding, "game",
-        indexListener = MapListener.console("index")//,
-//        playerSelfListener = Listener.console("self"),
-//        playerCountListener = Listener.console("count")
-    )
+    private val lock = Any()
 
-    /**
-     * The game system.
-     */
-    val system get() = net.system
+    private fun handleBundle(): Map<Lx, Any?> {
+        synchronized(lock) {
+            val result = hashMapOf<Lx, Any?>()
+            engine.saveTo(result::set)
+            return result
+        }
+    }
+
+    private fun handleReceive(instruction: Instruction) {
+        synchronized(lock) {
+            engine.receive(instruction)
+        }
+    }
+
+    val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) }, kryo = encoding)
+
+    val clock = NetworkClock(net)
+
+    val engine = StandardEngine(net.claimSlot()).also {
+        println("As player: ${it.player}")
+        it.onTransmit.register(net::instruction)
+    }
 
 
     /**
      * The current time of the connected system.
      */
     override val time: Double
-        get() = system.toSystemTime(System.currentTimeMillis()).sec
+        get() = (clock.time - engine.initializedTime).sec
 
     /**
      * Get or create the world entity.
      */
-    val world = if (system.wasRestored)
-        system.single()
-    else
-        World(system, null).apply {
+    val world = if (net.isCoordinating) {
+        World(engine, lx / "root").also(engine::add).apply {
             for (x in 0..10)
                 for (y in 0..10) {
-                    val xy = XY(x, y)
+                    val xy = Cell(x, y)
                     tiles[xy] = if (x in 1..9 && y in 1..9)
                         Tiles.A
                     else
                         Tiles.B
                 }
 
-            tiles[XY(3, 2)] = Tiles.B
-            tiles[XY(3, 3)] = Tiles.B
-            tiles[XY(4, 2)] = Tiles.B
-            tiles[XY(4, 3)] = Tiles.B
-            tiles[XY(5, 3)] = Tiles.B
+            tiles[Cell(3, 2)] = Tiles.B
+            tiles[Cell(3, 3)] = Tiles.B
+            tiles[Cell(4, 2)] = Tiles.B
+            tiles[Cell(4, 3)] = Tiles.B
+            tiles[Cell(5, 3)] = Tiles.B
         }
+    } else {
+        // Restore, resolve root.
+        val bundle = net.bundle()
+        engine.loadFrom(bundle::get)
+        engine.resolve(lx / "root") as World
+    }
 
     init {
-        val t = System.currentTimeMillis()
-        system.claimNewPlayer(t)
-        world.signal("createMover", system.time(t), system.self)
+        engine.withTime(clock) {
+            world.createMover(engine.player)
+        }
     }
 
     override fun create() {
@@ -104,23 +118,25 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private val keyStick = KeyStick()
 
+    private fun ownMover(): Mover? =
+        engine.list<Mover>().find { it.owner == engine.player }
+
     override fun render(time: Double, delta: Double) {
-        // Get current time.
-        val current = System.currentTimeMillis()
+        synchronized(lock) {
+            // Bind current time.
+            engine.withTime(clock) {
+                val move = keyStick.fetch()
+                if (move != null) {
+                    val om = ownMover()
+                    om?.dir?.invoke(move)
+                }
 
-        val move = keyStick.fetch()
-        if (move != null)
-            system.firstOrNull<Mover> { it.owner == system.self }
-                ?.signal("dir", system.time(current), move)
+                world.worldUpdate(clock.time)
+                engine.invalidate(clock.time - 10_000L)
 
-        // Render the entities, tick if needed.
-        for ((_, e) in system.index.toList()) { // todo: index somehow changes from a different thread.
-            (e as? Rendered)?.render(time)
-            (e as? Ticking)?.ticker?.tickToWith(system, e.name("tick"), current)
+                engine.list<Rendered>().forEach { it.render(time) }
+            }
         }
-
-        // Consolidate instruction cache.
-        system.consolidate(current - 5000L)
     }
 
     override fun capture(result: Any, intersection: Vec) {
@@ -137,13 +153,9 @@ class Frontend : F2DListener(-100f, 100f) {
     override fun dispose() {
         super.dispose()
 
-        system.releasePlayer()
+        net.releaseSlot(engine.player)
 
-        net.stop()
-
-//        Gdx.files.internal("sg").write(false).use {
-//            encoding.writeInitializer(it, system.save())
-//        }
+        net.close()
     }
 }
 

@@ -1,11 +1,14 @@
 package eu.metatools.f2d.math
 
+import com.esotericsoftware.kryo.Kryo
+import com.esotericsoftware.kryo.io.Input
+import com.esotericsoftware.kryo.io.Output
 import java.io.Serializable
 
 /**
  * A [Float] component accessor.
  */
-interface Component {
+interface Component<R> {
     /**
      * Gets the [n]th component.
      */
@@ -14,13 +17,13 @@ interface Component {
     /**
      * Sets the [n]th component.
      */
-    operator fun set(n: Int, value: Float)
+    operator fun set(n: Int, value: Float): R
 }
 
 /**
  * A list of vectors sharing a backing array.
  */
-class Vecs(vararg val values: Float) : Iterable<Vec>, Serializable {
+class Vecs(vararg val values: Float) : Iterable<Vec> {
     constructor(size: Int) : this(*FloatArray(size * 3))
 
     constructor(size: Int, init: (Int) -> Vec) : this(*FloatArray(size * 3)) {
@@ -48,12 +51,13 @@ class Vecs(vararg val values: Float) : Iterable<Vec>, Serializable {
      * The x-components.
      */
     val x by lazy {
-        object : Component {
+        object : Component<Vecs> {
             override fun get(n: Int) = values[n * 3 + 0]
 
-            override fun set(n: Int, value: Float) {
-                values[n * 3 + 0] = value
-            }
+            override fun set(n: Int, value: Float) =
+                Vecs(*values.clone().also {
+                    it[n * 3 + 0] = value
+                })
         }
     }
 
@@ -61,12 +65,13 @@ class Vecs(vararg val values: Float) : Iterable<Vec>, Serializable {
      * The y-components.
      */
     val y by lazy {
-        object : Component {
+        object : Component<Vecs> {
             override fun get(n: Int) = values[n * 3 + 1]
 
-            override fun set(n: Int, value: Float) {
-                values[n * 3 + 1] = value
-            }
+            override fun set(n: Int, value: Float) =
+                Vecs(*values.clone().also {
+                    values[n * 3 + 1] = value
+                })
         }
     }
 
@@ -74,12 +79,13 @@ class Vecs(vararg val values: Float) : Iterable<Vec>, Serializable {
      * The z-components.
      */
     val z by lazy {
-        object : Component {
+        object : Component<Vecs> {
             override fun get(n: Int) = values[n * 3 + 2]
 
-            override fun set(n: Int, value: Float) {
-                values[n * 3 + 2] = value
-            }
+            override fun set(n: Int, value: Float) =
+                Vecs(*values.clone().also {
+                    values[n * 3 + 2] = value
+                })
         }
     }
 

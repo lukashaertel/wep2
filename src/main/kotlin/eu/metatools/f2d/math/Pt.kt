@@ -1,6 +1,9 @@
 package eu.metatools.f2d.math
 
 import com.badlogic.gdx.math.Vector2
+import com.esotericsoftware.kryo.Kryo
+import com.esotericsoftware.kryo.io.Input
+import com.esotericsoftware.kryo.io.Output
 import java.io.Externalizable
 import java.io.ObjectInput
 import java.io.ObjectOutput
@@ -10,8 +13,9 @@ import kotlin.math.sqrt
 /**
  * A point.
  */
-class Pt(val values: FloatArray, val offset: Int = 0) : Externalizable {
-    companion object {
+class Pt(val values: FloatArray, val offset: Int = 0)  {
+    companion object  {
+
         /**
          * The x unit point.
          */
@@ -199,16 +203,6 @@ class Pt(val values: FloatArray, val offset: Int = 0) : Externalizable {
         append(", ")
         append(roundForPrint(y))
         append(')')
-    }
-
-    override fun readExternal(input: ObjectInput) {
-        values[0] = input.readFloat()
-        values[1] = input.readFloat()
-    }
-
-    override fun writeExternal(output: ObjectOutput) {
-        output.writeFloat(x)
-        output.writeFloat(y)
     }
 }
 

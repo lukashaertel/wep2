@@ -1,9 +1,6 @@
 package eu.metatools.f2d.math
 
 import com.badlogic.gdx.math.Matrix4
-import java.io.Externalizable
-import java.io.ObjectInput
-import java.io.ObjectOutput
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
@@ -13,7 +10,7 @@ import kotlin.math.sqrt
  * Four by four matrix, non-self mutating.
  * @property values The values of the array, provide this with an array that won't be mutated afterwards.
  */
-class Mat(val values: FloatArray) : Externalizable {
+class Mat(val values: FloatArray) {
     /**
      * Creates a new matrix with all zeroes.
      */
@@ -519,50 +516,6 @@ class Mat(val values: FloatArray) : Externalizable {
         append(", ")
         append(roundForPrint(values[15]))
         append("}")
-    }
-
-    override fun readExternal(input: ObjectInput) {
-        values[0] = input.readFloat()
-        values[1] = input.readFloat()
-        values[2] = input.readFloat()
-        values[3] = input.readFloat()
-
-        values[4] = input.readFloat()
-        values[5] = input.readFloat()
-        values[6] = input.readFloat()
-        values[7] = input.readFloat()
-
-        values[8] = input.readFloat()
-        values[9] = input.readFloat()
-        values[10] = input.readFloat()
-        values[11] = input.readFloat()
-
-        values[12] = input.readFloat()
-        values[13] = input.readFloat()
-        values[14] = input.readFloat()
-        values[15] = input.readFloat()
-    }
-
-    override fun writeExternal(output: ObjectOutput) {
-        output.writeFloat(values[0])
-        output.writeFloat(values[1])
-        output.writeFloat(values[2])
-        output.writeFloat(values[3])
-
-        output.writeFloat(values[4])
-        output.writeFloat(values[5])
-        output.writeFloat(values[6])
-        output.writeFloat(values[7])
-
-        output.writeFloat(values[8])
-        output.writeFloat(values[9])
-        output.writeFloat(values[10])
-        output.writeFloat(values[11])
-
-        output.writeFloat(values[12])
-        output.writeFloat(values[13])
-        output.writeFloat(values[14])
-        output.writeFloat(values[15])
     }
 }
 
