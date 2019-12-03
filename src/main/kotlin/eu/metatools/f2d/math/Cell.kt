@@ -7,8 +7,7 @@ data class Cell(val x: Int, val y: Int) : Comparable<Cell> {
 
     override fun compareTo(other: Cell): Int {
         val r = y.compareTo(other.y)
-        if (r != 0)
-            return r
+        if (r != 0) return r
         return x.compareTo(other.x)
     }
 

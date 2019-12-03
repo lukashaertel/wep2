@@ -1,14 +1,13 @@
 package eu.metatools.up.dsl
 
-import eu.metatools.elt.Change
-import eu.metatools.elt.Listen
+import eu.metatools.up.dt.Change
 import eu.metatools.up.*
 import eu.metatools.up.dt.Box
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.lang.autoClosing
 import eu.metatools.up.Mode
-import eu.metatools.wep2.util.delegates.ReadWritePropertyProvider
+import eu.metatools.up.lang.ReadWritePropertyProvider
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 

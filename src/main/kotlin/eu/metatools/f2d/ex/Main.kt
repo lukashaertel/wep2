@@ -56,7 +56,6 @@ class Frontend : F2DListener(-100f, 100f) {
     val clock = NetworkClock(net)
 
     val engine = StandardEngine(net.claimSlot()).also {
-        println("As player: ${it.player}")
         it.onTransmit.register(net::instruction)
     }
 
@@ -102,6 +101,8 @@ class Frontend : F2DListener(-100f, 100f) {
 
     override fun create() {
         super.create()
+
+        Gdx.graphics.setTitle("Joined, player: ${engine.player}")
 
         // After creation, also connect the input processor.
         Gdx.input.inputProcessor = object : InputAdapter() {

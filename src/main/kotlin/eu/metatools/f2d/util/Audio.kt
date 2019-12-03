@@ -5,6 +5,7 @@ import com.badlogic.gdx.audio.Sound
 import com.badlogic.gdx.backends.lwjgl.audio.OpenALAudio
 import com.badlogic.gdx.backends.lwjgl.audio.OpenALSound
 import com.badlogic.gdx.utils.LongMap
+import java.lang.IllegalArgumentException
 
 /**
  * Navigates from the object to the explicitly given superclass [T]. Used for declared field access.
@@ -14,7 +15,7 @@ private inline fun <reified T> Any.toSuperClass(): Class<*> {
     var current: Class<*> = this.javaClass
 
     if (!target.isAssignableFrom(current))
-        throw IllegalAccessError(" ${T::class.simpleName} is not assignable from $this")
+        throw IllegalArgumentException(" ${T::class.simpleName} is not assignable from $this")
 
     while (current != target) {
         checkNotNull(current.superclass) {

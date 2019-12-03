@@ -19,7 +19,7 @@ import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 import eu.metatools.up.list
-import eu.metatools.wep2.util.within
+import eu.metatools.up.lang.within
 
 object Constants {
     /**

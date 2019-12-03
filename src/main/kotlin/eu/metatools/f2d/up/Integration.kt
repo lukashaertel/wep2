@@ -8,7 +8,6 @@ import eu.metatools.f2d.math.Mat
 import eu.metatools.up.Ent
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
-import eu.metatools.wep2.track.undo
 import java.util.*
 
 /**

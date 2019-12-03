@@ -1,4 +1,4 @@
-package eu.metatools.wep2.util
+package eu.metatools.up.lang
 
 /**
  * Returns the positive modulus. Computed as `((i % mod) + mod) % mod`.
