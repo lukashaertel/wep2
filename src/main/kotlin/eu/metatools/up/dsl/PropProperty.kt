@@ -27,6 +27,8 @@ data class PropChange<T>(val from: T, val to: T) : Change<PropChange<T>> {
         "$from -> $to"
 }
 
+// TODO: Changed delegate invocation on init.
+
 /**
  * Value property, uses the full [id] and the given initial value assignment [init] on non-restore.
  */
@@ -118,3 +120,9 @@ fun <T> propObserved(init: () -> T, changed: (PropChange<T>) -> Unit) =
             ent.driver.include(id, it)
         }
     }
+
+/**
+ * Shorthand for [prop].
+ */
+inline operator fun <reified T> (() -> T).provideDelegate(ent: Ent, property: KProperty<*>) =
+    prop(this).provideDelegate(ent, property)

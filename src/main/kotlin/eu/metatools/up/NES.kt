@@ -19,7 +19,7 @@ fun main() {
 
         val update = repeating(1000, shell::initializedTime) {
             y++
-            driver.cat()
+            println(this)
         }
 
         /**

@@ -148,6 +148,8 @@ class Frontend : F2DListener(-100f, 100f) {
     override fun dispose() {
         super.dispose()
 
+        clock.close()
+
         net.releaseSlot(engine.player)
 
         net.close()

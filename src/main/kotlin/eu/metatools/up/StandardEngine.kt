@@ -5,6 +5,7 @@ import eu.metatools.up.lang.constructBy
 import eu.metatools.up.lang.never
 import eu.metatools.up.lang.validate
 import eu.metatools.up.notify.CallbackList
+import eu.metatools.up.notify.Event
 import eu.metatools.up.notify.EventList
 import eu.metatools.up.notify.HandlerList
 import java.util.*
@@ -178,7 +179,14 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
             }
 
             // Connect all restored values.
-            central.values.forEach { it.driver.connect() }
+            central.values.forEach {
+                it.driver.connect()
+            }
+
+            // Resolve all.
+            central.values.forEach {
+                onResolve(it.id, it)
+            }
 
             // Load local per global.
             @Suppress("unchecked_cast")
@@ -354,6 +362,8 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
         saveToHandler(id, value)
     }
 
+    override val onResolve = EventList<Lx, Ent?>()
+
     private var limitValue = Time.MAX_VALUE
 
     private var limit: Time
@@ -516,29 +526,33 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
 
     override fun add(ent: Ent) {
         critical {
-            // Put entity, get existing.
-            val existing = central.put(ent.id, ent)
-
-            // Assert no existing assignment.
-            require(existing == null) { "Cannot include $ent as ${ent.id}, already assigned to $existing " }
+            // Put entity, get existing if present and run block if not null.
+            central.put(ent.id, ent)?.let {
+                require(it === ent) {
+                    "Cannot include $ent as ${ent.id}, already assigned to $it "
+                }
+            }
 
             // Connect entity.
             ent.driver.connect()
+
+            // Mark resolve from add.
+            onResolve(ent.id, ent)
         }
     }
 
     override fun remove(id: Lx) {
         critical {
-            central.compute(id) { k, v ->
-                // Assert value is present.
-                require(v != null) { "Cannot exclude $k, not assigned." }
+            // De-resolve from remove.
+            onResolve(id, null)
 
-                // Disconnect.
-                v.driver.disconnect()
-
-                // Remove.
-                null
+            // Remove entry.
+            val existing = requireNotNull(central.remove(id)) {
+                "Cannot exclude $id , not assigned."
             }
+
+            // Disconnect.
+            existing.driver.disconnect()
         }
     }
 

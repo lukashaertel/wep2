@@ -12,14 +12,16 @@ import eu.metatools.f2d.tools.tint
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.mapObserved
-import eu.metatools.up.dsl.prop
+import eu.metatools.up.dsl.provideDelegate
+import eu.metatools.up.dsl.ref
 import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
-import eu.metatools.up.list
+import eu.metatools.up.lang.never
 import eu.metatools.up.lang.within
+import eu.metatools.up.list
 
 object Constants {
     /**
@@ -89,7 +91,9 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     val createMover = exchange(::onCreateMover)
 
     private fun onCreateMover(owner: Short) {
-        movers.add(constructed(Mover(shell, id / "child" / time, time, Pt(5f, 5f), Movers.S, owner)))
+        val rng = rng()
+        val type = if (rng.nextBoolean()) Movers.S else Movers.L
+        movers.add(constructed(Mover(shell, id / "child" / time, Pt(5f, 5f), time, type, owner)))
     }
 
     fun passable(x: Float, y: Float, radius: Float): Boolean {
@@ -118,7 +122,11 @@ enum class Movers : MoverKind {
     S {
         override val radius: Float
             get() = 0.1f
-    }
+    },
+    L {
+        override val radius: Float
+            get() = 0.25f
+    },
 }
 
 
@@ -166,17 +174,17 @@ interface TraitMove : TraitWorld, TraitRadius {
 
 class Mover(
     shell: Shell, id: Lx,
-    initCreated: Time,
     initPos: Pt,
-    initKind: MoverKind,
-    initOwner: Short
+    val created: Time,
+    val kind: MoverKind,
+    val owner: Short
 ) : Ent(shell, id), Rendered, Ticking, TraitMove {
     override val extraArgs: Map<String, Any?>?
         get() = mapOf(
-            "initCreated" to created,
             "initPos" to pos,
-            "initKind" to kind,
-            "initOwner" to owner
+            "created" to created,
+            "kind" to kind,
+            "owner" to owner
         )
 
     companion object {
@@ -192,29 +200,23 @@ class Mover(
         )
     }
 
-
-    val created by prop { initCreated }
-
-    override val world get() = shell.resolve(lx / "root") as World
-
-    override var pos by prop { initPos }
-
-    override var moveTime by prop { 0.0 }
-
-    override var vel by prop { Pt() }
-
-    val kind by prop { initKind }
-
-    val owner by prop { initOwner }
+    override val world by ref<World>(lx / "root")
 
     override val radius get() = kind.radius
 
-    var look by prop { Cell(0, 0) }
+    override var pos by { initPos }
+
+    override var moveTime by { 0.0 }
+
+    override var vel by { Pt() }
+
+    val color get() = colors[owner.toInt().within(0, colors.size)] ?: never
+
+    var look by { Cell(0, 0) }
 
     override fun render(time: Double) {
-        val owner = owner ?: return
         val (x, y) = posAt(time)
-        val drawable = Resources.solid.refer().tint(colors[owner.toInt().within(0, colors.size)])
+        val drawable = Resources.solid.refer().tint(color)
         frontend.continuous.submit(
             drawable, time, Mat
                 .translation(Constants.tileWidth * x, Constants.tileHeight * y)

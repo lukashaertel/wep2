@@ -109,32 +109,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             // Reset execution time.
             executionTime.set(null)
         }
-
-        override fun cat(appendable: Appendable) {
-            // Header.
-            appendable.append(Ent::class.simpleName)
-            appendable.append(": ")
-            appendable.append(id.toString())
-
-            // Extra args.
-            extraArgs?.let {
-                appendable.append(it.toString())
-            }
-
-            // Print detached.
-            if (connected)
-                appendable.appendln()
-            else
-                appendable.appendln(" (detached)")
-
-            // List parts.
-            for ((id, part) in parts) {
-                appendable.append("  ")
-                appendable.append(id.toString())
-                appendable.append(": ")
-                appendable.appendln(part.toString())
-            }
-        }
     }
 
     /**
@@ -414,10 +388,23 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         }
     }
 
+
+    /**
+     * Returns a random number generator valid for the executing fragment.
+     */
+    fun rng(): Random {
+        val (g, _, l) = time
+        return Random(g xor l.toLong())
+    }
+
     override fun compareTo(other: Ent) =
         id.compareTo(other.id)
 
     override fun toString() =
-        // Print to a string writer, return value.
-        StringWriter().also(driver::cat).toString()
+        extraArgs.let {
+            if (it.isNullOrEmpty())
+                "${this::class.simpleName}#$id"
+            else
+                "${this::class.simpleName}#$id $it"
+        }
 }

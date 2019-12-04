@@ -31,9 +31,4 @@ interface Driver {
      * Instruction-in node. Called by registered handlers.
      */
     fun perform(instruction: Instruction)
-
-    /**
-     * Prints the [Ent] to an [Appendable], defaults to [System.out]
-     */
-    fun cat(appendable: Appendable = System.out)
 }

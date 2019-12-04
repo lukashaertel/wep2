@@ -43,6 +43,7 @@ interface Engine : Shell {
      * Current mode.
      */
     val mode: Mode
+
     /**
      * Detached handler for saving to [save].
      */
@@ -72,6 +73,11 @@ interface Engine : Shell {
      * Saves a value to the field. Usually invoked from the [onSave] detached handlers.
      */
     fun save(id: Lx, value: Any?)
+
+    /**
+     * On resolution of index changed. Experimental for now.
+     */
+    val onResolve: Event<Lx, Ent?>
 
     /**
      * Captures the reset of the distinct [id] by invoking [undo]. Relative undo, should expect the post-state.
