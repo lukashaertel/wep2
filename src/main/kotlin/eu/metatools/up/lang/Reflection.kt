@@ -11,7 +11,7 @@ import kotlin.reflect.full.starProjectedType
  * Returns true if the value is an instance of the type. This is a loose check, as the value type is star projected.
  */
 operator fun KType.contains(value: Any?) =
-    if (value == null) isMarkedNullable else isSupertypeOf(value::class.starProjectedType)
+    if (value == null) isMarkedNullable else (classifier as? KClass<*>)?.isInstance(value) ?: false
 
 /**
  * Constructs the class by a map of parameter names to values.

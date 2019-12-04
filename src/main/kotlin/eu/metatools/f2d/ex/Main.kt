@@ -35,20 +35,14 @@ class Frontend : F2DListener(-100f, 100f) {
         register(Tiles::class.java, DefaultSerializers.EnumSerializer(Tiles::class.java))
     }
 
-    private val lock = Any()
-
     private fun handleBundle(): Map<Lx, Any?> {
-        synchronized(lock) {
-            val result = hashMapOf<Lx, Any?>()
-            engine.saveTo(result::set)
-            return result
-        }
+        val result = hashMapOf<Lx, Any?>()
+        engine.saveTo(result::set)
+        return result
     }
 
     private fun handleReceive(instruction: Instruction) {
-        synchronized(lock) {
-            engine.receive(instruction)
-        }
+        engine.receive(instruction)
     }
 
     val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) }, kryo = encoding)
@@ -66,26 +60,28 @@ class Frontend : F2DListener(-100f, 100f) {
     override val time: Double
         get() = (clock.time - engine.initializedTime).sec
 
+    val map = mutableMapOf<Cell, TileKind>().also {
+        for (x in 0..10)
+            for (y in 0..10) {
+                val xy = Cell(x, y)
+                it[xy] = if (x in 1..9 && y in 1..9)
+                    Tiles.A
+                else
+                    Tiles.B
+            }
+
+        it[Cell(3, 2)] = Tiles.B
+        it[Cell(3, 3)] = Tiles.B
+        it[Cell(4, 2)] = Tiles.B
+        it[Cell(4, 3)] = Tiles.B
+        it[Cell(5, 3)] = Tiles.B
+    }.toMap()
+
     /**
      * Get or create the world entity.
      */
     val world = if (net.isCoordinating) {
-        World(engine, lx / "root").also(engine::add).apply {
-            for (x in 0..10)
-                for (y in 0..10) {
-                    val xy = Cell(x, y)
-                    tiles[xy] = if (x in 1..9 && y in 1..9)
-                        Tiles.A
-                    else
-                        Tiles.B
-                }
-
-            tiles[Cell(3, 2)] = Tiles.B
-            tiles[Cell(3, 3)] = Tiles.B
-            tiles[Cell(4, 2)] = Tiles.B
-            tiles[Cell(4, 3)] = Tiles.B
-            tiles[Cell(5, 3)] = Tiles.B
-        }
+        World(engine, lx / "root", map).also(engine::add)
     } else {
         // Restore, resolve root.
         val bundle = net.bundle()
@@ -123,20 +119,18 @@ class Frontend : F2DListener(-100f, 100f) {
         engine.list<Mover>().find { it.owner == engine.player }
 
     override fun render(time: Double, delta: Double) {
-        synchronized(lock) {
-            // Bind current time.
-            engine.withTime(clock) {
-                val move = keyStick.fetch()
-                if (move != null) {
-                    val om = ownMover()
-                    om?.dir?.invoke(move)
-                }
-
-                world.worldUpdate(clock.time)
-                engine.invalidate(clock.time - 10_000L)
-
-                engine.list<Rendered>().forEach { it.render(time) }
+        // Bind current time.
+        engine.withTime(clock) {
+            val move = keyStick.fetch()
+            if (move != null) {
+                val om = ownMover()
+                om?.dir?.invoke(move)
             }
+
+            world.worldUpdate(clock.time)
+            engine.invalidate(clock.time - 10_000L)
+
+            engine.list<Rendered>().forEach { it.render(time) }
         }
     }
 

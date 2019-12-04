@@ -8,6 +8,7 @@ import java.io.StringWriter
 import java.io.Writer
 import java.lang.Appendable
 import java.util.*
+import kotlin.experimental.inv
 
 /**
  * Base class for exchanged entity in a [shell].
@@ -401,7 +402,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             if (time > last) {
                 // Generate local instructions.
                 val locals = frequencyProgression(initial, frequency, last, time).asSequence().map {
-                    Instruction(id, name, Time(it, (-shell.player).toShort(), rdc), emptyList())
+                    Instruction(id, name, Time(it, shell.player.inv(), rdc), emptyList())
                 }
 
                 // Transfer last time.

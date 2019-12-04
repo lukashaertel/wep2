@@ -47,10 +47,7 @@ interface Engine : Shell {
      * Detached handler for saving to [save].
      */
     val onSave: Callback
-    /**
-     * Instruction execution limit.
-     */
-    var limit: Time
+
     /**
      * Detached handler for instructions on [Ent]s.
      */

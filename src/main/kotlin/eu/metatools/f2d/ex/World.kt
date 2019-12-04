@@ -47,7 +47,9 @@ interface Ticking {
     fun update(sec: Double, freq: Long)
 }
 
-class World(shell: Shell, id: Lx) : Ent(shell, id), Rendered {
+class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Rendered {
+    override val extraArgs = mapOf("map" to map)
+
     val clipping = SDFComposer()
 
     private val sdfs = mutableMapOf<Float, (Pt) -> Float>()
@@ -63,7 +65,7 @@ class World(shell: Shell, id: Lx) : Ent(shell, id), Rendered {
         }
     }
 
-    val tiles by mapObserved<Cell, TileKind>(::emptyMap) {
+    val tiles by mapObserved<Cell, TileKind>({ map }) {
         for ((k, v) in it.removed)
             if (!v.passable)
                 clipping.remove(k.x, k.y)
