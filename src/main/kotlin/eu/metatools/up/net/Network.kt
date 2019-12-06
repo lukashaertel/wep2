@@ -229,14 +229,17 @@ fun makeNetwork(
             val now = System.currentTimeMillis()
 
             // Send claim to all participants, find one that's ok.
-            val results = dispatcher.castMessage<Claim>(kryo, null, NetTouch(uuid, now), sync) ?: never
-            val result = requireNotNull(results.find { it.wasReceived() && !it.hasException() }) {
+            val allResults = dispatcher.castMessage<Claim>(kryo, null, NetTouch(uuid, now), sync) ?: never
+            val results = allResults.values.filter { it.wasReceived() && !it.wasUnreachable() && !it.hasException() }
+            val result = requireNotNull(results.firstOrNull()) {
                 "No result received without exception."
             }
 
-            // Assert consistency or timeout.
-            results.forEach { k, v ->
-                require(v.value == result.value) { "Inconsistent claim table on $k" }
+            // Assert consistency.
+            results.forEach { item ->
+                require(item.value == result.value) {
+                    "Inconsistent claim table, ${item.value} received with ${results.map { it.value }}."
+                }
             }
 
             // Add claim.

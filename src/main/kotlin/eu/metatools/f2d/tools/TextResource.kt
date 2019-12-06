@@ -1,6 +1,7 @@
 package eu.metatools.f2d.tools
 
 import com.badlogic.gdx.files.FileHandle
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
@@ -27,7 +28,8 @@ class ReferText(
     val name: String? = null,
     val bold: Boolean = false,
     val italic: Boolean = false,
-    val horizontal: Location = Location.Start
+    val horizontal: Location = Location.Start,
+    val vertical: Location = Location.Start
 ) {
     companion object {
         /**
@@ -132,8 +134,6 @@ class TextResource(
         initialized = false
     }
 
-    // TODO: Ok for having a bit fo fun but DIP text is just fucking horrible (It's an absolute mess).
-
     override fun referNew(argsResource: ReferText?) = object : Drawable<String> {
         /**
          * Resolve active args.
@@ -180,23 +180,35 @@ class TextResource(
                         )
                     }
                 }
-
             }
 
             // Determine how this instance must be scaled to get back to the original size.
-            val factor = 1 / (font.capHeight)
+            val factor = 1f / use.key
 
             // Draw with adjusted matrix, memorize and reset transformation.
             val before = spriteBatch.transformMatrix.cpy()
-            spriteBatch.transformMatrix = spriteBatch.transformMatrix.scl(factor, factor, factor)
+            spriteBatch.transformMatrix = spriteBatch.transformMatrix
+                .scale(factor, factor, 1f)
 
-            val halign = when (activeArgsResource.horizontal) {
+            // Get alignment from params.
+            val align = when (activeArgsResource.horizontal) {
                 Location.Start -> Align.left
                 Location.Center -> Align.center
                 Location.End -> Align.right
             }
 
-            font.draw(spriteBatch, args, 0f, 0f, 1f, halign, false)
+            // Get displacement from line count and font height.
+            val displace = when (activeArgsResource.vertical) {
+                Location.Start -> 0f
+                Location.Center -> font.lineHeight * args.lineSequence().count() / 2f
+                Location.End -> font.lineHeight * args.lineSequence().count()
+            }
+
+            // Transfer color, font uses it's own primary color value.
+            font.color = spriteBatch.color
+            font.draw(spriteBatch, args, 0f, displace, 1f, align, false)
+
+            // Reset transform.
             spriteBatch.transformMatrix = before
         }
     }

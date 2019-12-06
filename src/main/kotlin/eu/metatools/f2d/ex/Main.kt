@@ -5,16 +5,14 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
+import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
 import eu.metatools.f2d.F2DListener
 import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
-import eu.metatools.f2d.tools.Location
-import eu.metatools.f2d.tools.ReferText
-import eu.metatools.f2d.tools.TextResource
-import eu.metatools.f2d.tools.findDefinitions
+import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.up.kryo.makeF2DKryo
 import eu.metatools.up.StandardEngine
 import eu.metatools.up.dt.Instruction
@@ -27,6 +25,9 @@ import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
 import eu.metatools.up.receive
 import eu.metatools.up.withTime
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
+import java.io.StringWriter
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.math.cos
@@ -35,6 +36,13 @@ import kotlin.math.sin
 val Long.sec get() = this / 1000.0
 
 class Frontend : F2DListener(-100f, 100f) {
+    val consoleData = ByteArrayOutputStream()
+    val console = PrintStream(consoleData, true, Charsets.UTF_8).also {
+        System.setOut(it)
+        System.setErr(it)
+    }
+
+
     val encoding = makeF2DKryo().apply {
         register(Movers::class.java, DefaultSerializers.EnumSerializer(Movers::class.java))
         register(Tiles::class.java, DefaultSerializers.EnumSerializer(Tiles::class.java))
@@ -55,6 +63,8 @@ class Frontend : F2DListener(-100f, 100f) {
         leaseTime = 60,
         leaseTimeUnit = TimeUnit.SECONDS
     )
+
+    // TODO: Expiry is still a bit fucked.
 
     val clock = NetworkClock(net)
 
@@ -108,6 +118,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     override fun create() {
         super.create()
+        System.setOut(console)
         model = Mat.scaling(2f, 2f)
 
         Gdx.graphics.setTitle("Joined, player: ${engine.player}")
@@ -124,6 +135,8 @@ class Frontend : F2DListener(-100f, 100f) {
             }
         }
     }
+
+    var consoleVisible = false
 
     private val keyStick = KeyStick()
     var fontSize = Constants.tileHeight / 2f
@@ -161,6 +174,16 @@ class Frontend : F2DListener(-100f, 100f) {
             model = Mat.scaling(2f, 2f)
         if (Gdx.input.isKeyJustPressed(Keys.NUM_3))
             model = Mat.scaling(3f, 3f)
+
+        if (Gdx.input.isKeyJustPressed(Keys.GRAVE))
+            consoleVisible = !consoleVisible
+        if (consoleVisible)
+            continuous.submit(
+                Resources.consolas[ReferText(vertical = Location.End)].tint(Color(1f, 1f, 1f, 0.8f)),
+                consoleData.toString(Charsets.UTF_8),
+                time,
+                Mat.translation(4f, 4f).scale(12f, 12f, 0f)
+            )
     }
 
     override fun capture(result: Any, intersection: Vec) {

@@ -21,6 +21,7 @@ import eu.metatools.up.lang.never
 import eu.metatools.up.lang.within
 import eu.metatools.up.list
 import java.lang.Math.sqrt
+import java.lang.Math.toRadians
 
 object Constants {
     /**
@@ -40,6 +41,8 @@ object Resources {
     val terrain by lazy { frontend.use(AtlasResource { Gdx.files.internal("terrain.atlas") }) }
 
     val segoe by lazy { frontend.use(TextResource { findDefinitions(Gdx.files.internal("segoe_ui")) }) }
+
+    val consolas by lazy { frontend.use(TextResource { findDefinitions(Gdx.files.internal("consolas")) }) }
 
 }
 
@@ -234,7 +237,8 @@ class Mover(
 
         val text = Resources.segoe[ReferText(
             horizontal = Location.Center,
-            italic = owner == shell.player
+            vertical = Location.Center,
+            bold = owner == shell.player
         )]
 
         val mat = Mat
@@ -247,7 +251,7 @@ class Mover(
         val mat2 = Mat
             .translation(Constants.tileWidth * x, Constants.tileHeight * y)
             .scale(sx = frontend.fontSize, sy = frontend.fontSize)
-        frontend.continuous.submit(text, pos.toString(), time, mat2)
+        frontend.continuous.submit(text, "$pos\n$look", time, mat2)
 
     }
 
