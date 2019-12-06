@@ -185,6 +185,9 @@ fun makeNetwork(
             } ?: never
         }
 
+        /**
+         * The value of the executor or null if [executor] was not called yet.
+         */
         private var executorValue: ScheduledThreadPoolExecutor? = null
 
         override val executor by lazy {

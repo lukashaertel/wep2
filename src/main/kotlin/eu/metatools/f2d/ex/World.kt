@@ -6,9 +6,7 @@ import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Pt
 import eu.metatools.f2d.math.Cell
-import eu.metatools.f2d.tools.AtlasResource
-import eu.metatools.f2d.tools.SolidResource
-import eu.metatools.f2d.tools.tint
+import eu.metatools.f2d.tools.*
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.mapObserved
@@ -40,6 +38,9 @@ object Resources {
     val solid by lazy { frontend.use(SolidResource()) }
 
     val terrain by lazy { frontend.use(AtlasResource { Gdx.files.internal("terrain.atlas") }) }
+
+    val segoe by lazy { frontend.use(TextResource { findDefinitions(Gdx.files.internal("segoe_ui")) }) }
+
 }
 
 interface Rendered {
@@ -230,11 +231,24 @@ class Mover(
     override fun render(time: Double) {
         val (x, y) = posAt(time)
         val drawable = Resources.solid.refer().tint(if (dead) Color.GRAY else color)
-        frontend.continuous.submit(
-            drawable, time, Mat
-                .translation(Constants.tileWidth * x, Constants.tileHeight * y)
-                .scale(Constants.tileWidth * kind.radius * 2f, Constants.tileHeight * kind.radius * 2f)
-        )
+
+        val text = Resources.segoe[ReferText(
+            horizontal = Location.Center,
+            italic = owner == shell.player
+        )]
+
+        val mat = Mat
+            .translation(Constants.tileWidth * x, Constants.tileHeight * y)
+            .scale(Constants.tileWidth * kind.radius * 2f, Constants.tileHeight * kind.radius * 2f)
+
+        frontend.continuous.submit(drawable, time, mat)
+        frontend.continuous.submit(Cube, this, time, mat)
+
+        val mat2 = Mat
+            .translation(Constants.tileWidth * x, Constants.tileHeight * y)
+            .scale(sx = frontend.fontSize, sy = frontend.fontSize)
+        frontend.continuous.submit(text, pos.toString(), time, mat2)
+
     }
 
     override fun update(sec: Double, freq: Long) {

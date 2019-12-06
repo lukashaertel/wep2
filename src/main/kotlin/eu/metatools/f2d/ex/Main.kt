@@ -7,9 +7,14 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
 import eu.metatools.f2d.F2DListener
+import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.tools.Location
+import eu.metatools.f2d.tools.ReferText
+import eu.metatools.f2d.tools.TextResource
+import eu.metatools.f2d.tools.findDefinitions
 import eu.metatools.f2d.up.kryo.makeF2DKryo
 import eu.metatools.up.StandardEngine
 import eu.metatools.up.dt.Instruction
@@ -24,6 +29,8 @@ import eu.metatools.up.receive
 import eu.metatools.up.withTime
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.math.cos
+import kotlin.math.sin
 
 val Long.sec get() = this / 1000.0
 
@@ -45,7 +52,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
         kryo = encoding,
-        leaseTime = 15,
+        leaseTime = 60,
         leaseTimeUnit = TimeUnit.SECONDS
     )
 
@@ -101,6 +108,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     override fun create() {
         super.create()
+        model = Mat.scaling(2f, 2f)
 
         Gdx.graphics.setTitle("Joined, player: ${engine.player}")
 
@@ -118,7 +126,7 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 
     private val keyStick = KeyStick()
-
+    var fontSize = Constants.tileHeight / 2f
     private fun ownMover(): Mover? =
         engine.list<Mover>().find { it.owner == engine.player }
 
@@ -128,15 +136,13 @@ class Frontend : F2DListener(-100f, 100f) {
 
         // Bind current time.
         engine.withTime(clock) {
-            if (net.isCoordinating) {
+            // If coordinator, responsible for disposing of now unclaimed IDs.
+            if (net.isCoordinating)
                 world.movers.forEach {
                     if (!it.dead && !net.isClaimed(it.owner))
                         it.kill()
                 }
-            }
 
-            //root/child/1575629976246-0-0.0((1, 0))@1575630010262-0-0
-            //root/child/1575629988682-2-0.1()      @1575630010262-0-0
             val move = keyStick.fetch()
             if (move != null) {
                 val om = ownMover()
@@ -148,13 +154,17 @@ class Frontend : F2DListener(-100f, 100f) {
 
             engine.list<Rendered>().forEach { it.render(time) }
         }
+
+        if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
+            model = Mat.scaling(1f, 1f)
+        if (Gdx.input.isKeyJustPressed(Keys.NUM_2))
+            model = Mat.scaling(2f, 2f)
+        if (Gdx.input.isKeyJustPressed(Keys.NUM_3))
+            model = Mat.scaling(3f, 3f)
     }
 
     override fun capture(result: Any, intersection: Vec) {
-    }
-
-    init {
-        model = Mat.scaling(2f, 2f)
+        println(result)
     }
 
     override fun pause() = Unit
