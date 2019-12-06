@@ -11,23 +11,21 @@ import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.up.kryo.makeF2DKryo
-import eu.metatools.f2d.up.kryo.makeGDXKryo
 import eu.metatools.up.StandardEngine
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 import eu.metatools.up.list
+import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
 import eu.metatools.up.receive
 import eu.metatools.up.withTime
-import java.util.concurrent.CopyOnWriteArrayList
+import java.util.*
+import java.util.concurrent.TimeUnit
 
 val Long.sec get() = this / 1000.0
-
-// Frontend object.
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class Frontend : F2DListener(-100f, 100f) {
     val encoding = makeF2DKryo().apply {
@@ -45,11 +43,17 @@ class Frontend : F2DListener(-100f, 100f) {
         engine.receive(instruction)
     }
 
-    val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) }, kryo = encoding)
+    val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
+        kryo = encoding,
+        leaseTime = 15,
+        leaseTimeUnit = TimeUnit.SECONDS
+    )
 
     val clock = NetworkClock(net)
 
-    val engine = StandardEngine(net.claimSlot()).also {
+    val claimer = NetworkClaimer(net, UUID.randomUUID())
+
+    val engine = StandardEngine(claimer.currentClaim).also {
         it.onTransmit.register(net::instruction)
     }
 
@@ -119,8 +123,20 @@ class Frontend : F2DListener(-100f, 100f) {
         engine.list<Mover>().find { it.owner == engine.player }
 
     override fun render(time: Double, delta: Double) {
+        if (engine.player != claimer.currentClaim)
+            System.err.println("Warning: Claim for engine has changed, this should not happen.")
+
         // Bind current time.
         engine.withTime(clock) {
+            if (net.isCoordinating) {
+                world.movers.forEach {
+                    if (!it.dead && !net.isClaimed(it.owner))
+                        it.kill()
+                }
+            }
+
+            //root/child/1575629976246-0-0.0((1, 0))@1575630010262-0-0
+            //root/child/1575629988682-2-0.1()      @1575630010262-0-0
             val move = keyStick.fetch()
             if (move != null) {
                 val om = ownMover()
@@ -149,9 +165,7 @@ class Frontend : F2DListener(-100f, 100f) {
         super.dispose()
 
         clock.close()
-
-        net.releaseSlot(engine.player)
-
+        claimer.close()
         net.close()
     }
 }

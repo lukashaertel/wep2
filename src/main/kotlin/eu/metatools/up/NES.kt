@@ -2,12 +2,11 @@ package eu.metatools.up
 
 import eu.metatools.up.dsl.prop
 import eu.metatools.up.dt.*
+import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
-import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.*
 import java.util.concurrent.TimeUnit
-
-val executor = ScheduledThreadPoolExecutor(4)
 
 fun main() {
     class S(shell: Shell, id: Lx) : Ent(shell, id) {
@@ -46,7 +45,6 @@ fun main() {
 
 
         override fun toString(): String {
-            // TODO: Super method can be used but generates messy indents.
             return "S(id=$id, x=$x, lastChild=@${lastChild?.id})"
         }
     }
@@ -57,13 +55,11 @@ fun main() {
 
     // Create network and synchronized clock.
     val network = makeNetwork("NES", { onBundle() }, { onReceive(it) })
-    val clock = NetworkClock(network, executor = executor)
-
-    // Claim player.
-    val player = network.claimSlot()
+    val clock = NetworkClock(network)
+    val claimer = NetworkClaimer(network, UUID.randomUUID())
 
     // Initialize scope with player.
-    val engine = StandardEngine(player)
+    val engine = StandardEngine(claimer.currentClaim)
 
     // Connect bundling to scope.
     onBundle = {
@@ -95,7 +91,10 @@ fun main() {
         engine.resolve(lx / "root") as S
     }
 
-    val updater = executor.scheduleAtFixedRate({
+    val updater = network.executor.scheduleAtFixedRate({
+        if (engine.player != claimer.currentClaim)
+            System.err.println("Warning: Claim for engine has changed, this should not happen.")
+
         try {
             synchronized(engine) {
                 root.update(clock.time)
@@ -122,5 +121,6 @@ fun main() {
     root.driver.disconnect()
 
     clock.close()
+    claimer.close()
     network.close()
 }

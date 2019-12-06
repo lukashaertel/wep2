@@ -1,37 +1,32 @@
 package eu.metatools.up.net
 
-import eu.metatools.up.dt.Clock
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 /**
- * Network delta time coordinator.
+ * Network claim coordinator.
  * @property network The network to coordinate on.
  * @param rate The rate at which to update, defaults to a second.
  * @param rateUnit The unit of the rate, defaults to [TimeUnit.SECONDS].
  */
-class NetworkClock(
+class NetworkClaimer(
     val network: Network,
+    val uuid: UUID,
     rate: Long = 1L,
     rateUnit: TimeUnit = TimeUnit.SECONDS
-) : AutoCloseable, Clock {
+) : AutoCloseable {
     /**
-     * The current delta time for the coordinator.
+     * The current claim for the coordinator, some applications might require this to be constant and should check
+     * for updated values.
      */
-    var currentDeltaTime = network.offset()
+    var currentClaim: Short = network.touch(uuid)
         private set
-
-    /**
-     * The current synchronized time.
-     */
-    override val time get() = System.currentTimeMillis() + currentDeltaTime
 
     /**
      * Executor handle, run periodically.
      */
     private val handle = network.executor.scheduleAtFixedRate({
-        currentDeltaTime = network.offset()
+        currentClaim = network.touch(uuid)
     }, 0L, rate, rateUnit)
 
     override fun close() {

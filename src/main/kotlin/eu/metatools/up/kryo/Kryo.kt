@@ -3,6 +3,8 @@ package eu.metatools.up.kryo
 import com.esotericsoftware.kryo.Kryo
 import eu.metatools.up.dt.*
 import eu.metatools.up.kryo.serializers.*
+import eu.metatools.up.kryo.serializers.net.*
+import eu.metatools.up.net.*
 import java.util.*
 import kotlin.reflect.KClass
 
@@ -35,6 +37,16 @@ fun makeUpKryo(kryo: Kryo = makeKryo()): Kryo {
     kryo.register(Inf::class.java, SupSerializer)
     kryo.register(Time::class.java, TimeSerializer)
     kryo.register(Instruction::class.java, InstructionSerializer)
+
+    // Up Network message types.
+    kryo.register(NetReqClaims::class.java, NetReqClaimsSerializer)
+    kryo.register(NetReqOffset::class.java, NetReqOffsetSerializer)
+    kryo.register(NetReqBundle::class.java, NetReqBundleSerializer)
+    kryo.register(NetInstruction::class.java, NetInstructionSerializer)
+    kryo.register(NetTouch::class.java, NetTouchSerializer)
+
+    // Up Network data types.
+    kryo.register(Claim::class.java, ClaimSerializer)
 
     return kryo
 }

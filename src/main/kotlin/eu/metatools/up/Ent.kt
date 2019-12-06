@@ -23,7 +23,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
          */
         private val executionTime = ThreadLocal<Time>()
 
-
         /**
          * Unique ID of the driver domain. Do not use this key as a root node.
          */

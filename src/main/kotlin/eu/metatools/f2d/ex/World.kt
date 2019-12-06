@@ -22,6 +22,7 @@ import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.never
 import eu.metatools.up.lang.within
 import eu.metatools.up.list
+import java.lang.Math.sqrt
 
 object Constants {
     /**
@@ -169,6 +170,16 @@ interface TraitMove : TraitWorld, TraitRadius {
             val clip = root(sdf, pos)
             pos = clip * 2f - pos
         }
+        for (other in world.movers) {
+            // Just as an example, not good code.
+            if (other === this)
+                continue
+            val d = other.pos - pos
+            val rs = radius + other.radius
+            if (d.len < rs) {
+                pos -= d.nor * other.radius
+            }
+        }
     }
 }
 
@@ -210,13 +221,15 @@ class Mover(
 
     override var vel by { Pt() }
 
+    var dead by { false }
+
     val color get() = colors[owner.toInt().within(0, colors.size)] ?: never
 
     var look by { Cell(0, 0) }
 
     override fun render(time: Double) {
         val (x, y) = posAt(time)
-        val drawable = Resources.solid.refer().tint(color)
+        val drawable = Resources.solid.refer().tint(if (dead) Color.GRAY else color)
         frontend.continuous.submit(
             drawable, time, Mat
                 .translation(Constants.tileWidth * x, Constants.tileHeight * y)
@@ -238,5 +251,11 @@ class Mover(
         receiveMove(sec, Pt(cell.x.toFloat(), cell.y.toFloat()))
         if (!cell.isEmpty)
             look = cell
+    }
+
+    var kill = exchange(::doKill)
+
+    private fun doKill() {
+        dead = true
     }
 }

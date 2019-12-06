@@ -1,36 +1,50 @@
 package eu.metatools.up.net
 
 import com.esotericsoftware.kryo.Kryo
-import com.esotericsoftware.kryo.io.Input
-import com.esotericsoftware.kryo.io.Output
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
-import eu.metatools.up.kryo.makeUpKryo
+import eu.metatools.up.kryo.*
+import eu.metatools.up.lang.never
 import org.jgroups.JChannel
 import org.jgroups.blocks.MessageDispatcher
 import org.jgroups.blocks.RequestOptions
-import java.lang.Exception
+import org.jgroups.stack.Protocol
+import java.lang.UnsupportedOperationException
+import java.util.*
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import kotlin.collections.HashSet
+import kotlin.concurrent.thread
 
 interface Network {
+    /**
+     * Executor for operations concerned with network.
+     */
+    val executor: ScheduledExecutorService
+        get() = throw UnsupportedOperationException("Network does not support this operation.")
+
     /**
      * True if coordinating.
      */
     val isCoordinating: Boolean
 
     /**
-     * Claims a slot, returns it or throws an exception.
+     * True if this [id] is still claimed.
      */
-    fun claimSlot(/* TODO uuid:UUID */): Short
+    fun isClaimed(id: Short): Boolean =
+        throw UnsupportedOperationException("Network does not support this operation.")
+
 
     /**
-     * Releases the slot, must be one of those claimed on this interface.
+     * Marks the UUID as claimed by this node. Invocation marks the UUID as still claiming.
      */
-    fun releaseSlot(id: Short)
+    fun touch(uuid: UUID): Short
 
     /**
      * Gets the time adjustment to the coordinator.
      */
-    fun deltaTime(): Long
+    fun offset(): Long
 
     /**
      * Sends an instruction via the adapter.
@@ -62,6 +76,9 @@ fun makeNetwork(
     onBundle: () -> Map<Lx, Any?>,
     onReceive: (Instruction) -> Unit,
     stack: String = "fast.xml",
+    leaseTime: Long = 30L,
+    leaseTimeUnit: TimeUnit = TimeUnit.MINUTES,
+    requestTimeout: Long = 1000L,
     kryo: Kryo = makeUpKryo()
 ): Network {
     val channel = JChannel(stack)
@@ -69,224 +86,197 @@ fun makeNetwork(
     // Connect to cluster.
     channel.connect(cluster)
 
+    // Protect faults from unmanaged termination.
+    Runtime.getRuntime().addShutdownHook(thread(false) {
+        if (!channel.isClosed)
+            channel.close()
+    })
+
     return object : Network {
+        private val sync get() = RequestOptions.SYNC().timeout(requestTimeout)
+
+        private val otherAsync get() = RequestOptions.ASYNC().exclusionList(channel.address)
+
+        private val coord get() = channel.view.coord
+
         /**
          * True if claimed is initialized.
          */
-        private var claimedInitialized =
-            channel.address == channel.view.coord
+        private var claimedInitialized = isCoordinating
 
         /**s
          * Set of all claimed IDs.
          */
-        private val claimed = mutableSetOf<Short>()
-
-        /**
-         * Set of own claims.
-         */
-        private val ownClaims = mutableSetOf<Short>()
+        private val claimed = hashMapOf<UUID, Claim>()
 
         /**
          * Universal dispatcher.
          */
-        val dispatcher = MessageDispatcher(channel) {
-            // Read type from input.
-            val input = Input(it.rawBuffer, it.offset, it.length)
-            val type = input.readType()
-
-            // Disambiguate message.
-            when (type) {
-                MessageType.ClaimList -> handleClaimList(input)
-                MessageType.ClaimSlot -> handleClaimSlot(input)
-                MessageType.ReleaseSlot -> handleReleaseSlot(input)
-                MessageType.DeltaTime -> handleDeltaTime(input)
-                MessageType.Instruction -> handleInstruction(input)
-                MessageType.Bundle -> handleBundle(input)
-            }
-        }
-
-        private fun handleClaimList(input: Input): List<Short> {
-            return claimed.toList()
-        }
-
-        private fun handleClaimSlot(input: Input): Short {
-            // Iterate all valid IDs, find one not in claims.
-            for (id in Short.MIN_VALUE..Short.MAX_VALUE)
-                if (id.toShort() !in claimed) {
-                    // Add to list of claims and return it.
-                    claimed.add(id.toShort())
-                    return id.toShort()
+        val dispatcher = MessageDispatcher().apply {
+            // Set request handler.
+            setRequestHandler<MessageDispatcher>(KryoRequestHandler(kryo) {
+                // Disambiguate message.
+                when (it) {
+                    is NetReqClaims -> onReqClaims()
+                    is NetReqOffset -> onReqOffset()
+                    is NetReqBundle -> onReqBundle()
+                    is NetInstruction -> onInstruction(it)
+                    is NetTouch -> onTouch(it)
+                    else -> error("Unknown top level message $it")
                 }
+            })
 
+            // Set target channel.
+            setChannel<MessageDispatcher>(channel)
 
-            // Throw exception.
-            throw IllegalStateException("No ID available.")
+            // Set replacement request correlator, starts the dispatcher.
+            setCorrelator<MessageDispatcher>(
+                KryoRequestCorrelator(kryo, protocolAdapter as Protocol, this, channel.address)
+            )
         }
 
-        private fun handleReleaseSlot(input: Input): Nothing? {
-            // Get ID from arguments.
-            val id = input.readShort()
-
-            // Remove from claims and return void null.
-            claimed.remove(id)
-            return null
+        private fun onReqClaims(): Map<UUID, Claim> {
+            return claimed.toMap()
         }
 
-        private fun handleDeltaTime(input: Input) =
-            System.currentTimeMillis()
-
-
-        private fun handleInstruction(input: Input): Nothing? {
-            // Read instruction.
-            val instruction = kryo.readObject(input, Instruction::class.java)
-
-            // Send to handler.
-            onReceive(instruction)
-
-            // Return null as void.
-            return null
+        private fun onReqOffset(): Long {
+            return System.currentTimeMillis()
         }
 
-        private fun handleBundle(input: Input): Any? {
-            // TODO: Discard messages before. E.g., via activate receive or something.
-            val value = onBundle()
-            val output = Output(0, 65535)
-            output.writeInt(value.size, true)
-            for ((k, v) in value) {
-                kryo.writeObject(output, k)
-                kryo.writeClassAndObject(output, v)
+        private fun onReqBundle(): Map<Lx, Any?> {
+            return onBundle()
+        }
+
+        private fun onInstruction(req: NetInstruction) {
+            onReceive(req.instruction)
+        }
+
+        private fun onTouch(req: NetTouch): Claim {
+            // Remove inactive leases.
+            claimed.entries.removeIf { (k, v) ->
+                if (v.expires < req.time)
+                    println("$k expired")
+                v.expires < req.time
             }
-            return output.toBytes()
+
+            // Get expiry time.
+            val expires = req.time + leaseTimeUnit.toMillis(leaseTime)
+
+            // Update or insert.
+            return claimed.compute(req.uuid) { _, existing ->
+                if (existing == null) {
+                    // Get all occupied slots.
+                    val occupied = claimed.values.mapTo(HashSet()) { it.id }
+
+                    // Find new non-occupied slot.
+                    val new = (Short.MIN_VALUE..Short.MAX_VALUE)
+                        .asSequence()
+                        .map(Int::toShort)
+                        .first {
+                            it !in occupied
+                        }
+
+                    // Return it with expiry.
+                    Claim(new, expires)
+                } else {
+                    // Return existing with expiry.
+                    existing.renew(expires)
+                }
+            } ?: never
+        }
+
+        private var executorValue: ScheduledThreadPoolExecutor? = null
+
+        override val executor by lazy {
+            // Create new executor, also assign to non-lazy initialized field.
+            ScheduledThreadPoolExecutor(4).also {
+                executorValue = it
+            }
         }
 
         override val isCoordinating
             get() = channel.address == channel.view.coord
 
+        private fun assertClaimedPresent() {
+            // Claims present, status ok.
+            if (claimedInitialized)
+                return
 
-        override fun claimSlot(): Short {
-            // If claims not initialized yet, retrieve from coordinator and then add to set.
-            if (!claimedInitialized) {
-                val output = Output(1)
-                output.writeType(MessageType.ClaimList)
-                dispatcher
-                    .sendMessage<List<Short>>(
-                        channel.view.coord,
-                        output.buffer,
-                        0,
-                        output.position(),
-                        RequestOptions.SYNC()
-                    )
-                    .forEach {
-                        claimed.add(it)
-                    }
+            // Get claim table safe.
+            val claimTable = dispatcher.sendMessage<Map<UUID, Claim>>(kryo, coord, NetReqClaims, sync) ?: never
 
-            }
-
-            // Make message.
-            val output = Output(1)
-            output.writeType(MessageType.ClaimSlot)
-
-            // Send for response.
-            val response = dispatcher.castMessage<Short>(
-                null, output.buffer, 0, output.position(),
-                RequestOptions.SYNC()
-            )
-
-            // Assert consistency.
-            response.forEach { k, v ->
-                require(v.value == response.first) { "Inconsistent claim table on $k" }
-            }
-
-            // Add to own claims.
-            ownClaims.add(response.first)
-
-            // Return the actual value.
-            return response.first
+            // Update claim table.
+            claimed.putAll(claimTable)
+            claimedInitialized = true
         }
 
-        override fun releaseSlot(id: Short) {
-            // If actually own claim, remove.
-            if (ownClaims.remove(id)) {
-                // Create message.
-                val output = Output(3)
-                output.writeType(MessageType.ReleaseSlot)
-                output.writeShort(id.toInt())
+        override fun isClaimed(id: Short): Boolean {
+            // Assert that claimed table is present.
+            assertClaimedPresent()
 
-                // Send for no-response, but block.
-                val options = RequestOptions.SYNC()
-                dispatcher.castMessage<Short>(null, output.buffer, 0, output.position(), options)
-            }
+            // Return true if any of the values claims the ID.
+            return claimed.values.any { it.id == id }
         }
 
-        override fun deltaTime(): Long {
-            // Create data.
-            val output = Output(1)
-            output.writeType(MessageType.DeltaTime)
+        override fun touch(uuid: UUID): Short {
+            // Assert that claimed table is present.
+            assertClaimedPresent()
 
-            // Track beginning time.
+            // Get current time.
+            val now = System.currentTimeMillis()
+
+            // Send claim to all participants, find one that's ok.
+            val results = dispatcher.castMessage<Claim>(kryo, null, NetTouch(uuid, now), sync) ?: never
+            val result = requireNotNull(results.find { it.wasReceived() && !it.hasException() }) {
+                "No result received without exception."
+            }
+
+            // Assert consistency or timeout.
+            results.forEach { k, v ->
+                require(v.value == result.value) { "Inconsistent claim table on $k" }
+            }
+
+            // Add claim.
+            claimed[uuid] = result.value
+
+            // Return the ID part of the claim.
+            return result.value.id
+        }
+
+        override fun offset(): Long {
+            // No need to synchronize with self.
+            if (isCoordinating)
+                return 0L
+
+            // Retrieve server time via synchronous send and get RTT.
             val begin = System.currentTimeMillis()
-
-            // Retrieve server time via synchronous send.
-            val options = RequestOptions.SYNC()
-            val remote = dispatcher.sendMessage<Long>(channel.view.coord, output.buffer, 0, output.position(), options)
-
-            // Track end time.
+            val result = dispatcher.sendMessage<Long>(kryo, coord, NetReqOffset, sync) ?: never
             val end = System.currentTimeMillis()
 
             // Adjusted is remote plus time passed since remote generated the message, i.e., RTT over two.
-            val adjusted = remote + (end - begin) / 2
+            val adjusted = result + (end - begin) / 2L
 
             // Delta is difference from local to actual remote time.
             return adjusted - end
         }
 
         override fun instruction(instruction: Instruction) {
-            // Generate output.
-            val output = Output(0, 65535)
-            output.writeType(MessageType.Instruction)
-            kryo.writeObject(output, instruction)
-
-            // Create options.
-            val options = RequestOptions.ASYNC().exclusionList(channel.address)
-
-            // Cast to all.
-            dispatcher.castMessage<Unit>(null, output.buffer, 0, output.position(), options)
+            // Cast to all nodes except self.
+            dispatcher.castMessage<Unit>(kryo, null, NetInstruction(instruction), otherAsync)
         }
 
         override fun bundle(): Map<Lx, Any?> {
-            // Self-bundle.
+            // Self-bundle if coordinating.
             if (channel.view.coord == channel.address)
                 return onBundle()
 
-            // Create request message.
-            val output = Output(1)
-            output.writeType(MessageType.Bundle)
-
-            // Execute request for response.
-            val options = RequestOptions.SYNC()
-            val input = dispatcher
-                .sendMessage<ByteArray>(channel.view.coord, output.buffer, 0, output.position(), options)
-                .let(::Input)
-
-            // Get count of entries, create mutable map.
-            val count = input.readInt(true)
-            val result = HashMap<Lx, Any?>(count, 1f)
-
-            // Read all entries.
-            repeat(count) {
-                val key = kryo.readObject(input, Lx::class.java)
-                val value = kryo.readClassAndObject(input)
-                result[key] = value
-            }
-
-            // Return the result.
-            return result
+            // Send request for bundle to coordinator.
+            return dispatcher.sendMessage(kryo, coord, NetReqBundle, sync) ?: never
         }
 
         override fun close() {
-            // Release all claims.
-            while (ownClaims.isNotEmpty())
-                releaseSlot(ownClaims.first())
+            // Shutdown the executor if it was created.
+            executorValue?.shutdown()
 
             // Disconnect and close.
             channel.disconnect()
@@ -294,4 +284,3 @@ fun makeNetwork(
         }
     }
 }
-

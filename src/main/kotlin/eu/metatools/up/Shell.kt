@@ -2,6 +2,8 @@ package eu.metatools.up
 
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.Bind
+import eu.metatools.up.lang.BindConstant
+import eu.metatools.up.lang.BindGenerator
 import kotlin.reflect.KClass
 
 /**
@@ -59,13 +61,13 @@ fun Shell.listAll() =
     list(Any::class)
 
 /**
- * Runs the [block] with a [Bind] on [Shell.time].
+ * Runs the [block] with a [BindGenerator] on [Shell.time].
  */
 inline fun Shell.withTime(global: Long, block: Bind<Time>.() -> Unit) =
-    block(Bind(time(global)))
+    block(BindGenerator { time(global) })
 
 /**
- * Runs the [block] with a [Bind] on [Shell.time].
+ * Runs the [block] with a [BindGenerator] on [Shell.time].
  */
 inline fun Shell.withTime(clock: Clock, block: Bind<Time>.() -> Unit) =
     withTime(clock.time, block)
