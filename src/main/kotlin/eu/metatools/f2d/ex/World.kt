@@ -2,11 +2,15 @@ package eu.metatools.f2d.ex
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.math.Vector2
+import eu.metatools.f2d.context.limit
+import eu.metatools.f2d.context.offset
 import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Pt
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.tools.*
+import eu.metatools.f2d.up.enqueue
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.mapObserved
@@ -22,6 +26,11 @@ import eu.metatools.up.lang.within
 import eu.metatools.up.list
 import java.lang.Math.sqrt
 import java.lang.Math.toRadians
+import kotlin.math.abs
+import kotlin.math.atan2
+
+
+// The messiest file.
 
 object Constants {
     /**
@@ -54,7 +63,7 @@ interface Ticking {
     fun update(sec: Double, freq: Long)
 }
 
-class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Rendered {
+class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Rendered, TakesDamage {
     override val extraArgs = mapOf("map" to map)
 
     val clipping = SDFComposer()
@@ -98,7 +107,7 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     private fun onCreateMover(owner: Short) {
         val rng = rng()
         val type = if (rng.nextBoolean()) Movers.S else Movers.L
-        movers.add(constructed(Mover(shell, id / "child" / time, Pt(5f, 5f), time, type, owner)))
+        movers.add(constructed(Mover(shell, id / "child" / time, Pt(5f, 5f), type, owner)))
     }
 
     fun passable(x: Float, y: Float, radius: Float): Boolean {
@@ -112,6 +121,9 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
             }
 
         return true
+    }
+
+    override fun takeDamage() {
     }
 }
 
@@ -161,18 +173,20 @@ interface TraitMove : TraitWorld, TraitRadius {
         this.vel = vel
     }
 
-    fun updateMove(sec: Double, freq: Long) {
+    fun updateMove(sec: Double, freq: Long): List<Ent> {
         if (vel.isEmpty)
-            return
+            return emptyList()
 
         pos = posAt(sec)
         moveTime = sec
 
+        val hit = mutableListOf<Ent>()
         val sdf = world.sdf(radius)
         val distance = sdf(pos)
         if (distance < 0.0) {
             val clip = root(sdf, pos)
             pos = clip * 2f - pos
+            hit += world
         }
         for (other in world.movers) {
             // Just as an example, not good code.
@@ -181,23 +195,26 @@ interface TraitMove : TraitWorld, TraitRadius {
             val d = other.pos - pos
             val rs = radius + other.radius
             if (d.len < rs) {
-                pos -= d.nor * other.radius
+                val pen = rs - d.len
+                pos -= d.nor * pen
+                hit += other
             }
         }
+
+        return hit
     }
 }
 
+interface TakesDamage {
+    fun takeDamage()
+}
+
 class Mover(
-    shell: Shell, id: Lx,
-    initPos: Pt,
-    val created: Time,
-    val kind: MoverKind,
-    val owner: Short
-) : Ent(shell, id), Rendered, Ticking, TraitMove {
-    override val extraArgs: Map<String, Any?>?
+    shell: Shell, id: Lx, initPos: Pt, val kind: MoverKind, val owner: Short
+) : Ent(shell, id), Rendered, Ticking, TraitMove, TakesDamage {
+    override val extraArgs
         get() = mapOf(
             "initPos" to pos,
-            "created" to created,
             "kind" to kind,
             "owner" to owner
         )
@@ -231,15 +248,11 @@ class Mover(
 
     var look by { Cell(0, 0) }
 
+    var health by { 10 }
+
     override fun render(time: Double) {
         val (x, y) = posAt(time)
         val drawable = Resources.solid.refer().tint(if (dead) Color.GRAY else color)
-
-        val text = Resources.segoe[ReferText(
-            horizontal = Location.Center,
-            vertical = Location.Center,
-            bold = owner == shell.player
-        )]
 
         val mat = Mat
             .translation(Constants.tileWidth * x, Constants.tileHeight * y)
@@ -248,11 +261,17 @@ class Mover(
         frontend.continuous.submit(drawable, time, mat)
         frontend.continuous.submit(Cube, this, time, mat)
 
-        val mat2 = Mat
-            .translation(Constants.tileWidth * x, Constants.tileHeight * y)
-            .scale(sx = frontend.fontSize, sy = frontend.fontSize)
-        frontend.continuous.submit(text, "$pos\n$look", time, mat2)
-
+        if (frontend.consoleVisible) {
+            val text = Resources.segoe[ReferText(
+                horizontal = Location.Center,
+                vertical = Location.Center,
+                bold = owner == shell.player
+            )]
+            val mat2 = Mat
+                .translation(Constants.tileWidth * x, Constants.tileHeight * y)
+                .scale(sx = frontend.fontSize, sy = frontend.fontSize)
+            frontend.continuous.submit(text, "$pos\n$look", time, mat2)
+        }
     }
 
     override fun update(sec: Double, freq: Long) {
@@ -271,9 +290,90 @@ class Mover(
             look = cell
     }
 
+    val shoot = exchange(::doShoot)
+
+    private fun doShoot() {
+        // TODO: Some problems with class registration, probably registration required or something, fucks up in
+        //       the request correlator.
+        if (!look.isEmpty) {
+            val sec = (time.global - shell.initializedTime).sec
+            val dir = Pt(look.x.toFloat(), look.y.toFloat())
+            constructed(Bullet(shell, id / "bullet" / time, pos + dir * (radius + 0.1f), dir.nor * 5f, sec))
+        }
+    }
+
     var kill = exchange(::doKill)
 
     private fun doKill() {
         dead = true
     }
+
+    override fun takeDamage() {
+        health--
+        if (health < 0) {
+            world.movers.remove(this)
+            delete(this)
+        }
+
+        // TODO: Better pattern for this.
+        if (!frontendReady)
+            return
+
+        val sec = (time.global - shell.initializedTime).sec
+        val text = Resources.segoe[ReferText(
+            horizontal = Location.Center,
+            vertical = Location.Center,
+            bold = true, italic = true
+        )].tint(Color.RED)
+
+        val (x, y) = pos
+
+        enqueue(frontend.once, text.limit(3.0).offset(sec), "-1") {
+            Mat
+                .translation(Constants.tileWidth * x, Constants.tileHeight * y + (it - sec).toFloat() * 10)
+                .scale(sx = frontend.fontSize, sy = frontend.fontSize)
+        }
+    }
+}
+
+class Bullet(
+    shell: Shell, id: Lx, initPos: Pt, initVel: Pt, initMoveTime: Double
+) : Ent(shell, id), TraitMove, Ticking, Rendered {
+    override val extraArgs
+        get() = mapOf(
+            "initPos" to pos,
+            "initVel" to vel,
+            "initMoveTime" to moveTime
+        )
+
+    override val world by ref<World>(lx / "root")
+    override var pos by { initPos }
+    override var moveTime by { initMoveTime }
+    override var vel by { initVel }
+    override val radius = 0.025f
+
+    override fun render(time: Double) {
+        val (x, y) = posAt(time)
+        val drawable = Resources.solid.refer()
+
+        val mat = Mat
+            .translation(Constants.tileWidth * x, Constants.tileHeight * y)
+            .rotateZ(atan2(vel.y, vel.x))
+            .scale(Constants.tileWidth * radius * 5f, Constants.tileHeight * radius * 2f)
+
+        frontend.continuous.submit(drawable, time, mat)
+    }
+
+
+    override fun update(sec: Double, freq: Long) {
+        val hit = updateMove(sec, freq)
+        if (hit.isNotEmpty())
+            delete(this)
+
+        hit.forEach {
+            if (it is TakesDamage)
+                it.takeDamage()
+        }
+    }
+
 }

@@ -36,13 +36,6 @@ import kotlin.math.sin
 val Long.sec get() = this / 1000.0
 
 class Frontend : F2DListener(-100f, 100f) {
-    val consoleData = ByteArrayOutputStream()
-    val console = PrintStream(consoleData, true, Charsets.UTF_8).also {
-        System.setOut(it)
-        System.setErr(it)
-    }
-
-
     val encoding = makeF2DKryo().apply {
         register(Movers::class.java, DefaultSerializers.EnumSerializer(Movers::class.java))
         register(Tiles::class.java, DefaultSerializers.EnumSerializer(Tiles::class.java))
@@ -96,6 +89,7 @@ class Frontend : F2DListener(-100f, 100f) {
         it[Cell(4, 2)] = Tiles.B
         it[Cell(4, 3)] = Tiles.B
         it[Cell(5, 3)] = Tiles.B
+        it[Cell(5, 6)] = Tiles.B
     }.toMap()
 
     /**
@@ -118,7 +112,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     override fun create() {
         super.create()
-        System.setOut(console)
+        frontendReady = true
         model = Mat.scaling(2f, 2f)
 
         Gdx.graphics.setTitle("Joined, player: ${engine.player}")
@@ -156,11 +150,15 @@ class Frontend : F2DListener(-100f, 100f) {
                         it.kill()
                 }
 
-            val move = keyStick.fetch()
-            if (move != null) {
-                val om = ownMover()
-                om?.dir?.invoke(move)
+            ownMover()?.let {
+                val move = keyStick.fetch()
+                val sjp = Gdx.input.isKeyJustPressed(Keys.SPACE)
+                if (move != null)
+                    it.dir(move)
+                if (sjp)
+                    it.shoot()
             }
+
 
             world.worldUpdate(clock.time)
             engine.invalidate(clock.time - 10_000L)
@@ -177,13 +175,6 @@ class Frontend : F2DListener(-100f, 100f) {
 
         if (Gdx.input.isKeyJustPressed(Keys.GRAVE))
             consoleVisible = !consoleVisible
-        if (consoleVisible)
-            continuous.submit(
-                Resources.consolas[ReferText(vertical = Location.End)].tint(Color(1f, 1f, 1f, 0.8f)),
-                consoleData.toString(Charsets.UTF_8),
-                time,
-                Mat.translation(4f, 4f).scale(12f, 12f, 0f)
-            )
     }
 
     override fun capture(result: Any, intersection: Vec) {
@@ -203,6 +194,7 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 }
 
+var frontendReady = false
 lateinit var frontend: Frontend
 
 fun main() {
