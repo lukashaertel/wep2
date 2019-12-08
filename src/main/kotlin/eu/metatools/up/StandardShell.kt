@@ -4,42 +4,48 @@ import eu.metatools.up.dt.*
 import eu.metatools.up.lang.constructBy
 import eu.metatools.up.lang.never
 import eu.metatools.up.lang.validate
-import eu.metatools.up.notify.CallbackList
-import eu.metatools.up.notify.Event
-import eu.metatools.up.notify.EventList
-import eu.metatools.up.notify.HandlerList
+import eu.metatools.up.notify.*
 import java.util.*
 import kotlin.collections.HashMap
 import kotlin.reflect.KClass
-import kotlin.reflect.full.*
+import kotlin.reflect.full.cast
+import kotlin.reflect.full.createType
+import kotlin.reflect.full.isSupertypeOf
+
+/**
+ * Mode of the engine.
+ */
+private enum class Mode {
+    /**
+     * In between actual operations.
+     */
+    Idle,
+    /**
+     * Restoring from fields.
+     */
+    RestoreData,
+
+    /**
+     * Storing to fields.
+     */
+    StoreData,
+
+    /**
+     * Revoking instructions.
+     */
+    Revoke,
+
+    /**
+     * Invoking instructions.
+     */
+    Invoke
+}
 
 
 /**
  * Standard shell and engine with bound player and proxy nodes for incoming and outgoing instructions.
  */
-class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
-    /**
-     * Lock object for synchronization if needed.
-     */
-    private val lock = Any()
-
-    /**
-     * Runs the block for the result applying the desired synchronization.
-     */
-    private inline fun <R> critical(block: () -> R) =
-        if (synchronized)
-            synchronized(lock, block)
-        else
-            block()
-
-    /**
-     * The player number.
-     */
-    override val player = validate(player < 0) {
-        // TODO: Should in the end not be actually limiting.
-        "For standard engine, player IDs are limited to negative section."
-    } ?: player
-
+class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
     companion object {
         /**
          * Type of the [Shell], used for restore.
@@ -101,10 +107,38 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
     }
 
     /**
+     * Lock object for synchronization if needed.
+     */
+    private val sharedLock = Any()
+
+    /**
+     * Runs the block for the result applying the desired synchronization.
+     */
+    private inline fun <R> critical(block: () -> R) =
+        if (synchronized)
+            synchronized(sharedLock, block)
+        else
+            block()
+
+    /**
+     * Current mode. Changed by exposed methods on standard shell.
+     */
+    private var sharedMode = Mode.Idle
+
+    /**
+     * Save handler.
+     */
+    private val sharedOnSave = CallbackList()
+
+    /**
+     * Resolve handler.
+     */
+    private val sharedOnResolve = EventList<Lx, Ent?>()
+
+    /**
      * Central entity table for access.
      */
-    private val central =
-        HashMap<Lx, Ent>()
+    private val central = HashMap<Lx, Ent>()
 
     /**
      * Timed instruction register.
@@ -131,6 +165,177 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
      */
     private var currentUndo = hashMapOf<Lx, () -> Unit>()
 
+
+    override val engine = object : Engine {
+        override val shell: Shell
+            get() = this@StandardShell
+
+        override val isLoading: Boolean
+            get() = sharedMode == Mode.RestoreData
+
+        override val onSave: Callback
+            get() = sharedOnSave
+
+        override fun load(id: Lx) =
+            loadFromHandler(id)
+
+        override fun save(id: Lx, value: Any?) {
+            saveToHandler(id, value)
+        }
+
+        override val onResolve: Event<Lx, Ent?>
+            get() = sharedOnResolve
+
+        override fun add(ent: Ent) {
+            critical {
+                // Put entity, get existing if present and run block if not null.
+                central.put(ent.id, ent)?.let {
+                    require(it === ent) {
+                        "Cannot include $ent as ${ent.id}, already assigned to $it "
+                    }
+                }
+
+                // Connect entity.
+                ent.driver.connect()
+
+                // Mark resolve from add.
+                onResolve(ent.id, ent)
+            }
+        }
+
+        override fun remove(id: Lx) {
+            critical {
+                // De-resolve from remove.
+                onResolve(id, null)
+
+                // TODO: THIS NOT GOOD.
+                // Remove entry.
+                val existing = requireNotNull(central.remove(id)) {
+                    "Cannot exclude $id, not assigned."
+                }
+
+                // Disconnect.
+                existing.driver.disconnect()
+            }
+        }
+
+        override fun capture(id: Lx, undo: () -> Unit) {
+            currentUndo.putIfAbsent(id, undo)
+        }
+
+        override fun exchange(instruction: Instruction) {
+            critical {
+                // Set mode to revoke.
+                sharedMode = Mode.Revoke
+
+                // Memorize limit, reset to instruction.
+                val before = limit
+                if (before > instruction.time)
+                    limit = instruction.time
+
+                // Add to register.
+                insertToRegister(instruction)
+
+                // Transmit instruction with proxies.
+                onTransmit(instruction.toProxyWith(shell))
+
+                // Set mode to invoke.
+                sharedMode = Mode.Invoke
+
+                // Reset to previous.
+                if (before > instruction.time)
+                    limit = before
+
+                // Reset mode.
+                sharedMode = Mode.Idle
+            }
+        }
+
+        override fun local(instructions: Sequence<Instruction>) {
+            critical {
+                // Create sorted insertion set
+                val sorted = TreeMap<Time, Instruction>()
+                instructions.associateByTo(sorted) { it.time }
+
+                // Skip if nothing to do.
+                if (sorted.isEmpty())
+                    return
+
+                // Set mode to revoke.
+                sharedMode = Mode.Revoke
+
+                // Memorize limit, reset to instruction.
+                val before = limit
+                if (before > sorted.firstKey())
+                    limit = sorted.firstKey()
+
+                // Add all to register, assert was empty.
+                for (instruction in sorted.values)
+                    insertToRegister(instruction)
+
+                // Set mode to invoke.
+                sharedMode = Mode.Invoke
+
+                // Reset to previous.
+                if (before > sorted.firstKey())
+                    limit = before
+
+                // Reset mode.
+                sharedMode = Mode.Idle
+            }
+        }
+
+        override fun invalidate(global: Long) {
+            critical {
+                // Clear the entries leading up to the given time.
+                register.headMap(Time(global, Short.MIN_VALUE, Byte.MIN_VALUE)).clear()
+                locals.headMap(global).clear()
+            }
+        }
+    }
+
+
+    /**
+     * The player number.
+     */
+    override val player = validate(player < 0) {
+        // TODO: Should in the end not be actually limiting.
+        "For standard engine, player IDs are limited to negative section."
+    } ?: player
+
+
+    override var initializedTime = System.currentTimeMillis()
+        private set
+
+    override fun time(global: Long): Time {
+        critical {
+            // Get local time from local scopes.
+            val local = locals.compute(global) { _, v ->
+                // If value is present, increment it, otherwise increment minimum value.
+                v?.inc() ?: Byte.MIN_VALUE.inc()
+            }?.dec() ?: never
+
+            // Return time with given values.
+            return Time(global, player, local)
+        }
+    }
+
+    override fun resolve(id: Lx): Ent? {
+        critical {
+            return central[id]
+        }
+    }
+
+    override fun <T : Any> list(kClass: KClass<T>): List<T> {
+        critical {
+            return central.values
+                .filter { kClass.isInstance(it) }
+                .sortedBy { it.id }
+                .map { kClass.cast(it) }
+        }
+    }
+
+
     /**
      * Loads the scope from the bundle.
      */
@@ -140,11 +345,11 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
             loadFromHandler = load
 
             // Reset state for restoring.
-            mode = Mode.Revoke
+            sharedMode = Mode.Revoke
             limit = Time.MIN_VALUE
 
             // Disconnect and clear entity table.
-            mode = Mode.Idle
+            sharedMode = Mode.Idle
             central.values.forEach { it.driver.disconnect() }
             central.clear()
 
@@ -156,7 +361,7 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
 
 
             // Load initialized time.
-            mode = Mode.RestoreData
+            sharedMode = Mode.RestoreData
             initializedTime = load(SIT) as Long
 
             // Load list of all entities.
@@ -185,7 +390,7 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
 
             // Resolve all.
             central.values.forEach {
-                onResolve(it.id, it)
+                sharedOnResolve(it.id, it)
             }
 
             // Load local per global.
@@ -205,14 +410,14 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
             }
 
             // Replay loaded instructions.
-            mode = Mode.Invoke
+            sharedMode = Mode.Invoke
             limit = Time.MAX_VALUE
 
             // Reset load from handler.
             loadFromHandler = defaultLoadFromHandler
 
             // Reset state for idle.
-            mode = Mode.Idle
+            sharedMode = Mode.Idle
         }
     }
 
@@ -225,11 +430,11 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
             saveToHandler = save
 
             // Reset state for storing.
-            mode = Mode.Revoke
+            sharedMode = Mode.Revoke
             limit = Time.MIN_VALUE
 
             // Store system initialized time.
-            mode = Mode.StoreData
+            sharedMode = Mode.StoreData
             save(SIT, initializedTime)
 
             // Save all existing IDs.
@@ -257,112 +462,19 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
             }
 
             // Handle detached saves.
-            onSave()
+            sharedOnSave()
 
             // Replay instructions.
-            mode = Mode.Invoke
+            sharedMode = Mode.Invoke
             limit = Time.MAX_VALUE
 
             // Reset save to handler.
             saveToHandler = defaultSaveToHandler
 
             // Reset state for idle.
-            mode = Mode.Idle
+            sharedMode = Mode.Idle
         }
     }
-
-    override val engine: Engine
-        get() = this
-
-    override var mode: Mode = Mode.Idle
-        private set
-
-    override fun toProxy(value: Any?): Any? {
-        critical {
-            return when (value) {
-                // Resolve identified object to it's Lx.
-                is Ent -> value.id
-
-                // Recursively apply to list elements.
-                is List<*> -> value.mapTo(arrayListOf()) {
-                    toProxy(it)
-                }
-
-                // Recursively apply to array elements.
-                is Array<*> -> Array(value.size) {
-                    toProxy(value[it])
-                }
-
-                // Recursively apply to set entries.
-                is Set<*> -> value.mapTo(mutableSetOf()) {
-                    toProxy(it)
-                }
-
-                // Recursively apply to map entries.
-                is Map<*, *> -> value.entries.associateTo(mutableMapOf()) {
-                    toProxy(it.key) to toProxy(it.value)
-                }
-
-                // Recursively apply to triple entries.
-                is Triple<*, *, *> -> Triple(toProxy(value.first), toProxy(value.second), toProxy(value.third))
-
-                // Recursively apply to pair entries.
-                is Pair<*, *> -> Pair(toProxy(value.first), toProxy(value.second))
-
-                // Return just the value.
-                else -> value
-            }
-        }
-    }
-
-    override fun toValue(proxy: Any?): Any? {
-        critical {
-            return when (proxy) {
-                // Resolve Lx to identified object.
-                is Lx -> central[proxy]
-
-                // Recursively apply to list elements.
-                is List<*> -> proxy.mapTo(arrayListOf()) {
-                    toValue(it)
-                }
-
-                // Recursively apply to array elements.
-                is Array<*> -> Array(proxy.size) {
-                    toValue(proxy[it])
-                }
-
-                // Recursively apply to set entries.
-                is Set<*> -> proxy.mapTo(mutableSetOf()) {
-                    toValue(it)
-                }
-
-                // Recursively apply to map entries.
-                is Map<*, *> -> proxy.entries.associateTo(mutableMapOf()) {
-                    toValue(it.key) to toValue(it.value)
-                }
-
-                // Recursively apply to triple entries.
-                is Triple<*, *, *> -> Triple(toValue(proxy.first), toValue(proxy.second), toValue(proxy.third))
-
-                // Recursively apply to pair entries.
-                is Pair<*, *> -> Pair(toValue(proxy.first), toValue(proxy.second))
-
-                // Return just the value.
-                else -> proxy
-            }
-        }
-    }
-
-    override val onSave = CallbackList()
-
-    override fun load(id: Lx) =
-        loadFromHandler(id)
-
-    override fun save(id: Lx, value: Any?) {
-        saveToHandler(id, value)
-    }
-
-    override val onResolve = EventList<Lx, Ent?>()
 
     private var limitValue = Time.MAX_VALUE
 
@@ -388,8 +500,8 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
                     // Begin undo capture.
                     currentUndo.clear()
 
-                    // Perform detached.
-                    onPerform(it.instruction.target, it.instruction)
+                    // Resolve entity, perform operation.
+                    resolve(it.instruction.target)?.driver?.perform(it.instruction)
 
                     // Compile undo.
                     val undos = currentUndo.values.toList()
@@ -404,13 +516,6 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
             // Transfer limit value.
             limitValue = value
         }
-
-    override val onPerform =
-        EventList<Lx, Instruction>()
-
-    override fun capture(id: Lx, undo: () -> Unit) {
-        currentUndo.putIfAbsent(id, undo)
-    }
 
     /**
      * Outgoing connection node, will be invoked with a fully proxified instruction.
@@ -439,7 +544,7 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
                 return
 
             // Set mode to revoke.
-            mode = Mode.Revoke
+            sharedMode = Mode.Revoke
 
             // Memorize limit, reset to instruction.
             val before = limit
@@ -451,155 +556,21 @@ class StandardEngine(player: Short, val synchronized: Boolean = true) : Engine {
                 insertToRegister(instruction.toValueWith(this))
 
             // Set mode to invoke.
-            mode = Mode.Invoke
+            sharedMode = Mode.Invoke
 
             // Reset to previous.
             if (before > sorted.firstKey())
                 limit = before
 
             // Reset mode.
-            mode = Mode.Idle
+            sharedMode = Mode.Idle
         }
     }
 
-    override fun exchange(instruction: Instruction) {
-        critical {
-            // Set mode to revoke.
-            mode = Mode.Revoke
-
-            // Memorize limit, reset to instruction.
-            val before = limit
-            if (before > instruction.time)
-                limit = instruction.time
-
-            // Add to register.
-            insertToRegister(instruction)
-
-            // Transmit instruction with proxies.
-            onTransmit(instruction.toProxyWith(this))
-
-            // Set mode to invoke.
-            mode = Mode.Invoke
-
-            // Reset to previous.
-            if (before > instruction.time)
-                limit = before
-
-            // Reset mode.
-            mode = Mode.Idle
-        }
-    }
-
-    override fun local(instructions: Sequence<Instruction>) {
-        critical {
-            // Create sorted insertion set
-            val sorted = TreeMap<Time, Instruction>()
-            instructions.associateByTo(sorted) { it.time }
-
-            // Skip if nothing to do.
-            if (sorted.isEmpty())
-                return
-
-            // Set mode to revoke.
-            mode = Mode.Revoke
-
-            // Memorize limit, reset to instruction.
-            val before = limit
-            if (before > sorted.firstKey())
-                limit = sorted.firstKey()
-
-            // Add all to register, assert was empty.
-            for (instruction in sorted.values)
-                insertToRegister(instruction)
-
-            // Set mode to invoke.
-            mode = Mode.Invoke
-
-            // Reset to previous.
-            if (before > sorted.firstKey())
-                limit = before
-
-            // Reset mode.
-            mode = Mode.Idle
-        }
-    }
-
-    override fun add(ent: Ent) {
-        critical {
-            // Put entity, get existing if present and run block if not null.
-            central.put(ent.id, ent)?.let {
-                require(it === ent) {
-                    "Cannot include $ent as ${ent.id}, already assigned to $it "
-                }
-            }
-
-            // Connect entity.
-            ent.driver.connect()
-
-            // Mark resolve from add.
-            onResolve(ent.id, ent)
-        }
-    }
-
-    override fun remove(id: Lx) {
-        critical {
-            // De-resolve from remove.
-            onResolve(id, null)
-
-            // TODO: THIS NOT GOOD.
-            // Remove entry.
-            val existing = requireNotNull(central.remove(id)) {
-                "Cannot exclude $id , not assigned."
-            }
-
-            // Disconnect.
-            existing.driver.disconnect()
-        }
-    }
-
-    override fun resolve(id: Lx): Ent? {
-        critical {
-            return central[id]
-        }
-    }
-
-    override fun <T : Any> list(kClass: KClass<T>): List<T> {
-        critical {
-            return central.values
-                .filter { kClass.isInstance(it) }
-                .sortedBy { it.id }
-                .map { kClass.cast(it) }
-        }
-    }
-
-
-    override var initializedTime = System.currentTimeMillis()
-        private set
-
-    override fun time(global: Long): Time {
-        critical {
-            // Get local time from local scopes.
-            val local = locals.compute(global) { _, v ->
-                // If value is present, increment it, otherwise increment minimum value.
-                v?.inc() ?: Byte.MIN_VALUE.inc()
-            }?.dec() ?: never
-
-            // Return time with given values.
-            return Time(global, player, local)
-        }
-    }
-
-    override fun invalidate(global: Long) {
-        critical {
-            // Clear the entries leading up to the given time.
-            register.headMap(Time(global, Short.MIN_VALUE, Byte.MIN_VALUE)).clear()
-            locals.headMap(global).clear()
-        }
-    }
 }
 
 /**
  * Runs the receive method with the var-arg list.
  */
-fun StandardEngine.receive(vararg instructions: Instruction) =
+fun StandardShell.receive(vararg instructions: Instruction) =
     receive(instructions.asSequence())

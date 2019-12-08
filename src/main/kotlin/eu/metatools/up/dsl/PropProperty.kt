@@ -6,7 +6,6 @@ import eu.metatools.up.dt.Box
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.lang.autoClosing
-import eu.metatools.up.Mode
 import eu.metatools.up.lang.ReadWritePropertyProvider
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -48,10 +47,10 @@ class PropProperty<T>(
 
     override fun connect() {
         // Assign current value.
-        current = if (shell.engine.mode == Mode.RestoreData)
+        current = if (shell.engine.isLoading)
         // If loading, retrieve from the store and deproxify.
             @Suppress("unchecked_cast")
-            Box(shell.engine.toValue(shell.engine.load(id)) as T)
+            Box(shell.toValue(shell.engine.load(id)) as T)
         else
         // Not loading, just initialize.
             Box(init())
@@ -59,7 +58,7 @@ class PropProperty<T>(
         // Register saving method.
         closeSave = shell.engine.onSave.register {
             // Save value content with optional proxification.
-            shell.engine.save(id, shell.engine.toProxy(current.value))
+            shell.engine.save(id, shell.toProxy(current.value))
         }
     }
 

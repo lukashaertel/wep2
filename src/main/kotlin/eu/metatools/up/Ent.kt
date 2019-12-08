@@ -45,7 +45,10 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * Entity driver. These operations are used by [Engine]s and private methods to properly link up the entity without
      * exposing critical API.
      */
-    val driver = object : Driver {
+    val driver = shell.engine.amend(object : Driver {
+        override val ent: Ent
+            get() = this@Ent
+
         /**
          * Adds a part to the entity. This maintains connection status and allows resolution. Automatically performed by
          * the property creators and DSL methods.
@@ -62,9 +65,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
          * Connects this entity. Automatically called on [constructed] and [delete].
          */
         override fun connect() {
-            // Register detached perform.
-            closeReceive = shell.engine.onPerform.register(id) { perform(it) }
-
             // Connect in ascending order.
             parts.forEach { (_, part) ->
                 part.connect()
@@ -85,9 +85,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             parts.descendingMap().forEach { (_, part) ->
                 part.disconnect()
             }
-
-            // Reset close, will close open connection via delegate.
-            closeReceive = null
         }
 
         /**
@@ -108,17 +105,12 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             // Reset execution time.
             executionTime.set(null)
         }
-    }
+    })
 
     /**
      * Local dispatch table.
      */
     private val dispatchTable = mutableListOf<(List<Any?>) -> Unit>()
-
-    /**
-     * Receiver connection, automatically closed on reassign.
-     */
-    private var closeReceive by autoClosing()
 
     /**
      * The parts of the entity.
@@ -344,7 +336,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
 
             override fun connect() {
                 // Restore last value if loading.
-                if (shell.engine.mode == Mode.RestoreData) {
+                if (shell.engine.isLoading) {
                     initial = shell.engine.load(tickerId / "initial") as Long
                     last = shell.engine.load(tickerId / "last") as Long
                     rdc = shell.engine.load(tickerId / "rdc") as Byte

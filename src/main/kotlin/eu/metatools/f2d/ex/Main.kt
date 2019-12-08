@@ -5,16 +5,13 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
-import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
 import eu.metatools.f2d.F2DListener
-import eu.metatools.f2d.context.refer
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
-import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.up.kryo.makeF2DKryo
-import eu.metatools.up.StandardEngine
+import eu.metatools.up.StandardShell
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
@@ -25,13 +22,8 @@ import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
 import eu.metatools.up.receive
 import eu.metatools.up.withTime
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
-import java.io.StringWriter
 import java.util.*
 import java.util.concurrent.TimeUnit
-import kotlin.math.cos
-import kotlin.math.sin
 
 val Long.sec get() = this / 1000.0
 
@@ -43,12 +35,12 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private fun handleBundle(): Map<Lx, Any?> {
         val result = hashMapOf<Lx, Any?>()
-        engine.saveTo(result::set)
+        shell.saveTo(result::set)
         return result
     }
 
     private fun handleReceive(instruction: Instruction) {
-        engine.receive(instruction)
+        shell.receive(instruction)
     }
 
     val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
@@ -63,7 +55,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     val claimer = NetworkClaimer(net, UUID.randomUUID())
 
-    val engine = StandardEngine(claimer.currentClaim).also {
+    val shell = StandardShell(claimer.currentClaim).also {
         it.onTransmit.register(net::instruction)
     }
 
@@ -72,7 +64,7 @@ class Frontend : F2DListener(-100f, 100f) {
      * The current time of the connected system.
      */
     override val time: Double
-        get() = (clock.time - engine.initializedTime).sec
+        get() = (clock.time - shell.initializedTime).sec
 
     val map = mutableMapOf<Cell, TileKind>().also {
         for (x in 0..10)
@@ -96,17 +88,19 @@ class Frontend : F2DListener(-100f, 100f) {
      * Get or create the world entity.
      */
     val world = if (net.isCoordinating) {
-        World(engine, lx / "root", map).also(engine::add)
+        World(shell, lx / "root", map).also {
+            shell.engine.add(it)
+        }
     } else {
         // Restore, resolve root.
         val bundle = net.bundle()
-        engine.loadFrom(bundle::get)
-        engine.resolve(lx / "root") as World
+        shell.loadFrom(bundle::get)
+        shell.resolve(lx / "root") as World
     }
 
     init {
-        engine.withTime(clock) {
-            world.createMover(engine.player)
+        shell.withTime(clock) {
+            world.createMover(shell.player)
         }
     }
 
@@ -115,7 +109,7 @@ class Frontend : F2DListener(-100f, 100f) {
         frontendReady = true
         model = Mat.scaling(2f, 2f)
 
-        Gdx.graphics.setTitle("Joined, player: ${engine.player}")
+        Gdx.graphics.setTitle("Joined, player: ${shell.player}")
 
         // After creation, also connect the input processor.
         Gdx.input.inputProcessor = object : InputAdapter() {
@@ -135,14 +129,14 @@ class Frontend : F2DListener(-100f, 100f) {
     private val keyStick = KeyStick()
     var fontSize = Constants.tileHeight / 2f
     private fun ownMover(): Mover? =
-        engine.list<Mover>().find { it.owner == engine.player }
+        shell.list<Mover>().find { it.owner == shell.player }
 
     override fun render(time: Double, delta: Double) {
-        if (engine.player != claimer.currentClaim)
+        if (shell.player != claimer.currentClaim)
             System.err.println("Warning: Claim for engine has changed, this should not happen.")
 
         // Bind current time.
-        engine.withTime(clock) {
+        shell.withTime(clock) {
             // If coordinator, responsible for disposing of now unclaimed IDs.
             if (net.isCoordinating)
                 world.movers.forEach {
@@ -161,9 +155,9 @@ class Frontend : F2DListener(-100f, 100f) {
 
 
             world.worldUpdate(clock.time)
-            engine.invalidate(clock.time - 10_000L)
+            shell.engine.invalidate(clock.time - 10_000L)
 
-            engine.list<Rendered>().forEach { it.render(time) }
+            shell.list<Rendered>().forEach { it.render(time) }
         }
 
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))

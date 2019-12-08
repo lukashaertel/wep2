@@ -59,17 +59,17 @@ fun main() {
     val claimer = NetworkClaimer(network, UUID.randomUUID())
 
     // Initialize scope with player.
-    val engine = StandardEngine(claimer.currentClaim)
+    val shell = StandardShell(claimer.currentClaim)
 
     // Connect bundling to scope.
     onBundle = {
         val result = hashMapOf<Lx, Any?>()
-        engine.saveTo(result::set)
+        shell.saveTo(result::set)
         result
     }
 
     // Connect sending to network.
-    engine.onTransmit.register {
+    shell.onTransmit.register {
         if (it.time.player == Short.MAX_VALUE)
             System.err.println("Leaked repeated instruction $it")
         network.instruction(it)
@@ -77,39 +77,41 @@ fun main() {
 
     // Connect receiving to scope.
     onReceive = {
-        engine.receive(it)
+        shell.receive(it)
     }
 
     // If coordinating, create, otherwise restore.
     val root = if (network.isCoordinating) {
         // Create root, include.
-        S(engine, lx / "root").also(engine::add)
+        S(shell, lx / "root").also {
+            shell.engine.add(it)
+        }
     } else {
         // Restore, resolve root.
         val bundle = network.bundle()
-        engine.loadFrom(bundle::get)
-        engine.resolve(lx / "root") as S
+        shell.loadFrom(bundle::get)
+        shell.resolve(lx / "root") as S
     }
 
     val updater = network.executor.scheduleAtFixedRate({
-        if (engine.player != claimer.currentClaim)
+        if (shell.player != claimer.currentClaim)
             System.err.println("Warning: Claim for engine has changed, this should not happen.")
 
         try {
-            synchronized(engine) {
+            synchronized(shell) {
                 root.update(clock.time)
-                engine.invalidate(clock.time - 10_000L)
+                shell.engine.invalidate(clock.time - 10_000L)
             }
         } catch (e: Throwable) {
             e.printStackTrace()
         }
     }, 0L, 1L, TimeUnit.SECONDS)
 
-    println(engine.initializedTime)
+    println(shell.initializedTime)
 
     while (readLine() != "exit") {
-        synchronized(engine) {
-            engine.withTime(clock) {
+        synchronized(shell) {
+            shell.withTime(clock) {
                 root.inst()
             }
         }

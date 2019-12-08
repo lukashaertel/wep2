@@ -5,69 +5,37 @@ import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.Time
 import eu.metatools.up.notify.Callback
 import eu.metatools.up.notify.Event
-
-/**
- * Mode of the engine.
- */
-enum class Mode {
-    /**
-     * In between actual operations.
-     */
-    Idle,
-    /**
-     * Restoring from fields.
-     */
-    RestoreData,
-
-    /**
-     * Storing to fields.
-     */
-    StoreData,
-
-    /**
-     * Revoking instructions.
-     */
-    Revoke,
-
-    /**
-     * Invoking instructions.
-     */
-    Invoke
-}
+import java.lang.UnsupportedOperationException
 
 /**
  * Engine implementing actual connection, translation, and administration.
  */
-interface Engine : Shell {
+interface Engine {
     /**
-     * Current mode.
+     * Containing shell.
      */
-    val mode: Mode
+    val shell: Shell
 
     /**
-     * Detached handler for saving to [save].
+     * Wraps the driver used for running entities.
      */
-    val onSave: Callback
+    fun amend(driver: Driver): Driver =
+        driver
 
     /**
-     * Detached handler for instructions on [Ent]s.
+     * True if initialization on [Part.connect] should load rather than initialize.
      */
-    val onPerform: Event<Lx, Instruction>
-
-    /**
-     * Converts a value to a proxy.
-     */
-    fun toProxy(value: Any?): Any?
-
-    /**
-     * Converts a proxy to a value.
-     */
-    fun toValue(proxy: Any?): Any?
+    val isLoading: Boolean
 
     /**
      * Loads a value from the field. Usually invoked on connecting an [Ent].
      */
     fun load(id: Lx): Any?
+
+    /**
+     * Detached handler for saving to [save].
+     */
+    val onSave: Callback
 
     /**
      * Saves a value to the field. Usually invoked from the [onSave] detached handlers.
@@ -78,6 +46,16 @@ interface Engine : Shell {
      * On resolution of index changed. Experimental for now.
      */
     val onResolve: Event<Lx, Ent?>
+
+    /**
+     * Includes an [Ent] in the table. Connects it.
+     */
+    fun add(ent: Ent)
+
+    /**
+     * Excludes an [Ent] from the table. Disconnects it.
+     */
+    fun remove(id: Lx)
 
     /**
      * Captures the reset of the distinct [id] by invoking [undo]. Relative undo, should expect the post-state.
@@ -95,27 +73,11 @@ interface Engine : Shell {
     fun local(instructions: Sequence<Instruction>)
 
     /**
-     * Includes an [Ent] in the table. Connects it.
+     * Invalidates every time constrained value before the given time.
      */
-    fun add(ent: Ent)
-
-    /**
-     * Excludes an [Ent] from the table. Disconnects it.
-     */
-    fun remove(id: Lx)
+    fun invalidate(global: Long): Unit =
+        throw UnsupportedOperationException()
 }
-
-/**
- * Converts the instruction to a proxy instruction via [Engine.toProxy].
- */
-fun Instruction.toProxyWith(engine: Engine) =
-    Instruction(target, methodName, time, args.map(engine::toProxy))
-
-/**
- * Converts the instruction to a value instruction via [Engine.toValue].
- */
-fun Instruction.toValueWith(engine: Engine) =
-    Instruction(target, methodName, time, args.map(engine::toValue))
 
 /**
  * Runs the local method with the var-arg list.

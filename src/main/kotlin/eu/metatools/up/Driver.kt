@@ -8,9 +8,14 @@ import java.io.Writer
 import java.lang.Appendable
 
 /**
- * Driver implementing actual entity adminstrative options.
+ * Driver implementing actual entity administrative options.
  */
 interface Driver {
+    /**
+     * The actual entity that is driven.
+     */
+    val ent: Ent
+
     /**
      * Adds a part to the entity. This maintains connection status and allows resolution. Automatically performed by
      * the property creators and DSL methods.

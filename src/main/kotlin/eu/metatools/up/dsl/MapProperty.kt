@@ -6,7 +6,6 @@ import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.lang.ObservedMap
 import eu.metatools.up.lang.autoClosing
-import eu.metatools.up.Mode
 import eu.metatools.up.lang.ReadOnlyPropertyProvider
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -158,10 +157,10 @@ class MapProperty<K : Comparable<K>, V>(
     override fun connect() {
 
         // Load from store and register saving if needed.
-        current = if (shell.engine.mode == Mode.RestoreData)
+        current = if (shell.engine.isLoading)
         // If loading, retrieve from the store and deproxify.
             @Suppress("unchecked_cast")
-            createObservedMap(shell.engine.toValue(shell.engine.load(id)) as Map<K, V>)
+            createObservedMap(shell.toValue(shell.engine.load(id)) as Map<K, V>)
         else
         // Not loading, just initialize.
             createObservedMap(init())
@@ -169,7 +168,7 @@ class MapProperty<K : Comparable<K>, V>(
         // Register saving method.
         closeSave = shell.engine.onSave.register {
             // Save value with optional proxification.
-            shell.engine.save(id, shell.engine.toProxy(current))
+            shell.engine.save(id, shell.toProxy(current))
         }
     }
 
