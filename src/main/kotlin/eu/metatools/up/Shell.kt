@@ -1,5 +1,6 @@
 package eu.metatools.up
 
+import eu.metatools.up.dsl.MapChange
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.Bind
 import eu.metatools.up.lang.BindGenerator
@@ -40,11 +41,57 @@ interface Shell {
      */
     fun <T : Any> list(kClass: KClass<T>): List<T>
 
+    /**
+     * Resets and loads the shell from the given [ShellIn].
+     */
     fun load(shellIn: ShellIn)
 
+    /**
+     * Stores the shell to the given [shellOut]. Corresponding [load] operations must restore the state fully.
+     */
     fun store(shellOut: ShellOut)
 }
 
+/**
+ * Performs the [Shell.load] from a [map]. If [roundTripConsistency] is given as `true`, this map is then used to check
+ * consistency the output after [Shell.store] on the just restored receiver.
+ */
+fun Shell.loadFromMap(map: Map<Lx, Any?>, roundTripConsistency: Boolean = false) {
+    // Load from map.
+    load(map::get)
+
+    // If no round-trip consistency, return.
+    if (!roundTripConsistency)
+        return
+
+    // Store to check-map.
+    val check = mutableMapOf<Lx, Any?>()
+    storeToMap(check)
+
+    // Get map-delta.
+    val overIn = map.keys subtract check.keys
+    val overOut = check.keys subtract map.keys
+    val equiv = map.keys union check.keys
+
+    // Create difference on values.
+    val differing = mutableMapOf<Lx, Pair<Any?, Any?>>()
+    equiv.forEach {
+        val left = map.getValue(it)
+        val right = check.getValue(it)
+        if (left != right)
+            differing[it] = left to right
+    }
+
+    // If any is not empty, throw an inconsistency exception.
+    if (overIn.isNotEmpty() || overOut.isNotEmpty() || differing.isNotEmpty())
+        throw InconsistencyException("Inconsistency on load", overIn, overOut, differing)
+}
+
+/**
+ * Peforms the [Shell.store] to a [map].
+ */
+fun Shell.storeToMap(map: MutableMap<Lx, Any?>) =
+    store(map::set)
 
 /**
  * Lists all [Ent]s of type [T]

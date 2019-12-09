@@ -12,17 +12,14 @@ import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.up.kryo.makeF2DKryo
-import eu.metatools.up.StandardShell
+import eu.metatools.up.*
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
-import eu.metatools.up.list
 import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
-import eu.metatools.up.receive
-import eu.metatools.up.withTime
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -95,7 +92,7 @@ class Frontend : F2DListener(-100f, 100f) {
     } else {
         // Restore, resolve root.
         val bundle = net.bundle()
-        shell.load(bundle::get)
+        shell.loadFromMap(bundle, true)
         shell.resolve(lx / "root") as World
     }
 

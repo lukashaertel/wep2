@@ -46,7 +46,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
         private const val nameEntityIDs = ".entity-ids"
         private const val nameConstructor = ".constructor"
         private const val nameRegister = ".register"
-        private const val nameTimeLocals = ".time-locals"
 
     }
 
@@ -265,13 +264,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                 it.driver.connect { name, key -> shellIn(it.id / name / key) }
             }
 
-            // Load local per global.
-            @Suppress("unchecked_cast")
-            (shellIn(bundleRoot / player / nameTimeLocals) as? List<Pair<Long, Byte>>)?.let {
-                // Add all entries.
-                locals.putAll(it)
-            }
-
             // Load instruction replay table.
             @Suppress("unchecked_cast")
             (shellIn(bundleRoot / nameRegister) as List<Instruction>).let {
@@ -280,6 +272,14 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                     inst.time to Reg(inst.toValueWith(this)) {}
                 }
             }
+
+            // Restore local times, the local table must contain the next valid local ID, this grouping satisfies this.
+            register.keys
+                .asSequence()
+                .filter { it.player == player }
+                .groupingBy { it.global }
+                .fold(Byte.MIN_VALUE) { p, c -> maxOf(p, c.local) }
+                .mapValuesTo(locals) { (_, v) -> v.inc() }
 
             // Replay loaded instructions.
             limit = Time.MAX_VALUE
@@ -307,12 +307,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
 
                 // Save entity parts.
                 it.driver.persist { name, key, value -> shellOut(it.id / name / key, value) }
-            }
-
-            // Save local time slots.
-            locals.entries.map { it.key to it.value }.let {
-                // Save whole list under local per global.
-                shellOut(bundleRoot / player / nameTimeLocals, it)
             }
 
             // Save instruction register.
