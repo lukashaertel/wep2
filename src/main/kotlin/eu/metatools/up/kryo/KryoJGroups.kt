@@ -126,11 +126,15 @@ class KryoRequestCorrelator(val kryo: Kryo, transport: Protocol?, handler: Reque
             }
         }
 
+        // Copy the bytes, allows the original buffer to be reused.
+        // TODO: Would be nice if jgroups could help me out with this. GENERERALLY FUCKED IN GENERAL
+        val buffer = output.toBytes()
+
         // Make the reply object.
         val rsp = req
             .makeReply()
             .setFlag(req.flags)
-            .setBuffer(output.buffer, 0, output.position())
+            .setBuffer(buffer)
             .clearFlag(Message.Flag.RSVP, Message.Flag.INTERNAL) // JGRP-1940
 
         // Send it as response.
@@ -150,7 +154,8 @@ fun <T> MessageDispatcher.sendMessage(kryo: Kryo, dest: Address?, any: Any?, opt
         kryo.writeClassAndObject(it, any)
 
         // Return result of send message.
-        sendMessage<T>(dest, it.buffer, 0, it.position(), opts)
+        val buffer = it.toBytes()
+        sendMessage<T>(dest, buffer, 0, buffer.size, opts)
     }
 }
 
@@ -168,7 +173,8 @@ fun <T> MessageDispatcher.sendMessageWithFuture(
         kryo.writeClassAndObject(it, any)
 
         // Return result of sending with future.
-        sendMessageWithFuture<T>(dest, it.buffer, 0, it.position(), opts)
+        val buffer = it.toBytes()
+        sendMessageWithFuture<T>(dest, buffer, 0, buffer.size, opts)
     }
 }
 
@@ -186,7 +192,8 @@ fun <T> MessageDispatcher.castMessage(
         kryo.writeClassAndObject(it, any)
 
         // Return result of casting.
-        return castMessage(dests, it.buffer, 0, it.position(), opts)
+        val buffer = it.toBytes()
+        return castMessage(dests, buffer, 0, buffer.size, opts)
     }
 }
 
@@ -204,6 +211,7 @@ fun <T> MessageDispatcher.castMessageWithFuture(
         kryo.writeClassAndObject(it, any)
 
         // Return result of casting with future.
-        return castMessageWithFuture(dests, Buffer(it.buffer, 0, it.position()), opts)
+        val buffer = it.toBytes()
+        return castMessageWithFuture(dests, Buffer(buffer, 0, buffer.size), opts)
     }
 }

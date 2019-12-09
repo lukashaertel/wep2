@@ -14,6 +14,7 @@ import kotlin.reflect.KClass
 fun makeKryo(kryo: Kryo = Kryo()): Kryo {
     // Do not enforce registration.
     kryo.isRegistrationRequired = false
+    kryo.warnUnregisteredClasses = true
 
     // Basic Kotlin types.
     kryo.register(Unit::class.java, UnitSerializer)

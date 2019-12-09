@@ -84,7 +84,7 @@ fun Shell.loadFromMap(map: Map<Lx, Any?>, roundTripConsistency: Boolean = false)
 
     // If any is not empty, throw an inconsistency exception.
     if (overIn.isNotEmpty() || overOut.isNotEmpty() || differing.isNotEmpty())
-        throw InconsistencyException("Inconsistency on load", overIn, overOut, differing)
+        throw InconsistencyException("Inconsistency on load", map, check, overIn, overOut, differing)
 }
 
 /**

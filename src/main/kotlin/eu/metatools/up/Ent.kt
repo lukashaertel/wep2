@@ -19,16 +19,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         private val executionTime = ThreadLocal<Time>()
 
         /**
-         * Unique ID of the driver domain. Do not use this key as a root node.
-         */
-        private val driverDomain = ".dd"
-
-        /**
-         * Presence attribute.
-         */
-        private val presence = lx / driverDomain / "EX"
-
-        /**
          * Disambiguation code for [repeating]. // TODO: Maybe research if pulling more data from instruction can help
          * auto-disambiguation.
          */
@@ -154,7 +144,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         shell.engine.add(ent)
 
         // Undo by excluding.
-        shell.engine.capture(presence / ent.id) {
+        shell.engine.capture(id / ".exists") {
             shell.engine.remove(ent)
         }
 
@@ -170,7 +160,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         shell.engine.remove(ent)
 
         // Undo by adding.
-        shell.engine.capture(presence / ent.id) {
+        shell.engine.capture(id / ".exists") {
             shell.engine.add(ent)
         }
     }

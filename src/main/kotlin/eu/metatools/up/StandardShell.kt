@@ -27,26 +27,34 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
         private val lxType = Lx::class.createType()
 
         /**
-         * Default, exception throwing load handler.
+         * Bundle root.
          */
-        private val defaultLoadFromHandler: (Lx) -> Nothing = {
-            error("No load handler assigned.")
-        }
-
-        /**
-         * Default, exception throwing save handler.
-         */
-        private val defaultSaveToHandler: (Lx, Any?) -> Unit = { _, _ ->
-            error("No save handler assigned.")
-        }
-
         private val bundleRoot = lx / ".engine"
 
+        /**
+         * Bundle key for [Shell] relative save data initialized time.
+         */
         private const val nameInitTime = ".init-time"
+
+        /**
+         * Bundle key for [Shell] relative save data entities in central table.
+         */
         private const val nameEntityIDs = ".entity-ids"
+
+        /**
+         * Bundle key for [Shell]/[Ent] relative save data constructor bundle.
+         */
         private const val nameConstructor = ".constructor"
+
+        /**
+         * Bundle key for [Shell] relative save data instruction register.
+         */
         private const val nameRegister = ".register"
 
+        /**
+         * Susudio.
+         */
+        val genesis = Time.MIN_VALUE
     }
 
     /**
@@ -66,8 +74,9 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
     /**
      * Runs the block for the result applying the desired synchronization.
      */
-    private inline fun <R> critical(block: () -> R) =
+    inline fun <R> critical(block: () -> R) =
         if (synchronized)
+            @Suppress("non_public_call_from_public_inline")
             synchronized(sharedLock, block)
         else
             block()
@@ -92,6 +101,40 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
      */
     private var currentUndo = hashMapOf<Lx, () -> Unit>()
 
+    /**
+     * Run the [block] with the status at time. Will revert every instruction past the [time] and after invoking
+     * the [block] redo every registered instruction.
+     */
+    private inline fun runWithStateOf(time: Time, block: () -> Unit) {
+        critical {
+            val part = register.tailMap(time, true)
+
+            // Descending undo.
+            part.descendingMap().values.forEach {
+                it.undo()
+            }
+
+            // Run block.
+            block()
+
+            // Ascending redo and overwrite.
+            part.values.forEach {
+                // Begin undo capture.
+                currentUndo.clear()
+
+                // Resolve entity, perform operation.
+                resolve(it.instruction.target)?.driver?.perform(it.instruction)
+
+                // Compile undo.
+                val undos = currentUndo.values.toList()
+
+                // Assign as new undo.
+                it.undo = {
+                    undos.forEach { it() }
+                }
+            }
+        }
+    }
 
     override val engine = object : Engine {
         override val shell: Shell
@@ -128,46 +171,22 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
         }
 
         override fun exchange(instruction: Instruction) {
-            critical {
-                // Memorize limit, reset to instruction.
-                val before = limit
-                if (before > instruction.time)
-                    limit = instruction.time
-
-                // Add to register.
+            runWithStateOf(instruction.time) {
+                // Add to register, transmit instruction with proxies.
                 insertToRegister(instruction)
-
-                // Transmit instruction with proxies.
                 onTransmit?.invoke(instruction.toProxyWith(shell))
-
-                // Reset to previous.
-                if (before > instruction.time)
-                    limit = before
             }
         }
 
         override fun local(instructions: Sequence<Instruction>) {
-            critical {
-                // Create sorted insertion set
-                val sorted = TreeMap<Time, Instruction>()
-                instructions.associateByTo(sorted) { it.time }
+            // Get minimum revert time.
+            val limit = instructions.map(Instruction::time).min() ?: return
 
-                // Skip if nothing to do.
-                if (sorted.isEmpty())
-                    return
-
-                // Memorize limit, reset to instruction.
-                val before = limit
-                if (before > sorted.firstKey())
-                    limit = sorted.firstKey()
-
+            // Run in that time.
+            runWithStateOf(limit) {
                 // Add all to register, assert was empty.
-                for (instruction in sorted.values)
+                for (instruction in instructions)
                     insertToRegister(instruction)
-
-                // Reset to previous.
-                if (before > sorted.firstKey())
-                    limit = before
             }
         }
 
@@ -222,10 +241,7 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
     }
 
     override fun load(shellIn: ShellIn) {
-        critical {
-            // Reset state for restoring.
-            limit = Time.MIN_VALUE
-
+        runWithStateOf(genesis) {
             // Disconnect and clear entity table.
             central.values.forEach { it.driver.disconnect() }
             central.clear()
@@ -235,7 +251,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
 
             // Clear instruction register.
             register.clear()
-
 
             // Load initialized time.
             initializedTime = shellIn(bundleRoot / nameInitTime) as Long
@@ -280,17 +295,11 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                 .groupingBy { it.global }
                 .fold(Byte.MIN_VALUE) { p, c -> maxOf(p, c.local) }
                 .mapValuesTo(locals) { (_, v) -> v.inc() }
-
-            // Replay loaded instructions.
-            limit = Time.MAX_VALUE
         }
     }
 
     override fun store(shellOut: ShellOut) {
-        critical {
-            // Reset state for storing.
-            limit = Time.MIN_VALUE
-
+        runWithStateOf(genesis) {
             // Store system initialized time.
             shellOut(bundleRoot / nameInitTime, initializedTime)
 
@@ -314,52 +323,8 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                 // Save whole list under instruction replay table.
                 shellOut(bundleRoot / nameRegister, it.map { inst -> inst.toProxyWith(this) })
             }
-
-            // Replay instructions.
-            limit = Time.MAX_VALUE
         }
     }
-
-    private var limitValue = Time.MAX_VALUE
-
-    private var limit: Time
-        get() = limitValue
-        set(value) {
-            // Same limit value, operations required.
-            if (limitValue == value)
-                return
-
-            // Get lower and upper boundary of the invalidation range.
-            val lower = minOf(limitValue, value)
-            val upper = maxOf(limitValue, value)
-            val part = register.subMap(lower, true, upper, false)
-
-            // Check if downward or upward execution.
-            if (lower == value) {
-                part.descendingMap().values.forEach {
-                    it.undo()
-                }
-            } else {
-                part.values.forEach {
-                    // Begin undo capture.
-                    currentUndo.clear()
-
-                    // Resolve entity, perform operation.
-                    resolve(it.instruction.target)?.driver?.perform(it.instruction)
-
-                    // Compile undo.
-                    val undos = currentUndo.values.toList()
-
-                    // Assign as new undo.
-                    it.undo = {
-                        undos.forEach { it() }
-                    }
-                }
-            }
-
-            // Transfer limit value.
-            limitValue = value
-        }
 
     /**
      * Outgoing connection node, will be invoked with a fully proxified instruction.
@@ -367,41 +332,22 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
     var onTransmit: ((Instruction) -> Unit)? = null
 
     private fun insertToRegister(instruction: Instruction) {
-        val existing = register.put(instruction.time, Reg(instruction) {})
-        if (existing != null)
-            require(existing.instruction == instruction) {
-                "Instruction slot for $instruction occupied by $existing"
-            }
+        require(register.put(instruction.time, Reg(instruction) {}) == null)
     }
 
     /**
      * Incoming connection node, call with a received proxified instruction.
      */
     fun receive(instructions: Sequence<Instruction>) {
-        critical {
-            // Create sorted insertion set
-            val sorted = TreeMap<Time, Instruction>()
-            instructions.associateByTo(sorted) { it.time }
+        // Get minimum revert time.
+        val limit = instructions.map(Instruction::time).min() ?: return
 
-            // Skip if nothing to do.
-            if (sorted.isEmpty())
-                return
-
-            // Memorize limit, reset to instruction.
-            val before = limit
-            if (before > sorted.firstKey())
-                limit = sorted.firstKey()
-
-            // Add all to register.
-            for (instruction in sorted.values)
+        runWithStateOf(limit) {
+            // Add all to register from proxies, assert was empty.
+            for (instruction in instructions)
                 insertToRegister(instruction.toValueWith(this))
-
-            // Reset to previous.
-            if (before > sorted.firstKey())
-                limit = before
         }
     }
-
 }
 
 /**

@@ -10,7 +10,6 @@ data class Time(val global: Long, val player: Short, val local: Byte) : Comparab
          * Minimal time value.
          */
         val MIN_VALUE = Time(Long.MIN_VALUE, Short.MIN_VALUE, Byte.MIN_VALUE)
-
         /**
          * Maximal time value.
          */

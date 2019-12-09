@@ -8,28 +8,12 @@ import eu.metatools.up.dt.At
 
 object AtSerializer : Serializer<At<*>>(false, true) {
     override fun write(kryo: Kryo, output: Output, item: At<*>) {
-        val valueClass = kryo.generics.nextGenericClass()
-
-        if (valueClass != null && kryo.isFinal(valueClass))
-            kryo.writeObject(output, item.value)
-        else
-            kryo.writeClassAndObject(output, item.value)
-
-        kryo.generics.popGenericType()
+        kryo.writeClassAndObject(output, item.value)
     }
 
     override fun read(kryo: Kryo, input: Input, type: Class<out At<*>>): At<*> {
-        val valueClass = kryo.generics.nextGenericClass()
-
-        val value = if (valueClass != null && kryo.isFinal(valueClass)) {
-            val serializer = kryo.getSerializer(valueClass)
-            kryo.readObjectOrNull(input, valueClass, serializer)
-        } else
-            kryo.readClassAndObject(input)
-
-        kryo.generics.popGenericType()
-
         @Suppress("unchecked_cast")
-        return At(value as Comparable<Any>).also(kryo::reference)
+        val value = kryo.readClassAndObject(input) as Comparable<Any>
+        return At(value).also(kryo::reference)
     }
 }

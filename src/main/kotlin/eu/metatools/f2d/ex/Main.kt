@@ -13,10 +13,7 @@ import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.up.kryo.makeF2DKryo
 import eu.metatools.up.*
-import eu.metatools.up.dt.Instruction
-import eu.metatools.up.dt.Lx
-import eu.metatools.up.dt.div
-import eu.metatools.up.dt.lx
+import eu.metatools.up.dt.*
 import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
@@ -92,7 +89,9 @@ class Frontend : F2DListener(-100f, 100f) {
     } else {
         // Restore, resolve root.
         val bundle = net.bundle()
-        shell.loadFromMap(bundle, true)
+        shell.critical {
+            shell.loadFromMap(bundle, true)
+        }
         shell.resolve(lx / "root") as World
     }
 
@@ -124,6 +123,8 @@ class Frontend : F2DListener(-100f, 100f) {
 
     var consoleVisible = false
 
+    var rand = false
+
     private val keyStick = KeyStick()
     var fontSize = Constants.tileHeight / 2f
     private fun ownMover(): Mover? =
@@ -134,35 +135,51 @@ class Frontend : F2DListener(-100f, 100f) {
             System.err.println("Warning: Claim for engine has changed, this should not happen.")
 
         // Bind current time.
-        shell.withTime(clock) {
-            // If coordinator, responsible for disposing of now unclaimed IDs.
-            if (net.isCoordinating)
-                world.movers.forEach {
-                    if (!it.dead && !net.isClaimed(it.owner))
-                        it.kill()
+        // FUCK NETWORK
+        shell.critical {
+            shell.withTime(clock) {
+                // If coordinator, responsible for disposing of now unclaimed IDs.
+                if (net.isCoordinating)
+                    world.movers.forEach {
+                        if (!it.dead && !net.isClaimed(it.owner))
+                            it.kill()
+                    }
+
+                val cr = Random()
+
+                ownMover()?.let {
+                    val move = keyStick.fetch()
+                    if (move != null)
+                        it.dir(move)
+                    if (Gdx.input.isKeyJustPressed(Keys.SPACE))
+                        it.shoot(null)
+
+                    if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT))
+                        selectedMover?.takeIf { it.driver.isConnected }?.let { o ->
+                            it.shoot(o.pos - it.pos)
+                        }
+
+                    if (rand) {
+                        if (cr.nextDouble() > 0.8)
+                            it.shoot(null)
+
+                        if (cr.nextDouble() > 0.1)
+                            it.dir(Cell(cr.nextInt(3) - 1, cr.nextInt(3) - 1))
+                    }
+                } ?: run {
+                    if (Gdx.input.isKeyJustPressed(Keys.F1))
+                        world.createMover(shell.player)
+
+                    if (rand)
+                        world.createMover(shell.player)
                 }
 
-            ownMover()?.let {
-                val move = keyStick.fetch()
-                if (move != null)
-                    it.dir(move)
-                if (Gdx.input.isKeyJustPressed(Keys.SPACE))
-                    it.shoot(null)
 
-                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT))
-                    selectedMover?.takeIf { it.driver.isConnected }?.let { o ->
-                        it.shoot(o.pos - it.pos)
-                    }
-            } ?: run {
-                if (Gdx.input.isKeyJustPressed(Keys.F1))
-                    world.createMover(shell.player)
+                world.worldUpdate(clock.time)
+                shell.engine.invalidate(clock.time - 10_000L)
+
+                shell.list<Rendered>().forEach { it.render(time) }
             }
-
-
-            world.worldUpdate(clock.time)
-            shell.engine.invalidate(clock.time - 10_000L)
-
-            shell.list<Rendered>().forEach { it.render(time) }
         }
 
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
@@ -171,6 +188,9 @@ class Frontend : F2DListener(-100f, 100f) {
             model = Mat.scaling(2f, 2f)
         if (Gdx.input.isKeyJustPressed(Keys.NUM_3))
             model = Mat.scaling(3f, 3f)
+
+        if (Gdx.input.isKeyJustPressed(Keys.R))
+            rand = !rand
 
         if (Gdx.input.isKeyJustPressed(Keys.GRAVE))
             consoleVisible = !consoleVisible
