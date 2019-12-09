@@ -1,7 +1,6 @@
 package eu.metatools.up
 
 import eu.metatools.up.dt.*
-import eu.metatools.up.lang.autoClosing
 import eu.metatools.up.lang.frequencyProgression
 import java.util.*
 import kotlin.experimental.inv
@@ -52,31 +51,47 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
          * Adds a part to the entity. This maintains connection status and allows resolution. Automatically performed by
          * the property creators and DSL methods.
          */
-        override fun include(id: Lx, part: Part) {
-            parts[id subtract this@Ent.id] = part
+        override fun configure(part: Part) {
+            requireUnconnected()
 
-            // Connect the part if already running.
-            if (isConnected)
-                part.connect()
+            parts[part.name] = part
         }
 
         /**
          * Connects this entity. Automatically called on [constructed] and [delete].
          */
-        override fun connect() {
+        override fun connect(entIn: EntIn?) {
+            requireUnconnected()
+
             // Connect in ascending order.
-            parts.forEach { (_, part) ->
-                part.connect()
-            }
+            if (entIn != null)
+                parts.forEach { (name, part) ->
+                    part.connect { key -> entIn(name, key) }
+                }
+            else
+                parts.forEach { (_, part) ->
+                    part.connect(null)
+                }
+
 
             // Mark connected.
             isConnected = true
+        }
+
+        override fun persist(entOut: EntOut) {
+            requireConnected()
+
+            parts.forEach { (name, part) ->
+                part.persist { key, value -> entOut(name, key, value) }
+            }
         }
 
         /**
          * Disconnects this entity. Automatically called on [constructed] and [delete].
          */
         override fun disconnect() {
+            requireConnected()
+
             // Mark not connected.
             isConnected = false
 
@@ -90,6 +105,8 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
          * Instruction-in node. Called by registered handlers.
          */
         override fun perform(instruction: Instruction) {
+            requireConnected()
+
             // Check if fresh invoke.
             require(executionTime.get() == null) {
                 "Running in open exchanged callback."
@@ -114,7 +131,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     /**
      * The parts of the entity.
      */
-    private val parts = TreeMap<Lx, Part>()
+    private val parts = TreeMap<String, Part>()
 
     /**
      * The time at which the current instruction is evaluated.
@@ -319,44 +336,39 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         var rdc = Byte.MIN_VALUE
 
         // Get ticker name for storing and loading.
-        val tickerId = id / "tickers-$name"
+        val tickerId = "tickers-$name"
 
         // Include a part handling store aspects.
-        driver.include(tickerId, object : Part {
-            /**
-             * Close handle for store connection.
-             */
-            var closeSave by autoClosing()
-
+        driver.configure(object : Part {
             override var isConnected = false
                 private set
 
-            override fun connect() {
+            override val name: String
+                get() = tickerId
+
+            override fun connect(partIn: PartIn?) {
                 // Restore last value if loading.
-                if (shell.engine.isLoading) {
-                    initial = shell.engine.load(tickerId / "initial") as Long
-                    last = shell.engine.load(tickerId / "last") as Long
-                    rdc = shell.engine.load(tickerId / "rdc") as Byte
+                if (partIn != null) {
+                    initial = partIn("initial") as Long
+                    last = partIn("last") as Long
+                    rdc = partIn("rdc") as Byte
                 } else {
                     initial = init()
                     last = init()
                     rdc = repeatingDC++
                 }
 
-                // Save by writing last.
-                closeSave = shell.engine.onSave.register {
-                    shell.engine.save(tickerId / "initial", initial)
-                    shell.engine.save(tickerId / "last", last)
-                    shell.engine.save(tickerId / "rdc", rdc)
-                }
-
                 isConnected = true
+            }
+
+            override fun persist(partOut: PartOut) {
+                partOut("initial", initial)
+                partOut("last", last)
+                partOut("rdc", rdc)
             }
 
             override fun disconnect() {
                 isConnected = false
-
-                closeSave = null
             }
 
             override fun toString() =

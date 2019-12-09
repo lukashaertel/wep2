@@ -2,9 +2,6 @@ package eu.metatools.up
 
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
-import eu.metatools.up.dt.Time
-import eu.metatools.up.notify.Callback
-import eu.metatools.up.notify.Event
 import java.lang.UnsupportedOperationException
 
 /**
@@ -23,38 +20,9 @@ interface Engine {
         driver
 
     /**
-     * True if initialization on [Part.connect] should load rather than initialize.
-     */
-    val isLoading: Boolean
-
-    /**
-     * Loads a value from the field. Usually invoked on connecting an [Ent].
-     */
-    fun load(id: Lx): Any?
-
-    /**
-     * Detached handler for saving to [save].
-     */
-    val onSave: Callback
-
-    /**
-     * Saves a value to the field. Usually invoked from the [onSave] detached handlers.
-     */
-    fun save(id: Lx, value: Any?)
-
-    /**
-     * On add of entity.
-     */
-    val onAdd: Event<Lx, Ent>
-    /**
      * Includes an [Ent] in the table. Connects it.
      */
     fun add(ent: Ent)
-
-    /**
-     * On remove of entity.
-     */
-    val onRemove: Event<Lx, Ent>
 
     /**
      * Excludes an [Ent] from the table. Disconnects it.

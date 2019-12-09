@@ -13,7 +13,6 @@ import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.up.kryo.makeF2DKryo
 import eu.metatools.up.StandardShell
-import eu.metatools.up.deb.LogShell
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
@@ -37,12 +36,12 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private fun handleBundle(): Map<Lx, Any?> {
         val result = hashMapOf<Lx, Any?>()
-        shell.on.saveTo(result::set)
+        shell.store(result::set)
         return result
     }
 
     private fun handleReceive(instruction: Instruction) {
-        shell.on.receive(instruction)
+        shell.receive(instruction)
     }
 
     val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
@@ -57,9 +56,9 @@ class Frontend : F2DListener(-100f, 100f) {
 
     val claimer = NetworkClaimer(net, UUID.randomUUID())
 
-    val shell = LogShell(StandardShell(claimer.currentClaim).also {
-        it.onTransmit.register(net::instruction)
-    })
+    val shell = StandardShell(claimer.currentClaim).also {
+        it.onTransmit = net::instruction
+    }
 
 
     /**
@@ -96,7 +95,7 @@ class Frontend : F2DListener(-100f, 100f) {
     } else {
         // Restore, resolve root.
         val bundle = net.bundle()
-        shell.on.loadFrom(bundle::get)
+        shell.load(bundle::get)
         shell.resolve(lx / "root") as World
     }
 

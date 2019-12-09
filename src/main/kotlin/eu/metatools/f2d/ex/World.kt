@@ -74,7 +74,7 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
 
     val worldUpdate = repeating(40, shell::initializedTime) {
         shell.list<Ticking>().forEach {
-            if(it is Ent && !it.driver.isConnected)
+            if (it is Ent && !it.driver.isConnected)
                 println("Tick to $it invalid")
             it.update((time.global - shell.initializedTime).sec, 40)
         }
@@ -230,7 +230,7 @@ class Mover(
         )
     }
 
-    override val world by ref<World>(lx / "root")
+    override val world get() = shell.resolve(lx / "root") as World
 
     override val radius get() = kind.radius
 
@@ -343,7 +343,7 @@ class Bullet(
         "initMoveTime" to initMoveTime
     )
 
-    override val world by ref<World>(lx / "root")
+    override val world get() = shell.resolve(lx / "root") as World
     override var pos by { initPos }
     override var moveTime by { initMoveTime }
     override var vel by { initVel }

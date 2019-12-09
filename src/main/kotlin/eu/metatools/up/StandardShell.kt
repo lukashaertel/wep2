@@ -4,43 +4,12 @@ import eu.metatools.up.dt.*
 import eu.metatools.up.lang.constructBy
 import eu.metatools.up.lang.never
 import eu.metatools.up.lang.validate
-import eu.metatools.up.notify.*
 import java.util.*
 import kotlin.collections.HashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
 import kotlin.reflect.full.createType
 import kotlin.reflect.full.isSupertypeOf
-
-/**
- * Mode of the engine.
- */
-private enum class Mode {
-    /**
-     * In between actual operations.
-     */
-    Idle,
-    /**
-     * Restoring from fields.
-     */
-    RestoreData,
-
-    /**
-     * Storing to fields.
-     */
-    StoreData,
-
-    /**
-     * Revoking instructions.
-     */
-    Revoke,
-
-    /**
-     * Invoking instructions.
-     */
-    Invoke
-}
-
 
 /**
  * Standard shell and engine with bound player and proxy nodes for incoming and outgoing instructions.
@@ -71,30 +40,14 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
             error("No save handler assigned.")
         }
 
-        /**
-         * Unique ID of the engine domain. Do not use this key as a root node.
-         */
-        private val engineDomain = ".ed"
+        private val bundleRoot = lx / ".engine"
 
-        /**
-         * System initialized time.
-         */
-        private val SIT = lx / engineDomain / "SIT"
+        private const val nameInitTime = ".init-time"
+        private const val nameEntityIDs = ".entity-ids"
+        private const val nameConstructor = ".constructor"
+        private const val nameRegister = ".register"
+        private const val nameTimeLocals = ".time-locals"
 
-        /**
-         * Primary entity table.
-         */
-        private val PET = lx / engineDomain / "PET"
-
-        /**
-         * Local time per global.
-         */
-        private val LPG = lx / engineDomain / "LPG"
-
-        /**
-         * Instruction replay table.
-         */
-        private val IRT = lx / engineDomain / "IRT"
     }
 
     /**
@@ -121,26 +74,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
             block()
 
     /**
-     * Current mode. Changed by exposed methods on standard shell.
-     */
-    private var sharedMode = Mode.Idle
-
-    /**
-     * Save handler.
-     */
-    private val sharedOnSave = CallbackList()
-
-    /**
-     * Resolve handler.
-     */
-    private val sharedOnAdd = EventList<Lx, Ent>()
-
-    /**
-     * Resolve handler.
-     */
-    private val sharedOnRemove = EventList<Lx, Ent>()
-
-    /**
      * Central entity table for access.
      */
     private val central = HashMap<Lx, Ent>()
@@ -156,16 +89,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
     private val locals = TreeMap<Long, Byte>()
 
     /**
-     * Active input bundle.
-     */
-    private var loadFromHandler: (Lx) -> Any? = defaultLoadFromHandler
-
-    /**
-     * Active output bundle.
-     */
-    private var saveToHandler: (id: Lx, value: Any?) -> Unit = defaultSaveToHandler
-
-    /**
      * Currently capturing undo sequence.
      */
     private var currentUndo = hashMapOf<Lx, () -> Unit>()
@@ -174,25 +97,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
     override val engine = object : Engine {
         override val shell: Shell
             get() = this@StandardShell
-
-        override val isLoading: Boolean
-            get() = sharedMode == Mode.RestoreData
-
-        override val onSave: Callback
-            get() = sharedOnSave
-
-        override fun load(id: Lx) =
-            loadFromHandler(id)
-
-        override fun save(id: Lx, value: Any?) {
-            saveToHandler(id, value)
-        }
-
-        override val onAdd: Event<Lx, Ent>
-            get() = sharedOnAdd
-
-        override val onRemove: Event<Lx, Ent>
-            get() = sharedOnRemove
 
         override fun add(ent: Ent) {
             critical {
@@ -204,18 +108,12 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                 }
 
                 // Connect entity.
-                ent.driver.connect()
-
-                // Mark resolve from add.
-                sharedOnAdd(ent.id, ent)
+                ent.driver.connect(null)
             }
         }
 
         override fun remove(ent: Ent) {
             critical {
-                // De-resolve from remove.
-                sharedOnRemove(ent.id, ent)
-
                 // Disconnect.
                 ent.driver.disconnect()
 
@@ -232,9 +130,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
 
         override fun exchange(instruction: Instruction) {
             critical {
-                // Set mode to revoke.
-                sharedMode = Mode.Revoke
-
                 // Memorize limit, reset to instruction.
                 val before = limit
                 if (before > instruction.time)
@@ -244,17 +139,11 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                 insertToRegister(instruction)
 
                 // Transmit instruction with proxies.
-                onTransmit(instruction.toProxyWith(shell))
-
-                // Set mode to invoke.
-                sharedMode = Mode.Invoke
+                onTransmit?.invoke(instruction.toProxyWith(shell))
 
                 // Reset to previous.
                 if (before > instruction.time)
                     limit = before
-
-                // Reset mode.
-                sharedMode = Mode.Idle
             }
         }
 
@@ -268,9 +157,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                 if (sorted.isEmpty())
                     return
 
-                // Set mode to revoke.
-                sharedMode = Mode.Revoke
-
                 // Memorize limit, reset to instruction.
                 val before = limit
                 if (before > sorted.firstKey())
@@ -280,15 +166,9 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                 for (instruction in sorted.values)
                     insertToRegister(instruction)
 
-                // Set mode to invoke.
-                sharedMode = Mode.Invoke
-
                 // Reset to previous.
                 if (before > sorted.firstKey())
                     limit = before
-
-                // Reset mode.
-                sharedMode = Mode.Idle
             }
         }
 
@@ -342,21 +222,12 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
         }
     }
 
-
-    /**
-     * Loads the scope from the bundle.
-     */
-    fun loadFrom(load: (Lx) -> Any?) {
+    override fun load(shellIn: ShellIn) {
         critical {
-            // Transfer load from handler.
-            loadFromHandler = load
-
             // Reset state for restoring.
-            sharedMode = Mode.Revoke
             limit = Time.MIN_VALUE
 
             // Disconnect and clear entity table.
-            sharedMode = Mode.Idle
             central.values.forEach { it.driver.disconnect() }
             central.clear()
 
@@ -368,14 +239,13 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
 
 
             // Load initialized time.
-            sharedMode = Mode.RestoreData
-            initializedTime = load(SIT) as Long
+            initializedTime = shellIn(bundleRoot / nameInitTime) as Long
 
             // Load list of all entities.
             @Suppress("unchecked_cast")
-            (load(PET) as List<Lx>).forEach {
+            (shellIn(bundleRoot / nameEntityIDs) as List<Lx>).forEach {
                 // Get entity class and extra arguments.
-                val (c, e) = load(PET / it) as Pair<KClass<Ent>, Map<String, Any?>>
+                val (c, e) = shellIn(bundleRoot / it / nameConstructor) as Pair<KClass<Ent>, Map<String, Any?>>
 
                 // Construct by arguments, map extra parameters by their type.
                 val ent = c.constructBy(e) { param ->
@@ -392,24 +262,19 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
 
             // Connect all restored values.
             central.values.forEach {
-                it.driver.connect()
-            }
-
-            // Resolve all.
-            central.values.forEach {
-                sharedOnAdd(it.id, it)
+                it.driver.connect { name, key -> shellIn(it.id / name / key) }
             }
 
             // Load local per global.
             @Suppress("unchecked_cast")
-            (load(LPG / player) as? List<Pair<Long, Byte>>)?.let {
+            (shellIn(bundleRoot / player / nameTimeLocals) as? List<Pair<Long, Byte>>)?.let {
                 // Add all entries.
                 locals.putAll(it)
             }
 
             // Load instruction replay table.
             @Suppress("unchecked_cast")
-            (load(IRT) as List<Instruction>).let {
+            (shellIn(bundleRoot / nameRegister) as List<Instruction>).let {
                 // Associate by time into register.
                 it.associateTo(register) { inst ->
                     inst.time to Reg(inst.toValueWith(this)) {}
@@ -417,69 +282,47 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
             }
 
             // Replay loaded instructions.
-            sharedMode = Mode.Invoke
             limit = Time.MAX_VALUE
-
-            // Reset load from handler.
-            loadFromHandler = defaultLoadFromHandler
-
-            // Reset state for idle.
-            sharedMode = Mode.Idle
         }
     }
 
-    /**
-     * Stores the scope to the bundle.
-     */
-    fun saveTo(save: (id: Lx, value: Any?) -> Unit) {
+    override fun store(shellOut: ShellOut) {
         critical {
-            // Transfer save to handler.
-            saveToHandler = save
-
             // Reset state for storing.
-            sharedMode = Mode.Revoke
             limit = Time.MIN_VALUE
 
             // Store system initialized time.
-            sharedMode = Mode.StoreData
-            save(SIT, initializedTime)
+            shellOut(bundleRoot / nameInitTime, initializedTime)
 
             // Save all existing IDs.
             central.keys.sorted().let {
                 // Save all existing IDs.
-                save(PET, it)
+                shellOut(bundleRoot / nameEntityIDs, it)
             }
 
             // Save primary entity table.
             central.values.forEach {
                 // Save under key and ID, store constructed class and potential extra arguments.
-                save(PET / it.id, it::class to it.extraArgs.orEmpty())
+                shellOut(bundleRoot / it.id / nameConstructor, it::class to it.extraArgs.orEmpty())
+
+                // Save entity parts.
+                it.driver.persist { name, key, value -> shellOut(it.id / name / key, value) }
             }
 
             // Save local time slots.
             locals.entries.map { it.key to it.value }.let {
                 // Save whole list under local per global.
-                save(LPG / player, it)
+                shellOut(bundleRoot / player / nameTimeLocals, it)
             }
 
             // Save instruction register.
             register.values.map { it.instruction }.let {
                 // Save whole list under instruction replay table.
-                save(IRT, it.map { inst -> inst.toProxyWith(this) })
+                shellOut(bundleRoot / nameRegister, it.map { inst -> inst.toProxyWith(this) })
             }
 
-            // Handle detached saves.
-            sharedOnSave()
-
             // Replay instructions.
-            sharedMode = Mode.Invoke
             limit = Time.MAX_VALUE
-
-            // Reset save to handler.
-            saveToHandler = defaultSaveToHandler
-
-            // Reset state for idle.
-            sharedMode = Mode.Idle
         }
     }
 
@@ -527,7 +370,7 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
     /**
      * Outgoing connection node, will be invoked with a fully proxified instruction.
      */
-    val onTransmit = HandlerList<Instruction>()
+    var onTransmit: ((Instruction) -> Unit)? = null
 
     private fun insertToRegister(instruction: Instruction) {
         val existing = register.put(instruction.time, Reg(instruction) {})
@@ -550,9 +393,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
             if (sorted.isEmpty())
                 return
 
-            // Set mode to revoke.
-            sharedMode = Mode.Revoke
-
             // Memorize limit, reset to instruction.
             val before = limit
             if (before > sorted.firstKey())
@@ -562,15 +402,9 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
             for (instruction in sorted.values)
                 insertToRegister(instruction.toValueWith(this))
 
-            // Set mode to invoke.
-            sharedMode = Mode.Invoke
-
             // Reset to previous.
             if (before > sorted.firstKey())
                 limit = before
-
-            // Reset mode.
-            sharedMode = Mode.Idle
         }
     }
 

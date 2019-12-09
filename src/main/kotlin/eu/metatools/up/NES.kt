@@ -63,13 +63,13 @@ fun main() {
 
     // Connect bundling to scope.
     onBundle = {
-        val result = hashMapOf<Lx, Any?>()
-        shell.saveTo(result::set)
+        val result = TreeMap<Lx, Any?>()
+        shell.store(result::set)
         result
     }
 
     // Connect sending to network.
-    shell.onTransmit.register {
+    shell.onTransmit = {
         if (it.time.player == Short.MAX_VALUE)
             System.err.println("Leaked repeated instruction $it")
         network.instruction(it)
@@ -89,7 +89,7 @@ fun main() {
     } else {
         // Restore, resolve root.
         val bundle = network.bundle()
-        shell.loadFrom(bundle::get)
+        shell.load(bundle::get)
         shell.resolve(lx / "root") as S
     }
 

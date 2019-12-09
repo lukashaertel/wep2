@@ -39,6 +39,10 @@ interface Shell {
      * Lists all entities of type, this operation returns sorted output.
      */
     fun <T : Any> list(kClass: KClass<T>): List<T>
+
+    fun load(shellIn: ShellIn)
+
+    fun store(shellOut: ShellOut)
 }
 
 
