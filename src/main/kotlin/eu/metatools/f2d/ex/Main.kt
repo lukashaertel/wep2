@@ -1,6 +1,7 @@
 package eu.metatools.f2d.ex
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
 import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
@@ -12,6 +13,7 @@ import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.up.kryo.makeF2DKryo
 import eu.metatools.up.StandardShell
+import eu.metatools.up.deb.LogShell
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
@@ -35,12 +37,12 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private fun handleBundle(): Map<Lx, Any?> {
         val result = hashMapOf<Lx, Any?>()
-        shell.saveTo(result::set)
+        shell.on.saveTo(result::set)
         return result
     }
 
     private fun handleReceive(instruction: Instruction) {
-        shell.receive(instruction)
+        shell.on.receive(instruction)
     }
 
     val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
@@ -55,9 +57,9 @@ class Frontend : F2DListener(-100f, 100f) {
 
     val claimer = NetworkClaimer(net, UUID.randomUUID())
 
-    val shell = StandardShell(claimer.currentClaim).also {
+    val shell = LogShell(StandardShell(claimer.currentClaim).also {
         it.onTransmit.register(net::instruction)
-    }
+    })
 
 
     /**
@@ -94,7 +96,7 @@ class Frontend : F2DListener(-100f, 100f) {
     } else {
         // Restore, resolve root.
         val bundle = net.bundle()
-        shell.loadFrom(bundle::get)
+        shell.on.loadFrom(bundle::get)
         shell.resolve(lx / "root") as World
     }
 
@@ -146,11 +148,18 @@ class Frontend : F2DListener(-100f, 100f) {
 
             ownMover()?.let {
                 val move = keyStick.fetch()
-                val sjp = Gdx.input.isKeyJustPressed(Keys.SPACE)
                 if (move != null)
                     it.dir(move)
-                if (sjp)
-                    it.shoot()
+                if (Gdx.input.isKeyJustPressed(Keys.SPACE))
+                    it.shoot(null)
+
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT))
+                    selectedMover?.takeIf { it.driver.isConnected }?.let { o ->
+                        it.shoot(o.pos - it.pos)
+                    }
+            } ?: run {
+                if (Gdx.input.isKeyJustPressed(Keys.F1))
+                    world.createMover(shell.player)
             }
 
 
@@ -171,8 +180,11 @@ class Frontend : F2DListener(-100f, 100f) {
             consoleVisible = !consoleVisible
     }
 
+    var selectedMover: Mover? = null
+
     override fun capture(result: Any, intersection: Vec) {
-        println(result)
+        if (result is Mover)
+            selectedMover = result
     }
 
     override fun pause() = Unit

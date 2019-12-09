@@ -13,10 +13,7 @@ import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.up.enqueue
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
-import eu.metatools.up.dsl.mapObserved
-import eu.metatools.up.dsl.provideDelegate
-import eu.metatools.up.dsl.ref
-import eu.metatools.up.dsl.set
+import eu.metatools.up.dsl.*
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
@@ -77,6 +74,8 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
 
     val worldUpdate = repeating(40, shell::initializedTime) {
         shell.list<Ticking>().forEach {
+            if(it is Ent && !it.driver.isConnected)
+                println("Tick to $it invalid")
             it.update((time.global - shell.initializedTime).sec, 40)
         }
     }
@@ -212,12 +211,11 @@ interface TakesDamage {
 class Mover(
     shell: Shell, id: Lx, initPos: Pt, val kind: MoverKind, val owner: Short
 ) : Ent(shell, id), Rendered, Ticking, TraitMove, TakesDamage {
-    override val extraArgs
-        get() = mapOf(
-            "initPos" to pos,
-            "kind" to kind,
-            "owner" to owner
-        )
+    override val extraArgs = mapOf(
+        "initPos" to initPos,
+        "kind" to kind,
+        "owner" to owner
+    )
 
     companion object {
         val colors = listOf(
@@ -292,12 +290,12 @@ class Mover(
 
     val shoot = exchange(::doShoot)
 
-    private fun doShoot() {
+    private fun doShoot(d: Pt?) {
         // TODO: Some problems with class registration, probably registration required or something, fucks up in
         //       the request correlator.
         if (!look.isEmpty) {
             val sec = (time.global - shell.initializedTime).sec
-            val dir = Pt(look.x.toFloat(), look.y.toFloat())
+            val dir = d ?: Pt(look.x.toFloat(), look.y.toFloat())
             constructed(Bullet(shell, id / "bullet" / time, pos + dir * (radius + 0.1f), dir.nor * 5f, sec))
         }
     }
@@ -310,10 +308,6 @@ class Mover(
 
     override fun takeDamage() {
         health--
-        if (health < 0) {
-            world.movers.remove(this)
-            delete(this)
-        }
 
         // TODO: Better pattern for this.
         if (!frontendReady)
@@ -333,18 +327,21 @@ class Mover(
                 .translation(Constants.tileWidth * x, Constants.tileHeight * y + (it - sec).toFloat() * 10)
                 .scale(sx = frontend.fontSize, sy = frontend.fontSize)
         }
+        if (health < 0) {
+            world.movers.remove(this)
+            delete(this)
+        }
     }
 }
 
 class Bullet(
     shell: Shell, id: Lx, initPos: Pt, initVel: Pt, initMoveTime: Double
 ) : Ent(shell, id), TraitMove, Ticking, Rendered {
-    override val extraArgs
-        get() = mapOf(
-            "initPos" to pos,
-            "initVel" to vel,
-            "initMoveTime" to moveTime
-        )
+    override val extraArgs = mapOf(
+        "initPos" to initPos,
+        "initVel" to initVel,
+        "initMoveTime" to initMoveTime
+    )
 
     override val world by ref<World>(lx / "root")
     override var pos by { initPos }

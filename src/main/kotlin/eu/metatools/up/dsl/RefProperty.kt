@@ -7,6 +7,7 @@ import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.lang.ReadOnlyPropertyProvider
 import eu.metatools.up.lang.autoClosing
+import eu.metatools.up.lang.validate
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
@@ -17,8 +18,9 @@ import kotlin.reflect.full.safeCast
  * throw an error.
  */
 class RefProperty<T : Ent>(
-    val shell: Shell, val id: Lx, val ref: Lx, val type: KClass<T>
+    val ent: Ent, val id: Lx, val ref: Lx, val type: KClass<T>
 ) : Part, ReadOnlyProperty<Any?, T> {
+    private val shell get() = ent.shell
 
     /**
      * The actual value.
@@ -28,27 +30,40 @@ class RefProperty<T : Ent>(
     /**
      * Close handle for resolve connection.
      */
-    private var closeResolve by autoClosing()
+    private var closeAdd by autoClosing()
+    private var closeRemove by autoClosing()
+
+    override var isConnected = false
+        private set
 
     override fun connect() {
         // Assign current value.
         current = type.safeCast(shell.resolve(ref))
 
-        // Register saving method.
-        closeResolve = shell.engine.onResolve.register(ref) {
+        // Register resolution methods.
+        closeAdd = shell.engine.onAdd.register(ref) {
             current = type.safeCast(it)
         }
+        closeRemove = shell.engine.onRemove.register(ref) {
+            current = null
+        }
+
+        isConnected = true
     }
 
     override fun disconnect() {
-        closeResolve = null
+        isConnected = false
+
+        closeAdd = null
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
-        current ?: error("Pointer reference not assigned or not of type $type.")
+        validate(ent.driver.isConnected) {
+            "Access to ref in detached entity."
+        } ?: current ?: error("Pointer reference not assigned or not of type $type.")
 
     override fun toString() =
-        current.toString()
+        if (isConnected) current.toString() else "<$id, detached>"
 }
 
 /**
@@ -59,7 +74,7 @@ inline fun <reified T : Ent> ref(ref: Lx) =
         // Append to containing entity.
         val id = ent.id / property.name
 
-        RefProperty(ent.shell, id, ref, T::class).also {
+        RefProperty(ent, id, ref, T::class).also {
             // Include in entity.
             ent.driver.include(id, it)
         }

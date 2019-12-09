@@ -133,7 +133,12 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
     /**
      * Resolve handler.
      */
-    private val sharedOnResolve = EventList<Lx, Ent?>()
+    private val sharedOnAdd = EventList<Lx, Ent>()
+
+    /**
+     * Resolve handler.
+     */
+    private val sharedOnRemove = EventList<Lx, Ent>()
 
     /**
      * Central entity table for access.
@@ -183,15 +188,18 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
             saveToHandler(id, value)
         }
 
-        override val onResolve: Event<Lx, Ent?>
-            get() = sharedOnResolve
+        override val onAdd: Event<Lx, Ent>
+            get() = sharedOnAdd
+
+        override val onRemove: Event<Lx, Ent>
+            get() = sharedOnRemove
 
         override fun add(ent: Ent) {
             critical {
                 // Put entity, get existing if present and run block if not null.
                 central.put(ent.id, ent)?.let {
                     require(it === ent) {
-                        "Cannot include $ent as ${ent.id}, already assigned to $it "
+                        "Cannot add $ent as ${ent.id}, already assigned to $it "
                     }
                 }
 
@@ -199,23 +207,22 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
                 ent.driver.connect()
 
                 // Mark resolve from add.
-                onResolve(ent.id, ent)
+                sharedOnAdd(ent.id, ent)
             }
         }
 
-        override fun remove(id: Lx) {
+        override fun remove(ent: Ent) {
             critical {
                 // De-resolve from remove.
-                onResolve(id, null)
-
-                // TODO: THIS NOT GOOD.
-                // Remove entry.
-                val existing = requireNotNull(central.remove(id)) {
-                    "Cannot exclude $id, not assigned."
-                }
+                sharedOnRemove(ent.id, ent)
 
                 // Disconnect.
-                existing.driver.disconnect()
+                ent.driver.disconnect()
+
+                // Remove entry.
+                require(central.remove(ent.id, ent)) {
+                    "Cannot remove $ent as ${ent.id}, assigned as ${central[ent.id]} "
+                }
             }
         }
 
@@ -390,7 +397,7 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
 
             // Resolve all.
             central.values.forEach {
-                sharedOnResolve(it.id, it)
+                sharedOnAdd(it.id, it)
             }
 
             // Load local per global.

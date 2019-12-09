@@ -7,6 +7,8 @@ import eu.metatools.up.dt.div
 import eu.metatools.up.lang.ObservedMap
 import eu.metatools.up.lang.autoClosing
 import eu.metatools.up.lang.ReadOnlyPropertyProvider
+import eu.metatools.up.lang.validate
+import eu.metatools.up.notify.registerOnce
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
@@ -125,8 +127,9 @@ data class MapChange<K, V>(
  * Map property, uses the full [id] and the given initial value assignment [init] on non-restore..
  */
 class MapProperty<K : Comparable<K>, V>(
-    val shell: Shell, val id: Lx, val init: () -> Map<K, V>, val changed: ((MapChange<K, V>) -> Unit)?
+    val ent: Ent, val id: Lx, val init: () -> Map<K, V>, val changed: ((MapChange<K, V>) -> Unit)?
 ) : Part, ReadOnlyProperty<Any?, NavigableMap<K, V>> {
+    private val shell get() = ent.shell
 
     /**
      * The observed map dealing with notification of changes.
@@ -154,8 +157,10 @@ class MapProperty<K : Comparable<K>, V>(
             }
         }
 
-    override fun connect() {
+    override var isConnected = false
+        private set
 
+    override fun connect() {
         // Load from store and register saving if needed.
         current = if (shell.engine.isLoading)
         // If loading, retrieve from the store and deproxify.
@@ -170,17 +175,23 @@ class MapProperty<K : Comparable<K>, V>(
             // Save value with optional proxification.
             shell.engine.save(id, shell.toProxy(current))
         }
+
+        isConnected = true
     }
 
     override fun disconnect() {
+        isConnected = false
+
         closeSave = null
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
-        current
+        validate(ent.driver.isConnected) {
+            "Access to property in detached entity."
+        } ?: current
 
     override fun toString() =
-        current.toString()
+        if (isConnected) current.toString() else "<$id, detached>"
 }
 
 /**
@@ -192,7 +203,7 @@ fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
         val id = ent.id / property.name
 
         // Create map from implied values.
-        MapProperty(ent.shell, id, init, null).also {
+        MapProperty(ent, id, init, null).also {
             // Include in entity.
             ent.driver.include(id, it)
         }
@@ -207,7 +218,7 @@ fun <K : Comparable<K>, V> mapObserved(init: () -> Map<K, V> = ::emptyMap, chang
         val id = ent.id / property.name
 
         // Create map from implied values.
-        MapProperty(ent.shell, id, init, changed).also {
+        MapProperty(ent, id, init, changed).also {
             // Include in entity.
             ent.driver.include(id, it)
         }

@@ -5,6 +5,11 @@ package eu.metatools.up
  */
 interface Part {
     /**
+     * True if connected.
+     */
+    val isConnected: Boolean
+
+    /**
      * Invoked when parent [Ent] is connected or when inserting into a connected [Ent].
      */
     fun connect()

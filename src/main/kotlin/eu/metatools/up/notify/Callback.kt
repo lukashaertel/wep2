@@ -3,7 +3,7 @@ package eu.metatools.up.notify
 /**
  * A general callback.
  */
-interface Callback : () -> Unit {
+interface Callback {
     /**
      * Registers a callback, returns an auto closable removing it.
      */
@@ -11,9 +11,20 @@ interface Callback : () -> Unit {
 }
 
 /**
+ * Registers a self-removing handler.
+ */
+fun Callback.registerOnce(handler: () -> Unit) {
+    lateinit var closable: AutoCloseable
+    closable = register {
+        closable.close()
+        handler()
+    }
+}
+
+/**
  * A general event implemented by a handler-list.
  */
-class CallbackList : Callback {
+class CallbackList : Callback, () -> Unit {
     /**
      * Private list of handlers.
      */

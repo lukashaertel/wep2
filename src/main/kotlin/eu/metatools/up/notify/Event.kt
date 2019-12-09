@@ -3,7 +3,7 @@ package eu.metatools.up.notify
 /**
  * A keyed event.
  */
-interface Event<K, T> : (K, T) -> Unit {
+interface Event<K, T> {
     /**
      * Registers a handler for all keys, returns an auto closable removing it.
      */
@@ -16,9 +16,32 @@ interface Event<K, T> : (K, T) -> Unit {
 }
 
 /**
+ * Registers a self-removing handler.
+ */
+fun <K, T> Event<K, T>.registerOnce(handler: (K, T) -> Unit) {
+    lateinit var closable: AutoCloseable
+    closable = register { k, t ->
+        closable.close()
+        handler(k, t)
+    }
+}
+
+
+/**
+ * Registers a self-removing handler.
+ */
+fun <K, T> Event<K, T>.registerOnce(key: K, handler: (T) -> Unit) {
+    lateinit var closable: AutoCloseable
+    closable = register(key) { t ->
+        closable.close()
+        handler(t)
+    }
+}
+
+/**
  * A keyed event implemented by a handler-list.
  */
-class EventList<K, T> : Event<K, T> {
+class EventList<K, T> : Event<K, T>, (K, T) -> Unit {
     private val globalHandlers = mutableListOf<(K, T) -> Unit>()
 
     /**

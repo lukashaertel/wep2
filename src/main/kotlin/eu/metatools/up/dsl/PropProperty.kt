@@ -7,6 +7,8 @@ import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.lang.autoClosing
 import eu.metatools.up.lang.ReadWritePropertyProvider
+import eu.metatools.up.lang.validate
+import eu.metatools.up.notify.registerOnce
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -32,8 +34,9 @@ data class PropChange<T>(val from: T, val to: T) : Change<PropChange<T>> {
  * Value property, uses the full [id] and the given initial value assignment [init] on non-restore.
  */
 class PropProperty<T>(
-    val shell: Shell, val id: Lx, val init: () -> T, val changed: ((PropChange<T>) -> Unit)?
+    val ent: Ent, val id: Lx, val init: () -> T, val changed: ((PropChange<T>) -> Unit)?
 ) : Part, ReadWriteProperty<Any?, T> {
+    private val shell get() = ent.shell
 
     /**
      * The actual value.
@@ -44,6 +47,9 @@ class PropProperty<T>(
      * Close handle for store connection.
      */
     private var closeSave by autoClosing()
+
+    override var isConnected = false
+        private set
 
     override fun connect() {
         // Assign current value.
@@ -60,14 +66,20 @@ class PropProperty<T>(
             // Save value content with optional proxification.
             shell.engine.save(id, shell.toProxy(current.value))
         }
+
+        isConnected = true
     }
 
     override fun disconnect() {
+        isConnected = false
+
         closeSave = null
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
-        current.value
+        validate(ent.driver.isConnected) {
+            "Access to property in detached entity."
+        } ?: current.value
 
     override operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
         // Change value.
@@ -87,7 +99,7 @@ class PropProperty<T>(
     }
 
     override fun toString() =
-        current.value.toString()
+        if (isConnected) current.value.toString() else "<$id, detached>"
 }
 
 /**
@@ -99,7 +111,7 @@ fun <T> prop(init: () -> T) =
         val id = ent.id / property.name
 
         // Create property from implied values.
-        PropProperty(ent.shell, id, init, null).also {
+        PropProperty(ent, id, init, null).also {
             // Include in entity.
             ent.driver.include(id, it)
         }
@@ -114,7 +126,7 @@ fun <T> propObserved(init: () -> T, changed: (PropChange<T>) -> Unit) =
         val id = ent.id / property.name
 
         // Create property from implied values.
-        PropProperty(ent.shell, id, init, changed).also {
+        PropProperty(ent, id, init, changed).also {
             // Include in entity.
             ent.driver.include(id, it)
         }

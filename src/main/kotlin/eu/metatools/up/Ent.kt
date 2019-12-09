@@ -3,10 +3,6 @@ package eu.metatools.up
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.autoClosing
 import eu.metatools.up.lang.frequencyProgression
-import java.io.PrintStream
-import java.io.StringWriter
-import java.io.Writer
-import java.lang.Appendable
 import java.util.*
 import kotlin.experimental.inv
 
@@ -49,6 +45,9 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         override val ent: Ent
             get() = this@Ent
 
+        override var isConnected = false
+            private set
+
         /**
          * Adds a part to the entity. This maintains connection status and allows resolution. Automatically performed by
          * the property creators and DSL methods.
@@ -57,7 +56,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             parts[id subtract this@Ent.id] = part
 
             // Connect the part if already running.
-            if (connected)
+            if (isConnected)
                 part.connect()
         }
 
@@ -71,7 +70,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             }
 
             // Mark connected.
-            connected = true
+            isConnected = true
         }
 
         /**
@@ -79,7 +78,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
          */
         override fun disconnect() {
             // Mark not connected.
-            connected = false
+            isConnected = false
 
             // Stop in descending order.
             parts.descendingMap().forEach { (_, part) ->
@@ -118,11 +117,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     private val parts = TreeMap<Lx, Part>()
 
     /**
-     * True if the container is connected, invocation of [include] will connect the received part.
-     */
-    private var connected = false
-
-    /**
      * The time at which the current instruction is evaluated.
      */
     protected val time: Time get() = executionTime.get()
@@ -144,7 +138,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
 
         // Undo by excluding.
         shell.engine.capture(presence / ent.id) {
-            shell.engine.remove(ent.id)
+            shell.engine.remove(ent)
         }
 
         return ent
@@ -156,7 +150,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      */
     protected fun delete(ent: Ent) {
         // Exclude from scope.
-        shell.engine.remove(ent.id)
+        shell.engine.remove(ent)
 
         // Undo by adding.
         shell.engine.capture(presence / ent.id) {
@@ -171,7 +165,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     protected fun exchange(function: () -> Any?)
             : (Time) -> Unit {
         // Mark errors.
-        require(!connected) { "Exchanging in connected entity, this is most likely an invalid call." }
+        require(!driver.isConnected) { "Exchanging in connected entity, this is most likely an invalid call." }
 
         // Resolve name and add to dispatch table.
         val name = dispatchTable.size.toMethodName()
@@ -188,7 +182,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     protected fun <T> exchange(function: (T) -> Any?)
             : (Time, T) -> Unit {
         // Mark errors.
-        require(!connected) { "Exchanging in connected entity, this is most likely an invalid call." }
+        require(!driver.isConnected) { "Exchanging in connected entity, this is most likely an invalid call." }
 
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -210,7 +204,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     protected fun <T, U> exchange(function: (T, U) -> Any?)
             : (Time, T, U) -> Unit {
         // Mark errors.
-        require(!connected) { "Exchanging in connected entity, this is most likely an invalid call." }
+        require(!driver.isConnected) { "Exchanging in connected entity, this is most likely an invalid call." }
 
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -232,7 +226,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     protected fun <T, U, V> exchange(function: (T, U, V) -> Any?)
             : (Time, T, U, V) -> Unit {
         // Mark errors.
-        require(!connected) { "Exchanging in connected entity, this is most likely an invalid call." }
+        require(!driver.isConnected) { "Exchanging in connected entity, this is most likely an invalid call." }
 
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -263,7 +257,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     protected fun <T, U, V, W> exchange(function: (T, U, V, W) -> Any?)
             : (Time, T, U, V, W) -> Unit {
         // Mark errors.
-        require(!connected) { "Exchanging in connected entity, this is most likely an invalid call." }
+        require(!driver.isConnected) { "Exchanging in connected entity, this is most likely an invalid call." }
 
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -309,7 +303,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         function: () -> Any?
     ): (Long) -> Unit {
         // Mark errors.
-        require(!connected) { "Marking repeating in connected entity, this is most likely an invalid call." }
+        require(!driver.isConnected) { "Marking repeating in connected entity, this is most likely an invalid call." }
 
         // Resolve name.
         val name = dispatchTable.size.toMethodName()
@@ -334,6 +328,9 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
              */
             var closeSave by autoClosing()
 
+            override var isConnected = false
+                private set
+
             override fun connect() {
                 // Restore last value if loading.
                 if (shell.engine.isLoading) {
@@ -352,9 +349,13 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
                     shell.engine.save(tickerId / "last", last)
                     shell.engine.save(tickerId / "rdc", rdc)
                 }
+
+                isConnected = true
             }
 
             override fun disconnect() {
+                isConnected = false
+
                 closeSave = null
             }
 

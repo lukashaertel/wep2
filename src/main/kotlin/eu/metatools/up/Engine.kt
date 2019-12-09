@@ -43,19 +43,23 @@ interface Engine {
     fun save(id: Lx, value: Any?)
 
     /**
-     * On resolution of index changed. Experimental for now.
+     * On add of entity.
      */
-    val onResolve: Event<Lx, Ent?>
-
+    val onAdd: Event<Lx, Ent>
     /**
      * Includes an [Ent] in the table. Connects it.
      */
     fun add(ent: Ent)
 
     /**
+     * On remove of entity.
+     */
+    val onRemove: Event<Lx, Ent>
+
+    /**
      * Excludes an [Ent] from the table. Disconnects it.
      */
-    fun remove(id: Lx)
+    fun remove(ent: Ent)
 
     /**
      * Captures the reset of the distinct [id] by invoking [undo]. Relative undo, should expect the post-state.

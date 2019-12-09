@@ -7,6 +7,8 @@ import eu.metatools.up.dt.div
 import eu.metatools.up.lang.ObservedSet
 import eu.metatools.up.lang.autoClosing
 import eu.metatools.up.lang.ReadOnlyPropertyProvider
+import eu.metatools.up.lang.validate
+import eu.metatools.up.notify.registerOnce
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
@@ -68,8 +70,9 @@ data class SetChange<E>(
  * Set property, uses the full [id] and the given initial value assignment [init] on non-restore.
  */
 class SetProperty<E : Comparable<E>>(
-    val shell: Shell, val id: Lx, val init: () -> List<E>, val changed: ((SetChange<E>) -> Unit)?
+    val ent: Ent, val id: Lx, val init: () -> List<E>, val changed: ((SetChange<E>) -> Unit)?
 ) : Part, ReadOnlyProperty<Any?, NavigableSet<E>> {
+    private val shell get() = ent.shell
 
     /**
      * The observed set dealing with notification of changes.
@@ -80,6 +83,9 @@ class SetProperty<E : Comparable<E>>(
      * Close handle for store connection.
      */
     private var closeSave by autoClosing()
+
+    override var isConnected = false
+        private set
 
     private fun createObservedSet(from: List<E>) =
         ObservedSet(TreeSet(from)) { add, remove ->
@@ -111,17 +117,23 @@ class SetProperty<E : Comparable<E>>(
             // Save value with optional proxification.
             shell.engine.save(id, shell.toProxy(current.toList()))
         }
+
+        isConnected = true
     }
 
     override fun disconnect() {
+        isConnected = false
+
         closeSave = null
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
-        current
+        validate(ent.driver.isConnected) {
+            "Access to set in detached entity."
+        } ?: current
 
     override fun toString() =
-        current.toString()
+        if (isConnected) current.toString() else "<$id, detached>"
 }
 
 /**
@@ -133,7 +145,7 @@ fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) =
         val id = ent.id / property.name
 
         // Create set from implied values.
-        SetProperty(ent.shell, id, init, null).also {
+        SetProperty(ent, id, init, null).also {
             // Include in entity.
             ent.driver.include(id, it)
         }
@@ -148,7 +160,7 @@ fun <E : Comparable<E>> setObserved(init: () -> List<E> = ::emptyList, changed: 
         val id = ent.id / property.name
 
         // Create set from implied values.
-        SetProperty(ent.shell, id, init, changed).also {
+        SetProperty(ent, id, init, changed).also {
             // Include in entity.
             ent.driver.include(id, it)
         }
