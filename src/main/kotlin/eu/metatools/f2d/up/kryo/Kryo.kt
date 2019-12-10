@@ -7,30 +7,28 @@ import com.badlogic.gdx.utils.IntArray
 import com.esotericsoftware.kryo.Kryo
 import eu.metatools.f2d.math.*
 import eu.metatools.f2d.up.kryo.serializers.*
-import eu.metatools.up.kryo.makeUpKryo
+import eu.metatools.up.kryo.registerUpSerializers
 
 
 /**
  * Creates the default lib GDX [Kryo] or extends [kryo].
  */
-fun makeGDXKryo(kryo: Kryo = makeUpKryo()): Kryo {
+fun registerGDXSerializers(kryo: Kryo) {
     kryo.register(Array::class.java, ArraySerializer)
     kryo.register(IntArray::class.java, IntArraySerializer)
     kryo.register(FloatArray::class.java, FloatArraySerializer)
     kryo.register(Color::class.java, ColorSerializer)
-    return kryo
 }
 
 
 /**
  * Creates the default F2D [Kryo] or extends [kryo].
  */
-fun makeF2DKryo(kryo: Kryo = makeGDXKryo()): Kryo {
+fun registerF2DSerializers(kryo: Kryo) {
     kryo.register(Cell::class.java, CellSerializer)
     kryo.register(Mat::class.java, MatSerializer)
     kryo.register(Pt::class.java, PtSerializer)
     kryo.register(Pts::class.java, PtsSerializer)
     kryo.register(Vec::class.java, VecSerializer)
     kryo.register(Vecs::class.java, VecsSerializer)
-    return kryo
 }

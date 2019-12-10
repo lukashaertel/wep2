@@ -7,13 +7,18 @@ import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
+import com.esotericsoftware.minlog.Log
 import eu.metatools.f2d.F2DListener
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
-import eu.metatools.f2d.up.kryo.makeF2DKryo
+import eu.metatools.f2d.up.kryo.registerF2DSerializers
+import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.*
 import eu.metatools.up.dt.*
+import eu.metatools.up.kryo.registerKotlinSerializers
+import eu.metatools.up.kryo.registerUpSerializers
+import eu.metatools.up.kryo.setDefaults
 import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
@@ -22,10 +27,10 @@ import java.util.concurrent.TimeUnit
 
 val Long.sec get() = this / 1000.0
 
+
 class Frontend : F2DListener(-100f, 100f) {
-    val encoding = makeF2DKryo().apply {
-        register(Movers::class.java, DefaultSerializers.EnumSerializer(Movers::class.java))
-        register(Tiles::class.java, DefaultSerializers.EnumSerializer(Tiles::class.java))
+    init {
+        Log.set(Log.LEVEL_DEBUG)
     }
 
     private fun handleBundle(): Map<Lx, Any?> {
@@ -39,9 +44,22 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 
     val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
-        kryo = encoding,
         leaseTime = 60,
-        leaseTimeUnit = TimeUnit.SECONDS
+        leaseTimeUnit = TimeUnit.SECONDS,
+        configureKryo = {
+            // Add basic serialization.
+            setDefaults(it)
+            registerKotlinSerializers(it)
+            registerUpSerializers(it)
+
+            // Add graphics serialization.
+            registerGDXSerializers(it)
+            registerF2DSerializers(it)
+
+            // Register data objects.
+            it.register(Movers::class.java, DefaultSerializers.EnumSerializer(Movers::class.java))
+            it.register(Tiles::class.java, DefaultSerializers.EnumSerializer(Tiles::class.java))
+        }
     )
 
     // TODO: Expiry is still a bit fucked.

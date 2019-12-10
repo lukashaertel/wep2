@@ -106,7 +106,7 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     private fun onCreateMover(owner: Short) {
         val rng = rng()
         val type = if (rng.nextBoolean()) Movers.S else Movers.L
-        movers.add(constructed(Mover(shell, id / "child" / time, Pt(5f, 5f), type, owner)))
+        movers.add(constructed(Mover(shell, newId(), Pt(5f, 5f), type, owner)))
     }
 
     fun passable(x: Float, y: Float, radius: Float): Boolean {
@@ -246,7 +246,7 @@ class Mover(
 
     var look by { Cell(0, 0) }
 
-    var health by { 10 }
+    var health by { 100 }
 
     override fun render(time: Double) {
         val (x, y) = posAt(time)
@@ -296,7 +296,7 @@ class Mover(
         if (!look.isEmpty) {
             val sec = (time.global - shell.initializedTime).sec
             val dir = d ?: Pt(look.x.toFloat(), look.y.toFloat())
-            constructed(Bullet(shell, id / "bullet" / time, pos + dir * (radius + 0.1f), dir.nor * 5f, sec))
+            constructed(Bullet(shell, newId(), pos + dir * (radius + 0.1f), dir.nor * 5f, sec))
         }
     }
 

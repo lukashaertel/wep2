@@ -14,6 +14,11 @@ import kotlin.experimental.inv
 abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     companion object {
         /**
+         * Current execution's name.
+         */
+        private val executionMethod = ThreadLocal<MethodName>()
+
+        /**
          * Current execution's time.
          */
         private val executionTime = ThreadLocal<Time>()
@@ -102,13 +107,15 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
                 "Running in open exchanged callback."
             }
 
-            // Push execution time.
+            // Push execution parameters.
             executionTime.set(instruction.time)
+            executionMethod.set(instruction.methodName)
 
             // Invoke callable.
             dispatchTable[instruction.methodName.toInt()](instruction.args)
 
-            // Reset execution time.
+            // Reset execution parameters.
+            executionMethod.set(null)
             executionTime.set(null)
         }
     })
@@ -129,11 +136,23 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     protected val time: Time get() = executionTime.get()
 
     /**
+     * The currently executing method name.
+     */
+    protected val method: MethodName get() = executionMethod.get()
+
+    /**
      * Provides extra arguments for entity construction by name and value. **Do not pass references here or use values
      * outside of initialization.**
      */
     open val extraArgs: Map<String, Any?>? get() = null
 
+    /**
+     * Returns a [Lx] composed of the entity's [id], the currently executing [method] and the [time]. If an exchanged
+     * method creates a single entity, this value can used as is to create a child. Multiple children should be further
+     * specialized by appending another node, i.e., by a number locally incrementing for the call.
+     */
+    protected fun newId() =
+        id / method / time
 
     /**
      * Marks that an entity has been constructed. This will add the entity to the tracking of the [Engine] and deal with

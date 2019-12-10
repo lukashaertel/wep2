@@ -79,7 +79,11 @@ fun makeNetwork(
     leaseTime: Long = 30L,
     leaseTimeUnit: TimeUnit = TimeUnit.MINUTES,
     requestTimeout: Long = 1000L,
-    kryo: Kryo = makeUpKryo()
+    configureKryo: (Kryo) -> Unit = {
+        setDefaults(it)
+        registerKotlinSerializers(it)
+        registerUpSerializers(it)
+    }
 ): Network {
     val channel = JChannel(stack)
 
@@ -93,11 +97,35 @@ fun makeNetwork(
     })
 
     return object : Network {
+        /**
+         * Provides instances of [Kryo] with configuration applied.
+         */
+        private val kryoPool = KryoConfiguredPool(configureKryo, true)
+
+        /**
+         * Provides write targets.
+         */
+        private val outputPool = KryoOutputPool(true)
+
+        /**
+         * Provides read sources.
+         */
+        private val inputPool = KryoInputPool(true)
+
+        /**
+         * Request options for synchronous send.
+         */
         private val sync get() = RequestOptions.SYNC().timeout(requestTimeout)
 
+        /**
+         * Request options for asynchronous send to all other nodes.
+         */
         private val otherAsync get() = RequestOptions.ASYNC().exclusionList(channel.address)
 
-        private val coord get() = channel.view.coord
+        /**
+         * The address of the coordinator.
+         */
+        private val coord get() = requireNotNull(channel.view?.coord) { "No coordinator in channel." }
 
         /**
          * True if claimed is initialized.
@@ -114,7 +142,7 @@ fun makeNetwork(
          */
         val dispatcher = MessageDispatcher().apply {
             // Set request handler.
-            setRequestHandler<MessageDispatcher>(KryoRequestHandler(kryo) {
+            setRequestHandler<MessageDispatcher>(KryoRequestHandler(kryoPool, inputPool) {
                 // Disambiguate message.
                 when (it) {
                     is NetReqClaims -> onReqClaims()
@@ -131,7 +159,12 @@ fun makeNetwork(
 
             // Set replacement request correlator, starts the dispatcher.
             setCorrelator<MessageDispatcher>(
-                KryoRequestCorrelator(kryo, protocolAdapter as Protocol, this, channel.address)
+                KryoRequestCorrelator(
+                    kryoPool, outputPool, inputPool,
+                    protocolAdapter as Protocol,
+                    this,
+                    channel.address
+                )
             )
         }
 
@@ -198,7 +231,7 @@ fun makeNetwork(
         }
 
         override val isCoordinating
-            get() = channel.address == channel.view.coord
+            get() = channel.address == channel.view?.coord
 
         private fun assertClaimedPresent() {
             // Claims present, status ok.
@@ -206,7 +239,9 @@ fun makeNetwork(
                 return
 
             // Get claim table safe.
-            val claimTable = dispatcher.sendMessage<Map<UUID, Claim>>(kryo, coord, NetReqClaims, sync) ?: never
+            val claimTable = dispatcher.sendMessage<Map<UUID, Claim>>(
+                kryoPool, outputPool, coord, NetReqClaims, sync
+            ) ?: never
 
             // Update claim table.
             claimed.putAll(claimTable)
@@ -229,7 +264,9 @@ fun makeNetwork(
             val now = System.currentTimeMillis()
 
             // Send claim to all participants, find one that's ok.
-            val allResults = dispatcher.castMessage<Claim>(kryo, null, NetTouch(uuid, now), sync) ?: never
+            val allResults = dispatcher.castMessage<Claim>(
+                kryoPool, outputPool, null, NetTouch(uuid, now), sync
+            ) ?: never
             val results = allResults.values.filter { it.wasReceived() && !it.wasUnreachable() && !it.hasException() }
             val result = requireNotNull(results.firstOrNull()) {
                 "No result received without exception."
@@ -256,7 +293,9 @@ fun makeNetwork(
 
             // Retrieve server time via synchronous send and get RTT.
             val begin = System.currentTimeMillis()
-            val result = dispatcher.sendMessage<Long>(kryo, coord, NetReqOffset, sync) ?: never
+            val result = dispatcher.sendMessage<Long>(
+                kryoPool, outputPool, coord, NetReqOffset, sync
+            ) ?: never
             val end = System.currentTimeMillis()
 
             // Adjusted is remote plus time passed since remote generated the message, i.e., RTT over two.
@@ -268,7 +307,9 @@ fun makeNetwork(
 
         override fun instruction(instruction: Instruction) {
             // Cast to all nodes except self.
-            dispatcher.castMessage<Unit>(kryo, null, NetInstruction(instruction), otherAsync)
+            dispatcher.castMessage<Unit>(
+                kryoPool, outputPool, null, NetInstruction(instruction), otherAsync
+            )
         }
 
         override fun bundle(): Map<Lx, Any?> {
@@ -277,7 +318,9 @@ fun makeNetwork(
                 return onBundle()
 
             // Send request for bundle to coordinator.
-            return dispatcher.sendMessage(kryo, coord, NetReqBundle, sync) ?: never
+            return dispatcher.sendMessage(
+                kryoPool, outputPool, coord, NetReqBundle, sync
+            ) ?: never
         }
 
         override fun close() {

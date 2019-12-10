@@ -39,7 +39,7 @@ interface Shell {
     /**
      * Lists all entities of type, this operation returns sorted output.
      */
-    fun <T : Any> list(kClass: KClass<T>): List<T>
+    fun <T : Any> list(kClass: KClass<T>): Sequence<T>
 
     /**
      * Resets and loads the shell from the given [ShellIn].

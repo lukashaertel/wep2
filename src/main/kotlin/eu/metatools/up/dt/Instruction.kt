@@ -12,5 +12,9 @@ fun Number.toMethodName() = toByte()
 
 data class Instruction(val target: Lx, val methodName: MethodName, val time: Time, val args: List<Any?>) {
     override fun toString() =
-        "$target.$methodName(${args.joinToString(", ")})@$time"
+        if (args.isEmpty())
+            "$target [$methodName] @ $time"
+        else
+            "$target [$methodName] ${args.joinToString(", ")} @ $time"
+
 }

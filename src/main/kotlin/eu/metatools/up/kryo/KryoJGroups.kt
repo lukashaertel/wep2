@@ -3,72 +3,79 @@ package eu.metatools.up.kryo
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
+import com.esotericsoftware.kryo.util.Pool
 import org.jgroups.Address
 import org.jgroups.Message
 import org.jgroups.blocks.*
 import org.jgroups.conf.ClassConfigurator
 import org.jgroups.stack.Protocol
 import org.jgroups.util.Buffer
-import org.jgroups.util.Rsp
 import org.jgroups.util.RspList
 import org.jgroups.util.Util
 import java.io.NotSerializableException
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentLinkedDeque
-import java.util.concurrent.TimeoutException
 
+class KryoConfiguredPool(val configureKryo: (Kryo) -> Unit, threadSafe: Boolean) : Pool<Kryo>(threadSafe, true) {
+    override fun create() =
+        Kryo().also(configureKryo)
+}
 
-object KryoOutputPool {
-    private const val defaultBufferSize = 512
+class KryoOutputPool(threadSafe: Boolean) : Pool<Output>(threadSafe, true) {
+    companion object {
+        private const val defaultBufferSize = 512
 
-    private const val defaultMaxBufferSize = -1
-
-    private val reused = ConcurrentLinkedDeque<Output>()
-
-    /**
-     * Acquires an output object with reset position.
-     */
-    fun acquire() =
-        // Get existing output and reset it, or create a new one.
-        reused.poll()?.also { it.reset() }
-            ?: Output(defaultBufferSize, defaultMaxBufferSize)
-
-    /**
-     * Releases an output object for reuse.
-     */
-    fun release(output: Output) =
-        // Release it again.
-        reused.offer(output)
-
-    /**
-     * Acquires a buffer while running [block].
-     */
-    inline fun <R> with(block: (Output) -> R): R {
-        val output = acquire()
-        try {
-            return block(output)
-        } finally {
-            release(output)
-        }
+        private const val defaultMaxBufferSize = -1
     }
+
+    override fun create() =
+        Output(defaultBufferSize, defaultMaxBufferSize)
+}
+
+class KryoInputPool(threadSafe: Boolean) : Pool<Input>(threadSafe, true) {
+    override fun create() =
+        Input()
 }
 
 /**
  * Handles request with deserialization the [Kryo] object.
  */
-class KryoRequestHandler(val kryo: Kryo, val block: (Any?) -> Any?) : RequestHandler {
-    override fun handle(msg: Message) =
+class KryoRequestHandler(
+    val kryoPool: Pool<Kryo>,
+    val inputPool: Pool<Input>,
+    val block: (Any?) -> Any?
+) : RequestHandler {
+    override fun handle(msg: Message): Any? {
+        // Get resources.
+        val kryo = kryoPool.obtain()
+        val input = inputPool.obtain()
+
+        // Update buffer.
+        input.setBuffer(msg.rawBuffer, msg.offset, msg.length)
+
         // Delegate to block on result of reading from message.
-        block(kryo.readClassAndObject(Input(msg.rawBuffer, msg.offset, msg.length)))
+        val result = block(kryo.readClassAndObject(input))
+
+        // Release resources.
+        inputPool.free(input)
+        kryoPool.free(kryo)
+
+        // Return the original result.
+        return result
+    }
 }
 
 /**
  * Facade on the [RequestCorrelator] that uses [Kryo] to serializes the responses. ([org.jgroups.blocks.Marshaller] not
  * appropriate, as it enforces writer types and buffer creation).
  */
-class KryoRequestCorrelator(val kryo: Kryo, transport: Protocol?, handler: RequestHandler?, local_addr: Address?) :
-    RequestCorrelator(ClassConfigurator.getProtocolId(RequestCorrelator::class.java), transport, handler, local_addr) {
-
+class KryoRequestCorrelator(
+    val kryoPool: Pool<Kryo>,
+    val outputPool: Pool<Output>,
+    val inputPool: Pool<Input>,
+    transport: Protocol?,
+    handler: RequestHandler?,
+    local_addr: Address?
+) : RequestCorrelator(ClassConfigurator.getProtocolId(RequestCorrelator::class.java), transport, handler, local_addr) {
     override fun handleResponse(
         req: Request<*>,
         sender: Address?,
@@ -78,7 +85,19 @@ class KryoRequestCorrelator(val kryo: Kryo, transport: Protocol?, handler: Reque
         is_exception: Boolean
     ) {
         try {
-            req.receiveResponse(kryo.readClassAndObject(Input(buf, offset, length)), sender, is_exception)
+            // Get resources.
+            val kryo = kryoPool.obtain()
+            val input = inputPool.obtain()
+
+            // Update buffer.
+            input.setBuffer(buf, offset, length)
+
+            // Receive response.
+            req.receiveResponse(kryo.readClassAndObject(input), sender, is_exception)
+
+            // Release resources.
+            inputPool.free(input)
+            kryoPool.free(kryo)
         } catch (e: Exception) {
             log.error(Util.getMessage("FailedUnmarshallingBufferIntoReturnValue"), e)
             req.receiveResponse(e, sender, true)
@@ -96,7 +115,8 @@ class KryoRequestCorrelator(val kryo: Kryo, transport: Protocol?, handler: Reque
         var isException = is_exception
 
         // Get a new or existing buffer.
-        val output = KryoOutputPool.acquire()
+        val kryo = kryoPool.obtain()
+        val output = outputPool.obtain()
 
         try {
             // Save object itself.
@@ -113,7 +133,8 @@ class KryoRequestCorrelator(val kryo: Kryo, transport: Protocol?, handler: Reque
                     log.error(Util.getMessage("FailedMarshallingRsp") + reply + "): not serializable")
 
                 // Release buffer before returning.
-                KryoOutputPool.release(output)
+                outputPool.free(output)
+                kryoPool.free(kryo)
                 return
             } catch (tt: Throwable) {
                 // Generally failed with an exception exception, fail fully.
@@ -121,7 +142,8 @@ class KryoRequestCorrelator(val kryo: Kryo, transport: Protocol?, handler: Reque
                     log.error(Util.getMessage("FailedMarshallingRsp") + reply + "): " + tt)
 
                 // Release buffer before returning.
-                KryoOutputPool.release(output)
+                outputPool.free(output)
+                kryoPool.free(kryo)
                 return
             }
         }
@@ -141,77 +163,109 @@ class KryoRequestCorrelator(val kryo: Kryo, transport: Protocol?, handler: Reque
         sendResponse(rsp, req_id, isException)
 
         // Release output buffer for reusing.
-        KryoOutputPool.release(output)
+        outputPool.free(output)
+        kryoPool.free(kryo)
     }
 }
 
 /**
  * Version of [sendMessage] with an object to serialize.
  */
-fun <T> MessageDispatcher.sendMessage(kryo: Kryo, dest: Address?, any: Any?, opts: RequestOptions?): T? {
-    return KryoOutputPool.with {
-        // Write message.
-        kryo.writeClassAndObject(it, any)
+fun <T> MessageDispatcher.sendMessage(
+    kryoPool: Pool<Kryo>,
+    outputPool: Pool<Output>,
+    dest: Address?,
+    any: Any?,
+    opts: RequestOptions?
+): T? {
+    // Get resources.
+    val kryo = kryoPool.obtain()
+    val output = outputPool.obtain()
 
-        // Return result of send message.
-        val buffer = it.toBytes()
-        sendMessage<T>(dest, buffer, 0, buffer.size, opts)
-    }
+    // Save object and convert to bytes.
+    kryo.writeClassAndObject(output, any)
+    val bytes = output.toBytes()
+
+    // Release resources.
+    outputPool.free(output)
+    kryoPool.free(kryo)
+
+    // Send the data.
+    return sendMessage<T>(dest, bytes, 0, bytes.size, opts)
 }
 
 /**
  * Version of [sendMessageWithFuture] with an object to serialize.
  */
 fun <T> MessageDispatcher.sendMessageWithFuture(
-    kryo: Kryo,
+    kryoPool: Pool<Kryo>,
+    outputPool: Pool<Output>,
     dest: Address?,
     any: Any?,
     opts: RequestOptions?
 ): CompletableFuture<T>? {
-    return KryoOutputPool.with {
-        // Write message.
-        kryo.writeClassAndObject(it, any)
+    // Get resources.
+    val kryo = kryoPool.obtain()
+    val output = outputPool.obtain()
 
-        // Return result of sending with future.
-        val buffer = it.toBytes()
-        sendMessageWithFuture<T>(dest, buffer, 0, buffer.size, opts)
-    }
+    // Save object and convert to bytes.
+    kryo.writeClassAndObject(output, any)
+    val bytes = output.toBytes()
+
+    // Release resources.
+    outputPool.free(output)
+    kryoPool.free(kryo)
+
+    // Send the data.
+    return sendMessageWithFuture<T>(dest, bytes, 0, bytes.size, opts)
 }
 
 /**
  * Version of [castMessage] with an object to serialize.
  */
 fun <T> MessageDispatcher.castMessage(
-    kryo: Kryo,
+    kryoPool: Pool<Kryo>,
+    outputPool: Pool<Output>,
     dests: Collection<Address>?,
     any: Any?,
     opts: RequestOptions?
 ): RspList<T>? {
-    KryoOutputPool.with {
-        // Write message.
-        kryo.writeClassAndObject(it, any)
+    // Get resources.
+    val kryo = kryoPool.obtain()
+    val output = outputPool.obtain()
 
-        // Return result of casting.
-        val buffer = it.toBytes()
-        return castMessage(dests, buffer, 0, buffer.size, opts)
-    }
+    // Save object and convert to bytes.
+    kryo.writeClassAndObject(output, any)
+    val bytes = output.toBytes()
+
+    // Release resources.
+    outputPool.free(output)
+    kryoPool.free(kryo)
+
+    return castMessage(dests, bytes, 0, bytes.size, opts)
 }
 
 /**
  * Version of [castMessageWithFuture] with an object to serialize.
  */
 fun <T> MessageDispatcher.castMessageWithFuture(
-    kryo: Kryo,
+    kryoPool: Pool<Kryo>,
+    outputPool: Pool<Output>,
     dests: Collection<Address>?,
     any: Any?,
     opts: RequestOptions?
 ): CompletableFuture<RspList<T>>? {
-    KryoOutputPool.with {
-        // Write message.
-        kryo.writeClassAndObject(it, any)
+    // Get resources.
+    val kryo = kryoPool.obtain()
+    val output = outputPool.obtain()
 
-        // Return result of casting with future.
-        val buffer = it.toBytes()
-        return castMessageWithFuture(dests, Buffer(buffer, 0, buffer.size), opts)
-    }
+    // Save object and convert to bytes.
+    kryo.writeClassAndObject(output, any)
+    val bytes = output.toBytes()
+
+    // Release resources.
+    outputPool.free(output)
+    kryoPool.free(kryo)
+
+    return castMessageWithFuture(dests, Buffer(bytes, 0, bytes.size), opts)
 }

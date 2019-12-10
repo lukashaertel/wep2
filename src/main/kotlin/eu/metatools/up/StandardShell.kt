@@ -103,7 +103,7 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
 
     /**
      * Run the [block] with the status at time. Will revert every instruction past the [time] and after invoking
-     * the [block] redo every registered instruction.
+     * the [block] redo every registered instruction. Always runs [critical].
      */
     private inline fun runWithStateOf(time: Time, block: () -> Unit) {
         critical {
@@ -231,11 +231,15 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
         }
     }
 
-    override fun <T : Any> list(kClass: KClass<T>): List<T> {
+    override fun <T : Any> list(kClass: KClass<T>): Sequence<T> {
         critical {
+            // Provide all entities that are instance of T, sorted by the ID. Then turn to sequence and filter contained
+            // in the entity table (sequence might change on iteration).
             return central.values
                 .filter { kClass.isInstance(it) }
                 .sortedBy { it.id }
+                .asSequence()
+                .filter { it in central.values }
                 .map { kClass.cast(it) }
         }
     }

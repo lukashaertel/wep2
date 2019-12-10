@@ -11,22 +11,34 @@ sealed class NetMessage
 /**
  * Request to claims table.
  */
-object NetReqClaims : NetMessage()
+object NetReqClaims : NetMessage() {
+    override fun toString() =
+        "NetReqClaims"
+}
 
 /**
  * Request to time delta.
  */
-object NetReqOffset : NetMessage()
+object NetReqOffset : NetMessage() {
+    override fun toString() =
+        "NetReqOffset"
+}
 
 /**
  * Request to data bundle.
  */
-object NetReqBundle : NetMessage()
+object NetReqBundle : NetMessage() {
+    override fun toString() =
+        "NetReqBundle"
+}
 
 /**
  * Network exchanged instruction.
  */
-data class NetInstruction(val instruction: Instruction) : NetMessage()
+data class NetInstruction(val instruction: Instruction) : NetMessage() {
+    override fun toString() =
+        "NetInstruction($instruction)"
+}
 
 /**
  * Claim poke (reassure that [uuid] claims the slot it has or a new one).

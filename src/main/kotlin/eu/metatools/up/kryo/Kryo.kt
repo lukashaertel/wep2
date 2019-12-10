@@ -8,14 +8,13 @@ import eu.metatools.up.net.*
 import java.util.*
 import kotlin.reflect.KClass
 
-/**
- * Creates the default Kotlin [Kryo] or extends [kryo].
- */
-fun makeKryo(kryo: Kryo = Kryo()): Kryo {
+fun setDefaults(kryo: Kryo) {
     // Do not enforce registration.
     kryo.isRegistrationRequired = false
     kryo.warnUnregisteredClasses = true
+}
 
+fun registerKotlinSerializers(kryo: Kryo) {
     // Basic Kotlin types.
     kryo.register(Unit::class.java, UnitSerializer)
     kryo.register(UUID::class.java, UUIDSerializer)
@@ -24,18 +23,11 @@ fun makeKryo(kryo: Kryo = Kryo()): Kryo {
 
     // KClass serializers.
     kryo.addDefaultSerializer(KClass::class.java, KClassSerializer)
-    return kryo
 }
 
-/**
- * Creates the default Up [Kryo] or extends [kryo].
- */
-fun makeUpKryo(kryo: Kryo = makeKryo()): Kryo {
+fun registerUpSerializers(kryo: Kryo) {
     // Up types.
     kryo.register(Lx::class.java, LxSerializer)
-    kryo.register(At::class.java, AtSerializer)
-    kryo.register(Inf::class.java, InfSerializer)
-    kryo.register(Inf::class.java, SupSerializer)
     kryo.register(Time::class.java, TimeSerializer)
     kryo.register(Instruction::class.java, InstructionSerializer)
 
@@ -48,6 +40,4 @@ fun makeUpKryo(kryo: Kryo = makeKryo()): Kryo {
 
     // Up Network data types.
     kryo.register(Claim::class.java, ClaimSerializer)
-
-    return kryo
 }
