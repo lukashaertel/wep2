@@ -1,35 +1,35 @@
 package eu.metatools.up.net
 
-import java.util.*
+import eu.metatools.up.dt.Clock
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 /**
- * Network claim coordinator.
+ * Network sign-off coordinator.
  * @property network The network to coordinate on.
  * @param rate The rate at which to update, defaults to a second.
  * @param rateUnit The unit of the rate, defaults to [TimeUnit.SECONDS].
  */
-class NetworkClaimer(
+class NetworkSignOff(
     val network: Network,
-    val uuid: UUID,
-    changed: ((Short, Short) -> Unit)? = null,
+    changed: ((Long?, Long?) -> Unit)? = null,
     rate: Long = 1L,
     rateUnit: TimeUnit = TimeUnit.SECONDS
 ) : AutoCloseable {
     /**
-     * The current claim for the coordinator, some applications might require this to be constant and should check
-     * for updated values.
+     * The current sign-off for the coordinator.
      */
-    var currentClaim: Short = network.touch(uuid)
+    var currentSignOff = network.signOff()
         private set
 
     /**
      * Executor handle, run periodically.
      */
     private val handle = network.executor.scheduleAtFixedRate({
-        val old = currentClaim
-        val new = network.touch(uuid)
-        currentClaim = new
+        val old = currentSignOff
+        val new = network.signOff()
+        currentSignOff = new
         if (old != new)
             changed?.invoke(old, new)
     }, 0L, rate, rateUnit)

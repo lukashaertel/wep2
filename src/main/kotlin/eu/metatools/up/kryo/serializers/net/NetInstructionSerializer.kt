@@ -8,7 +8,6 @@ import eu.metatools.up.dt.Inf
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.net.NetInstruction
 import eu.metatools.up.net.NetReqClaims
-import eu.metatools.up.net.NetReqOffset
 
 object NetInstructionSerializer : Serializer<NetInstruction>(false, true) {
     override fun write(kryo: Kryo, output: Output, item: NetInstruction) {

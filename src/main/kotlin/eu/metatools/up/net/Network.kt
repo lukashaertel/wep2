@@ -5,6 +5,7 @@ import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.kryo.*
 import eu.metatools.up.lang.never
+import org.jgroups.Address
 import org.jgroups.JChannel
 import org.jgroups.blocks.MessageDispatcher
 import org.jgroups.blocks.RequestOptions
@@ -42,9 +43,14 @@ interface Network {
     fun touch(uuid: UUID): Short
 
     /**
-     * Gets the time adjustment to the coordinator.
+     * Gets the time adjustment to the coordinator. Updates the sign-off.
      */
-    fun offset(): Long
+    fun ping(): Long
+
+    /**
+     * Gets the sign-off time.
+     */
+    fun signOff(): Long?
 
     /**
      * Sends an instruction via the adapter.
@@ -79,6 +85,7 @@ fun makeNetwork(
     leaseTime: Long = 30L,
     leaseTimeUnit: TimeUnit = TimeUnit.MINUTES,
     requestTimeout: Long = 1000L,
+    signOffSlack: Long = 5_000L,
     configureKryo: (Kryo) -> Unit = {
         setDefaults(it)
         registerKotlinSerializers(it)
@@ -138,6 +145,11 @@ fun makeNetwork(
         private val claimed = hashMapOf<UUID, Claim>()
 
         /**
+         * Set of all times received from offset.
+         */
+        private val times = hashMapOf<Address, Long>()
+
+        /**
          * Universal dispatcher.
          */
         val dispatcher = MessageDispatcher().apply {
@@ -146,8 +158,9 @@ fun makeNetwork(
                 // Disambiguate message.
                 when (it) {
                     is NetReqClaims -> onReqClaims()
-                    is NetReqOffset -> onReqOffset()
+                    is NetReqSignOff -> onReqSignOff()
                     is NetReqBundle -> onReqBundle()
+                    is NetPing -> onPing(src, it)
                     is NetInstruction -> onInstruction(it)
                     is NetTouch -> onTouch(it)
                     else -> error("Unknown top level message $it")
@@ -172,12 +185,41 @@ fun makeNetwork(
             return claimed.toMap()
         }
 
-        private fun onReqOffset(): Long {
-            return System.currentTimeMillis()
+        private fun onReqSignOff(): Long? {
+            // Get own time.
+            val self = System.currentTimeMillis()
+
+            // Get current set of addresses.
+            val current = channel.view.members.toSet()
+
+            // Retain only those addresses.
+            times.keys.retainAll(current)
+
+            // Find minimum, if encountering a non-present value, no sign-off yet.
+            var result = Long.MAX_VALUE
+            for (a in current) {
+                // Get time from table or self.
+                val time = if (a == channel.address)
+                    self
+                else
+                    times[a]
+
+                // Take minimum, unless not yet set, then return null.
+                result = minOf(result, time ?: return null)
+            }
+
+            // Return the minimum value, allow for some slack.
+            return result - signOffSlack
         }
+
 
         private fun onReqBundle(): Map<Lx, Any?> {
             return onBundle()
+        }
+
+        private fun onPing(address: Address, req: NetPing): Long {
+            times[address] = req.time
+            return System.currentTimeMillis()
         }
 
         private fun onInstruction(req: NetInstruction) {
@@ -286,23 +328,34 @@ fun makeNetwork(
             return result.value.id
         }
 
-        override fun offset(): Long {
-            // No need to synchronize with self.
-            if (isCoordinating)
-                return 0L
-
-            // Retrieve server time via synchronous send and get RTT.
+        override fun ping(): Long {
+            // Get start time.
             val begin = System.currentTimeMillis()
-            val result = dispatcher.sendMessage<Long>(
-                kryoPool, outputPool, coord, NetReqOffset, sync
-            ) ?: never
+
+            // Request ping or handle locally.
+            val ping = if (isCoordinating)
+                onPing(channel.address, NetPing(begin))
+            else
+                dispatcher.sendMessage<Long>(
+                    kryoPool, outputPool, coord, NetPing(begin), sync
+                ) ?: never
+
+            // Get end time.
             val end = System.currentTimeMillis()
 
             // Adjusted is remote plus time passed since remote generated the message, i.e., RTT over two.
-            val adjusted = result + (end - begin) / 2L
+            val adjusted = ping + (end - begin) / 2L
 
             // Delta is difference from local to actual remote time.
             return adjusted - end
+        }
+
+        override fun signOff(): Long? {
+            // Request sign-off or handle locally.
+            return if (isCoordinating)
+                onReqSignOff()
+            else
+                dispatcher.sendMessage(kryoPool, outputPool, coord, NetReqSignOff, sync)
         }
 
         override fun instruction(instruction: Instruction) {
@@ -313,14 +366,13 @@ fun makeNetwork(
         }
 
         override fun bundle(): Map<Lx, Any?> {
-            // Self-bundle if coordinating.
-            if (channel.view.coord == channel.address)
-                return onBundle()
-
-            // Send request for bundle to coordinator.
-            return dispatcher.sendMessage(
-                kryoPool, outputPool, coord, NetReqBundle, sync
-            ) ?: never
+            // Request bundle or handle locally.
+            return if (isCoordinating)
+                onBundle()
+            else
+                dispatcher.sendMessage(
+                    kryoPool, outputPool, coord, NetReqBundle, sync
+                ) ?: never
         }
 
         override fun close() {

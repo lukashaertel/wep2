@@ -393,6 +393,8 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         // Return non-exchanged local invocation.
         return { time ->
             if (time > last) {
+                // TODO: Yes, this fucks up some stuff. Sign-off hashing shows that those generate differing outputs
+
                 // Generate local instructions.
                 val locals = frequencyProgression(initial, frequency, last, time).asSequence().map {
                     Instruction(id, name, Time(it, shell.player.inv(), rdc), emptyList())

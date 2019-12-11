@@ -42,7 +42,7 @@ class KryoInputPool(threadSafe: Boolean) : Pool<Input>(threadSafe, true) {
 class KryoRequestHandler(
     val kryoPool: Pool<Kryo>,
     val inputPool: Pool<Input>,
-    val block: (Any?) -> Any?
+    val block: Message.(Any?) -> Any?
 ) : RequestHandler {
     override fun handle(msg: Message): Any? {
         // Get resources.
@@ -53,7 +53,7 @@ class KryoRequestHandler(
         input.setBuffer(msg.rawBuffer, msg.offset, msg.length)
 
         // Delegate to block on result of reading from message.
-        val result = block(kryo.readClassAndObject(input))
+        val result = block(msg, kryo.readClassAndObject(input))
 
         // Release resources.
         inputPool.free(input)

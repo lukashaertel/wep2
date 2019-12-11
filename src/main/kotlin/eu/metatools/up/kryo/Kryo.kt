@@ -11,7 +11,6 @@ import kotlin.reflect.KClass
 fun setDefaults(kryo: Kryo) {
     // Do not enforce registration.
     kryo.isRegistrationRequired = false
-    kryo.warnUnregisteredClasses = true
 }
 
 fun registerKotlinSerializers(kryo: Kryo) {
@@ -33,8 +32,9 @@ fun registerUpSerializers(kryo: Kryo) {
 
     // Up Network message types.
     kryo.register(NetReqClaims::class.java, NetReqClaimsSerializer)
-    kryo.register(NetReqOffset::class.java, NetReqOffsetSerializer)
+    kryo.register(NetReqSignOff::class.java, NetReqSignOffSerializer)
     kryo.register(NetReqBundle::class.java, NetReqBundleSerializer)
+    kryo.register(NetPing::class.java, NetPingSerializer)
     kryo.register(NetInstruction::class.java, NetInstructionSerializer)
     kryo.register(NetTouch::class.java, NetTouchSerializer)
 

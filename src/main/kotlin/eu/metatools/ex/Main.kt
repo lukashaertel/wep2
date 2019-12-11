@@ -8,6 +8,7 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
+import com.esotericsoftware.minlog.Log
 import com.google.common.hash.Hashing
 import eu.metatools.f2d.F2DListener
 import eu.metatools.ex.data.stupidBox
@@ -23,6 +24,7 @@ import eu.metatools.up.dt.*
 import eu.metatools.up.kryo.*
 import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
+import eu.metatools.up.net.NetworkSignOff
 import eu.metatools.up.net.makeNetwork
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -31,10 +33,6 @@ val Long.sec get() = this / 1000.0
 
 
 class Frontend : F2DListener(-100f, 100f) {
-//    init {
-//        Log.set(Log.LEVEL_DEBUG)
-//    }
-
     private fun configureKryo(kryo: Kryo) {
         // Add basic serialization.
         setDefaults(kryo)
@@ -77,14 +75,25 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * Network clock.
      */
-    val clock = NetworkClock(net)
+    private val clock = NetworkClock(net)
 
     /**
      * Network player claimer. Claims and holds a player ID per UUID.
      *
      * TODO: Expiry is still a bit fucked.
      */
-    val claimer = NetworkClaimer(net, UUID.randomUUID())
+    private val claimer = NetworkClaimer(net, UUID.randomUUID(), changed = { old, new ->
+        System.err.println("Warning: Claim for engine has changed from $old to $new, this should not happen.")
+    })
+
+    /**
+     * Sign-off coordinator.
+     */
+    private val signOff = NetworkSignOff(net, changed = { old, new ->
+        println("Sign-off moved from $old to $new")
+        if (new != null)
+            signOffValue = new
+    })
 
     /**
      * The shell that runs the game.
@@ -105,6 +114,8 @@ class Frontend : F2DListener(-100f, 100f) {
      * Root world.
      */
     lateinit var world: World
+
+    private var signOffValue: Long? = null
 
     override fun create() {
         super.create()
@@ -147,6 +158,7 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 
     var debug = false
+    var debugNet = false
 
     var rand = false
 
@@ -167,10 +179,6 @@ class Frontend : F2DListener(-100f, 100f) {
     private val generatorRandom = Random()
 
     override fun render(time: Double, delta: Double) {
-        // Verify claim.
-        if (shell.player != claimer.currentClaim)
-            System.err.println("Warning: Claim for engine has changed, this should not happen.")
-
         // Bind current time.
         shell.withTime(clock) {
             // Get own mover (might be non-existent).
@@ -214,16 +222,42 @@ class Frontend : F2DListener(-100f, 100f) {
                         mover.moveInDirection(Cell(generatorRandom.nextInt(3) - 1, generatorRandom.nextInt(3) - 1))
                 }
             }
-
-            // Dispatch global update.
-            world.worldUpdate(clock.time)
-
-            // Render everything.
-            shell.list<Rendered>().forEach { it.render(time) }
-
-            // Run invalidation.
-            shell.engine.invalidate(clock.time - 10_000L)
         }
+
+
+        // Dispatch global update.
+        world.worldUpdate(clock.time)
+
+        // Render everything.
+        shell.list<Rendered>().forEach { it.render(time) }
+
+        // Check if sign off was set.
+        signOffValue?.let {
+            // Invalidate to it.
+            shell.engine.invalidate(it)
+
+            if (debug) {
+                // Store engine.
+                val map = TreeMap<Lx, Any?>()
+                shell.store(map::set)
+                println(map)
+
+                // Hash engine.
+                val kryoPool = KryoConfiguredPool(::configureKryo, false)
+                val hash = Hashing
+                    .sha512()
+                    .newHasher()
+                    .putObject(map, KryoFunnel(kryoPool))
+                    .hash()
+
+                // Print hash.
+                println(hash)
+            }
+
+            // Reset.
+            signOffValue = null
+        }
+
 
         // Process non-game input.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
@@ -236,25 +270,14 @@ class Frontend : F2DListener(-100f, 100f) {
         if (Gdx.input.isKeyJustPressed(Keys.R))
             rand = !rand
 
-        if (Gdx.input.isKeyJustPressed(Keys.GRAVE))
+        if (Gdx.input.isKeyJustPressed(Keys.F9))
             debug = !debug
 
-        if (Gdx.input.isKeyJustPressed(Keys.F9)) {
-            // Store engine.
-            val map = TreeMap<Lx, Any?>()
-            shell.store(map::set)
-
-            // Hash engine.
-            val kryoPool = KryoConfiguredPool(::configureKryo, false)
-            val hash = Hashing
-                .sha512()
-                .newHasher()
-                .putObject(map, KryoFunnel(kryoPool))
-                .hash()
-
-            // Print hash.
-            println(hash)
+        if (Gdx.input.isKeyJustPressed(Keys.F10)) {
+            debugNet = !debugNet
+            Log.set(if (debugNet) Log.LEVEL_DEBUG else Log.LEVEL_INFO)
         }
+
     }
 
     var selectedMover: Mover? = null
@@ -272,8 +295,9 @@ class Frontend : F2DListener(-100f, 100f) {
     override fun dispose() {
         super.dispose()
 
-        clock.close()
+        signOff.close()
         claimer.close()
+        clock.close()
         net.close()
     }
 }

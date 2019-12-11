@@ -17,11 +17,11 @@ object NetReqClaims : NetMessage() {
 }
 
 /**
- * Request to time delta.
+ * Request to sign-off.
  */
-object NetReqOffset : NetMessage() {
+object NetReqSignOff : NetMessage() {
     override fun toString() =
-        "NetReqOffset"
+        "NetReqSignOff"
 }
 
 /**
@@ -31,6 +31,11 @@ object NetReqBundle : NetMessage() {
     override fun toString() =
         "NetReqBundle"
 }
+
+/**
+ * Request to time delta and update sign-off.
+ */
+data class NetPing(val time: Long) : NetMessage()
 
 /**
  * Network exchanged instruction.

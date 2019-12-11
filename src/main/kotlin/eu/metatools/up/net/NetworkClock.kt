@@ -13,13 +13,14 @@ import java.util.concurrent.TimeUnit
  */
 class NetworkClock(
     val network: Network,
+    changed: ((Long, Long) -> Unit)? = null,
     rate: Long = 1L,
     rateUnit: TimeUnit = TimeUnit.SECONDS
 ) : AutoCloseable, Clock {
     /**
      * The current delta time for the coordinator.
      */
-    var currentDeltaTime = network.offset()
+    var currentDeltaTime = network.ping()
         private set
 
     /**
@@ -31,7 +32,11 @@ class NetworkClock(
      * Executor handle, run periodically.
      */
     private val handle = network.executor.scheduleAtFixedRate({
-        currentDeltaTime = network.offset()
+        val old = currentDeltaTime
+        val new = network.ping()
+        currentDeltaTime = new
+        if (old != new)
+            changed?.invoke(old, new)
     }, 0L, rate, rateUnit)
 
     override fun close() {
