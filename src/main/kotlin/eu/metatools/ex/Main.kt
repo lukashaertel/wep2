@@ -6,7 +6,9 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
+import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
+import com.google.common.hash.Hashing
 import eu.metatools.f2d.F2DListener
 import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
@@ -18,9 +20,7 @@ import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.*
 import eu.metatools.up.dt.*
-import eu.metatools.up.kryo.registerKotlinSerializers
-import eu.metatools.up.kryo.registerUpSerializers
-import eu.metatools.up.kryo.setDefaults
+import eu.metatools.up.kryo.*
 import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.makeNetwork
@@ -35,6 +35,29 @@ class Frontend : F2DListener(-100f, 100f) {
 //        Log.set(Log.LEVEL_DEBUG)
 //    }
 
+    private fun configureKryo(kryo: Kryo) {
+        // Add basic serialization.
+        setDefaults(kryo)
+        registerKotlinSerializers(kryo)
+        registerUpSerializers(kryo)
+
+        // Add graphics serialization.
+        registerGDXSerializers(kryo)
+        registerF2DSerializers(kryo)
+
+        // Register data objects.
+        kryo.register(
+            Movers::class.java, DefaultSerializers.EnumSerializer(
+                Movers::class.java
+            )
+        )
+        kryo.register(
+            Tiles::class.java, DefaultSerializers.EnumSerializer(
+                Tiles::class.java
+            )
+        )
+    }
+
     private fun handleBundle(): Map<Lx, Any?> {
         val result = hashMapOf<Lx, Any?>()
         shell.store(result::set)
@@ -48,28 +71,7 @@ class Frontend : F2DListener(-100f, 100f) {
     val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
         leaseTime = 60,
         leaseTimeUnit = TimeUnit.SECONDS,
-        configureKryo = {
-            // Add basic serialization.
-            setDefaults(it)
-            registerKotlinSerializers(it)
-            registerUpSerializers(it)
-
-            // Add graphics serialization.
-            registerGDXSerializers(it)
-            registerF2DSerializers(it)
-
-            // Register data objects.
-            it.register(
-                Movers::class.java, DefaultSerializers.EnumSerializer(
-                    Movers::class.java
-                )
-            )
-            it.register(
-                Tiles::class.java, DefaultSerializers.EnumSerializer(
-                    Tiles::class.java
-                )
-            )
-        }
+        configureKryo = ::configureKryo
     )
 
     /**
@@ -236,6 +238,23 @@ class Frontend : F2DListener(-100f, 100f) {
 
         if (Gdx.input.isKeyJustPressed(Keys.GRAVE))
             debug = !debug
+
+        if (Gdx.input.isKeyJustPressed(Keys.F9)) {
+            // Store engine.
+            val map = TreeMap<Lx, Any?>()
+            shell.store(map::set)
+
+            // Hash engine.
+            val kryoPool = KryoConfiguredPool(::configureKryo, false)
+            val hash = Hashing
+                .sha512()
+                .newHasher()
+                .putObject(map, KryoFunnel(kryoPool))
+                .hash()
+
+            // Print hash.
+            println(hash)
+        }
     }
 
     var selectedMover: Mover? = null

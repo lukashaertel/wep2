@@ -1,9 +1,15 @@
 package eu.metatools.up
 
+import com.google.common.annotations.Beta
+import com.google.common.hash.HashCode
+import com.google.common.hash.HashFunction
+import com.google.common.hash.Hasher
+import com.google.common.hash.Hashing
 import eu.metatools.up.dsl.MapChange
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.Bind
 import eu.metatools.up.lang.BindGenerator
+import java.util.*
 import kotlin.reflect.KClass
 
 /**
@@ -195,7 +201,6 @@ fun Shell.toValue(proxy: Any?): Any? {
         else -> proxy
     }
 }
-
 
 /**
  * Converts the instruction to a value instruction via [Shell.toValue].
