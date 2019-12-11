@@ -1,16 +1,26 @@
+@file:Suppress("UnstableApiUsage")
+
 package eu.metatools.up.kryo
 
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.io.Output
 import com.esotericsoftware.kryo.util.Pool
 import com.google.common.hash.Funnel
+import com.google.common.hash.HashCode
+import com.google.common.hash.HashFunction
 import com.google.common.hash.PrimitiveSink
+import eu.metatools.up.Ent
+import eu.metatools.up.Part
+import eu.metatools.up.Shell
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.dt.div
+import eu.metatools.up.dt.lx
 import java.io.OutputStream
+import java.util.*
 
 /**
  * Uses a [Kryo] pool to funnel primitives.
  */
-@Suppress("UnstableApiUsage")
 class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
     /**
      * Redirects data writes to the primitive sink [target].
@@ -237,3 +247,50 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         kryoPool.free(kryo)
     }
 }
+
+/**
+ * Returns the hash for a part.
+ */
+fun Part.hash(hashFunction: HashFunction, kryoPool: Pool<Kryo>): HashCode {
+    val map = TreeMap<String, Any?>()
+    persist(map::set)
+    return hashFunction.newHasher().putObject(map, KryoFunnel(kryoPool)).hash()
+}
+
+/**
+ * Returns the hash for a part.
+ */
+fun Part.hash(hashFunction: HashFunction, configure: (Kryo) -> Unit) =
+    hash(hashFunction, KryoConfiguredPool(configure, false))
+
+/**
+ * Returns the hash for an entity, including it's [Ent.id].
+ */
+fun Ent.hash(hashFunction: HashFunction, kryoPool: Pool<Kryo>): HashCode {
+    val map = TreeMap<Lx, Any?>()
+    driver.persist { name, key, any -> map[id / name / key] = any }
+    return hashFunction.newHasher().putObject(map, KryoFunnel(kryoPool)).hash()
+}
+
+/**
+ * Returns the hash for an entity, including it's [Ent.id].
+ */
+fun Ent.hash(hashFunction: HashFunction, configure: (Kryo) -> Unit) =
+    hash(hashFunction, KryoConfiguredPool(configure, false))
+
+/**
+ * Returns the hash for a shell. As of now, this might not be stable for sign-offs, as [Ent.repeating] has local
+ * parameters independent of sign-off.
+ */
+fun Shell.hash(hashFunction: HashFunction, kryoPool: Pool<Kryo>): HashCode {
+    val map = TreeMap<Lx, Any?>()
+    store(map::set)
+    return hashFunction.newHasher().putObject(map, KryoFunnel(kryoPool)).hash()
+}
+
+/**
+ * Returns the hash for a shell. As of now, this might not be stable for sign-offs, as [Ent.repeating] has local
+ * parameters independent of sign-off.
+ */
+fun Shell.hash(hashFunction: HashFunction, configure: (Kryo) -> Unit) =
+    hash(hashFunction, KryoConfiguredPool(configure, false))

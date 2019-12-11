@@ -9,13 +9,13 @@ import java.util.concurrent.TimeUnit
  * Network delta time coordinator.
  * @property network The network to coordinate on.
  * @param rate The rate at which to update, defaults to a second.
- * @param rateUnit The unit of the rate, defaults to [TimeUnit.SECONDS].
+ * @param initialDelay The initial delay before retrieval.
  */
 class NetworkClock(
     val network: Network,
     changed: ((Long, Long) -> Unit)? = null,
-    rate: Long = 1L,
-    rateUnit: TimeUnit = TimeUnit.SECONDS
+    rate: Long = 1000L,
+    initialDelay: Long = 0L
 ) : AutoCloseable, Clock {
     /**
      * The current delta time for the coordinator.
@@ -37,7 +37,7 @@ class NetworkClock(
         currentDeltaTime = new
         if (old != new)
             changed?.invoke(old, new)
-    }, 0L, rate, rateUnit)
+    }, initialDelay, rate, TimeUnit.MILLISECONDS)
 
     override fun close() {
         handle.cancel(true)

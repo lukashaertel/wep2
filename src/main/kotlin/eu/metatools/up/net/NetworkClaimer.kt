@@ -7,14 +7,14 @@ import java.util.concurrent.TimeUnit
  * Network claim coordinator.
  * @property network The network to coordinate on.
  * @param rate The rate at which to update, defaults to a second.
- * @param rateUnit The unit of the rate, defaults to [TimeUnit.SECONDS].
+ * @param initialDelay The initial delay before retrieval.
  */
 class NetworkClaimer(
     val network: Network,
     val uuid: UUID,
     changed: ((Short, Short) -> Unit)? = null,
-    rate: Long = 1L,
-    rateUnit: TimeUnit = TimeUnit.SECONDS
+    rate: Long = 1000L,
+    initialDelay: Long = 0L
 ) : AutoCloseable {
     /**
      * The current claim for the coordinator, some applications might require this to be constant and should check
@@ -32,7 +32,7 @@ class NetworkClaimer(
         currentClaim = new
         if (old != new)
             changed?.invoke(old, new)
-    }, 0L, rate, rateUnit)
+    }, initialDelay, rate, TimeUnit.MILLISECONDS)
 
     override fun close() {
         handle.cancel(true)

@@ -176,16 +176,6 @@ class Mover(
         // Submit the visual and the capture.
         frontend.continuous.submit(solid.tint(color), time, mat)
         frontend.continuous.submit(Cube, this, time, mat)
-
-        // If debugging, render text.
-        if (frontend.debug)
-            frontend.continuous.submit(
-                text, "$pos\n$look", time, Mat.translation(
-                    Constants.tileWidth * x,
-                    Constants.tileHeight * y
-                )
-                    .scale(sx = frontend.fontSize, sy = frontend.fontSize)
-            )
     }
 
     override fun update(sec: Double, freq: Long) {

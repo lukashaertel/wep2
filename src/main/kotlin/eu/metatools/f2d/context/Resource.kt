@@ -56,14 +56,14 @@ abstract class MemorizingResource<in A, out I> : LifecycleResource<A, I> {
  */
 abstract class NotifyingResource<in A, out I : Lifecycle> : MemorizingResource<A, I>() {
     /**
-     * Handles initialization of the local resource.
+     * Handles initialization of the local resource. Does nothing on default if no resource level disposable is used.
      */
-    protected abstract fun initializeSelf()
+    protected open fun initializeSelf() {}
 
     /**
-     * Handles disposition of the local resource.
+     * Handles disposition of the local resource. Does nothing on default if no resource level disposable is used.
      */
-    protected abstract fun disposeSelf()
+    protected open fun disposeSelf() {}
 
     /**
      * True if resource is initialized.

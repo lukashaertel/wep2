@@ -15,12 +15,12 @@ import eu.metatools.f2d.F2DListener
 import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.input.KeyStick
+import eu.metatools.f2d.context.Drawable
+import eu.metatools.f2d.context.LifecycleDrawable
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
-import eu.metatools.f2d.tools.Location
-import eu.metatools.f2d.tools.ReferText
-import eu.metatools.f2d.tools.tint
+import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.*
@@ -52,6 +52,9 @@ fun strDiff(a: String, b: String) {
 
     }
 }
+
+fun Long.toNextFullSecond() =
+    1000L - (this % 1000L)
 
 class Frontend : F2DListener(-100f, 100f) {
     private fun configureKryo(kryo: Kryo) {
@@ -110,11 +113,12 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * Sign-off coordinator.
      */
-    private val signOff = NetworkSignOff(net, changed = { old, new ->
-        println("Sign-off at $new")
-        if (new != null)
-            signOffValue = new
-    })
+    private val signOff = NetworkSignOff(net,
+        initialDelay = clock.time.toNextFullSecond(),
+        changed = { _, new ->
+            if (new != null)
+                signOffValue = new
+        })
 
     /**
      * The shell that runs the game.
@@ -209,6 +213,8 @@ class Frontend : F2DListener(-100f, 100f) {
         )]
     }
 
+    private val hashes = mutableListOf<LifecycleDrawable<Unit?>>()
+
     override fun render(time: Double, delta: Double) {
         // Bind current time.
         shell.withTime(clock) {
@@ -219,10 +225,6 @@ class Frontend : F2DListener(-100f, 100f) {
             if (mover == null) {
                 // It is not, allow for recreation.
                 if (Gdx.input.isKeyJustPressed(Keys.F1))
-                    world.createMover(shell.player)
-
-                // If randomly playing, always create new.
-                if (rand)
                     world.createMover(shell.player)
             } else {
                 // Get desired move direction.
@@ -279,9 +281,6 @@ class Frontend : F2DListener(-100f, 100f) {
                 // Remove the ticking last (hacky).
                 map.remove(world.id / "tickers-0" / "last")
 
-                // Print the map for debug purposes.
-                println(map)
-
                 // Hash engine.
                 val kryoPool = KryoConfiguredPool(::configureKryo, false)
                 val hashCode = Hashing
@@ -290,12 +289,10 @@ class Frontend : F2DListener(-100f, 100f) {
                     .putObject(map, KryoFunnel(kryoPool))
                     .hash()
 
-                // Update debug hashes.
-                hash += "${System.lineSeparator()}$it: $hashCode"
-                hash = hash.lines().takeLast(10).joinToString(System.lineSeparator())
-
-                // ALso print hash code.
-                println(hashCode)
+                val bytes = hashCode.asBytes()
+                hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
+                while (hashes.size > 5)
+                    hashes.asReversed().removeAt(0).dispose()
             }
 
             // Reset.
@@ -303,7 +300,9 @@ class Frontend : F2DListener(-100f, 100f) {
         }
 
         if (debug) {
-            continuous.submit(console, hash, time, Mat.translation(16f, 16f).scale(12f))
+            for ((i, h) in hashes.withIndex()) {
+                continuous.submit(h, time, Mat.translation(32f, 32f + (i * 64f)).scale(48f))
+            }
         }
 
         // Process non-game input.
@@ -328,8 +327,6 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 
     var selectedMover: Mover? = null
-
-    var hash: String = ""
 
     override fun capture(result: Any, intersection: Vec) {
         // Result is a mover, memorize it.
