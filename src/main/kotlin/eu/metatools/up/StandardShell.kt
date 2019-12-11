@@ -14,7 +14,7 @@ import kotlin.reflect.full.isSupertypeOf
 /**
  * Standard shell and engine with bound player and proxy nodes for incoming and outgoing instructions.
  */
-class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
+class StandardShell(override val player: Short, val synchronized: Boolean = true) : Shell {
     companion object {
         /**
          * Type of the [Shell], used for restore.
@@ -198,16 +198,6 @@ class StandardShell(player: Short, val synchronized: Boolean = true) : Shell {
             }
         }
     }
-
-
-    /**
-     * The player number.
-     */
-    override val player = validate(player < 0) {
-        // TODO: Should in the end not be actually limiting.
-        "For standard engine, player IDs are limited to negative section."
-    } ?: player
-
 
     override var initializedTime = System.currentTimeMillis()
         private set

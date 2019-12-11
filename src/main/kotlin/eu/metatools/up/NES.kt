@@ -16,7 +16,7 @@ fun main() {
 
         var lastChild by prop<S?> { null }
 
-        val update = repeating(1000, shell::initializedTime) {
+        val update = repeating(Short.MAX_VALUE, 1000, shell::initializedTime) {
             y++
             println(this)
         }

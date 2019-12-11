@@ -109,6 +109,7 @@ class Mover(
                 vertical = Location.Center
             )].tint(Color.RED)
         }
+
         /**
          * The text drawable.
          */

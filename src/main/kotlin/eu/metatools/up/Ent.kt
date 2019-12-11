@@ -330,6 +330,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * @param function The function to run. Itself will have [time] properly assigned during it's invocation.
      */
     protected fun repeating(
+        player: Short,
         frequency: Long,
         init: () -> Long,
         function: () -> Any?
@@ -397,7 +398,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
 
                 // Generate local instructions.
                 val locals = frequencyProgression(initial, frequency, last, time).asSequence().map {
-                    Instruction(id, name, Time(it, shell.player.inv(), rdc), emptyList())
+                    Instruction(id, name, Time(it, player, rdc), emptyList())
                 }
 
                 // Transfer last time.

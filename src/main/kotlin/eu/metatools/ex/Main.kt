@@ -6,6 +6,7 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
+import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
 import com.esotericsoftware.minlog.Log
@@ -17,6 +18,9 @@ import eu.metatools.ex.input.KeyStick
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.tools.Location
+import eu.metatools.f2d.tools.ReferText
+import eu.metatools.f2d.tools.tint
 import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.*
@@ -31,6 +35,23 @@ import java.util.concurrent.TimeUnit
 
 val Long.sec get() = this / 1000.0
 
+
+fun strDiff(a: String, b: String) {
+    var l = ""
+    var r = ""
+    for (i in 0 until minOf(a.length, b.length)) {
+        l += a[i]
+        r += b[i]
+
+        if (a.subSequence(0, i) != b.subSequence(0, i)) {
+            println("Differing at $i")
+            println("A: ${a.substring(i)}")
+            println("B: ${b.substring(i)}")
+            return
+        }
+
+    }
+}
 
 class Frontend : F2DListener(-100f, 100f) {
     private fun configureKryo(kryo: Kryo) {
@@ -90,7 +111,7 @@ class Frontend : F2DListener(-100f, 100f) {
      * Sign-off coordinator.
      */
     private val signOff = NetworkSignOff(net, changed = { old, new ->
-        println("Sign-off moved from $old to $new")
+        println("Sign-off at $new")
         if (new != null)
             signOffValue = new
     })
@@ -178,6 +199,16 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private val generatorRandom = Random()
 
+    /**
+     * The text drawable.
+     */
+    private val console by lazy {
+        Resources.consolas[ReferText(
+            horizontal = Location.Start,
+            vertical = Location.End
+        )]
+    }
+
     override fun render(time: Double, delta: Double) {
         // Bind current time.
         shell.withTime(clock) {
@@ -240,24 +271,40 @@ class Frontend : F2DListener(-100f, 100f) {
                 // Store engine.
                 val map = TreeMap<Lx, Any?>()
                 shell.store(map::set)
+
+                // Remove instructions after the slack area.
+                val register = map[lx / ".engine" / ".register"] as List<Instruction>
+                map[lx / ".engine" / ".register"] = register.filter { inst -> inst.time.global < it + 2000 }
+
+                // Remove the ticking last (hacky).
+                map.remove(world.id / "tickers-0" / "last")
+
+                // Print the map for debug purposes.
                 println(map)
 
                 // Hash engine.
                 val kryoPool = KryoConfiguredPool(::configureKryo, false)
-                val hash = Hashing
-                    .sha512()
+                val hashCode = Hashing
+                    .farmHashFingerprint64()
                     .newHasher()
                     .putObject(map, KryoFunnel(kryoPool))
                     .hash()
 
-                // Print hash.
-                println(hash)
+                // Update debug hashes.
+                hash += "${System.lineSeparator()}$it: $hashCode"
+                hash = hash.lines().takeLast(10).joinToString(System.lineSeparator())
+
+                // ALso print hash code.
+                println(hashCode)
             }
 
             // Reset.
             signOffValue = null
         }
 
+        if (debug) {
+            continuous.submit(console, hash, time, Mat.translation(16f, 16f).scale(12f))
+        }
 
         // Process non-game input.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
@@ -281,6 +328,8 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 
     var selectedMover: Mover? = null
+
+    var hash: String = ""
 
     override fun capture(result: Any, intersection: Vec) {
         // Result is a mover, memorize it.

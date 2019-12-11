@@ -81,7 +81,7 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     /**
      * Repeater generating updates in 40ms intervals.
      */
-    val worldUpdate = repeating(40, shell::initializedTime) {
+    val worldUpdate = repeating(Short.MAX_VALUE, 40, shell::initializedTime) {
         shell.list<Ticking>().forEach {
             require(it !is Ent || it.driver.isConnected)
             it.update((time.global - shell.initializedTime).sec, 40)
