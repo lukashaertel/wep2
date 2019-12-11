@@ -1,4 +1,4 @@
-package eu.metatools.f2d.ex
+package eu.metatools.ex
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
@@ -7,8 +7,10 @@ import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
-import com.esotericsoftware.minlog.Log
 import eu.metatools.f2d.F2DListener
+import eu.metatools.ex.data.stupidBox
+import eu.metatools.ex.ents.*
+import eu.metatools.ex.input.KeyStick
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
@@ -29,9 +31,9 @@ val Long.sec get() = this / 1000.0
 
 
 class Frontend : F2DListener(-100f, 100f) {
-    init {
-        Log.set(Log.LEVEL_DEBUG)
-    }
+//    init {
+//        Log.set(Log.LEVEL_DEBUG)
+//    }
 
     private fun handleBundle(): Map<Lx, Any?> {
         val result = hashMapOf<Lx, Any?>()
@@ -57,17 +59,34 @@ class Frontend : F2DListener(-100f, 100f) {
             registerF2DSerializers(it)
 
             // Register data objects.
-            it.register(Movers::class.java, DefaultSerializers.EnumSerializer(Movers::class.java))
-            it.register(Tiles::class.java, DefaultSerializers.EnumSerializer(Tiles::class.java))
+            it.register(
+                Movers::class.java, DefaultSerializers.EnumSerializer(
+                    Movers::class.java
+                )
+            )
+            it.register(
+                Tiles::class.java, DefaultSerializers.EnumSerializer(
+                    Tiles::class.java
+                )
+            )
         }
     )
 
-    // TODO: Expiry is still a bit fucked.
-
+    /**
+     * Network clock.
+     */
     val clock = NetworkClock(net)
 
+    /**
+     * Network player claimer. Claims and holds a player ID per UUID.
+     *
+     * TODO: Expiry is still a bit fucked.
+     */
     val claimer = NetworkClaimer(net, UUID.randomUUID())
 
+    /**
+     * The shell that runs the game.
+     */
     val shell = StandardShell(claimer.currentClaim).also {
         it.onTransmit = net::instruction
     }
@@ -79,51 +98,19 @@ class Frontend : F2DListener(-100f, 100f) {
     override val time: Double
         get() = (clock.time - shell.initializedTime).sec
 
-    val map = mutableMapOf<Cell, TileKind>().also {
-        for (x in 0..10)
-            for (y in 0..10) {
-                val xy = Cell(x, y)
-                it[xy] = if (x in 1..9 && y in 1..9)
-                    Tiles.A
-                else
-                    Tiles.B
-            }
-
-        it[Cell(3, 2)] = Tiles.B
-        it[Cell(3, 3)] = Tiles.B
-        it[Cell(4, 2)] = Tiles.B
-        it[Cell(4, 3)] = Tiles.B
-        it[Cell(5, 3)] = Tiles.B
-        it[Cell(5, 6)] = Tiles.B
-    }.toMap()
 
     /**
-     * Get or create the world entity.
+     * Root world.
      */
-    val world = if (net.isCoordinating) {
-        World(shell, lx / "root", map).also {
-            shell.engine.add(it)
-        }
-    } else {
-        // Restore, resolve root.
-        val bundle = net.bundle()
-        shell.critical {
-            shell.loadFromMap(bundle, true)
-        }
-        shell.resolve(lx / "root") as World
-    }
-
-    init {
-        shell.withTime(clock) {
-            world.createMover(shell.player)
-        }
-    }
+    lateinit var world: World
 
     override fun create() {
         super.create()
-        frontendReady = true
+
+        // Set model scaling to display scaled up.
         model = Mat.scaling(2f, 2f)
 
+        // Set title.
         Gdx.graphics.setTitle("Joined, player: ${shell.player}")
 
         // After creation, also connect the input processor.
@@ -137,69 +124,106 @@ class Frontend : F2DListener(-100f, 100f) {
                 return true
             }
         }
+
+        // Assign world from loading or creating.
+        world = if (net.isCoordinating) {
+            World(shell, lx / "root", stupidBox).also {
+                shell.engine.add(it)
+            }
+        } else {
+            // Restore, resolve root.
+            val bundle = net.bundle()
+            shell.critical {
+                shell.loadFromMap(bundle, true)
+            }
+            shell.resolve(lx / "root") as World
+        }
+
+        shell.withTime(clock) {
+            world.createMover(shell.player)
+        }
     }
 
-    var consoleVisible = false
+    var debug = false
 
     var rand = false
 
     private val keyStick = KeyStick()
+
     var fontSize = Constants.tileHeight / 2f
+
     private fun ownMover(): Mover? =
         shell.list<Mover>().find { it.owner == shell.player }
 
+    override fun render() {
+        // Block network on all rendering, including sending via Once.
+        shell.critical {
+            super.render()
+        }
+    }
+
+    private val generatorRandom = Random()
+
     override fun render(time: Double, delta: Double) {
+        // Verify claim.
         if (shell.player != claimer.currentClaim)
             System.err.println("Warning: Claim for engine has changed, this should not happen.")
 
         // Bind current time.
-        // FUCK NETWORK
-        shell.critical {
-            shell.withTime(clock) {
-                // If coordinator, responsible for disposing of now unclaimed IDs.
-                if (net.isCoordinating)
-                    world.movers.forEach {
-                        if (!it.dead && !net.isClaimed(it.owner))
-                            it.kill()
+        shell.withTime(clock) {
+            // Get own mover (might be non-existent).
+            val mover = ownMover()
+
+            // Check if mover is there.
+            if (mover == null) {
+                // It is not, allow for recreation.
+                if (Gdx.input.isKeyJustPressed(Keys.F1))
+                    world.createMover(shell.player)
+
+                // If randomly playing, always create new.
+                if (rand)
+                    world.createMover(shell.player)
+            } else {
+                // Get desired move direction.
+                val move = keyStick.fetch()
+
+                // Movement is present, pass to mover.
+                if (move != null)
+                    mover.moveInDirection(move)
+
+                // Space was pressed, shot in direction.
+                if (Gdx.input.isKeyJustPressed(Keys.SPACE))
+                    mover.shoot(null)
+
+                // Mouse is pressed, shoot at target.
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT))
+                    selectedMover?.takeIf { it.driver.isConnected }?.let { o ->
+                        mover.shoot(o.pos - mover.pos)
                     }
 
-                val cr = Random()
+                // Check if randomly playing.
+                if (rand) {
+                    // In some possibility, shoot.
+                    if (generatorRandom.nextDouble() > 0.9)
+                        mover.shoot(null)
 
-                ownMover()?.let {
-                    val move = keyStick.fetch()
-                    if (move != null)
-                        it.dir(move)
-                    if (Gdx.input.isKeyJustPressed(Keys.SPACE))
-                        it.shoot(null)
-
-                    if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT))
-                        selectedMover?.takeIf { it.driver.isConnected }?.let { o ->
-                            it.shoot(o.pos - it.pos)
-                        }
-
-                    if (rand) {
-                        if (cr.nextDouble() > 0.8)
-                            it.shoot(null)
-
-                        if (cr.nextDouble() > 0.1)
-                            it.dir(Cell(cr.nextInt(3) - 1, cr.nextInt(3) - 1))
-                    }
-                } ?: run {
-                    if (Gdx.input.isKeyJustPressed(Keys.F1))
-                        world.createMover(shell.player)
-
-                    if (rand)
-                        world.createMover(shell.player)
+                    // In some possibility, move.
+                    if (generatorRandom.nextDouble() > 0.4)
+                        mover.moveInDirection(Cell(generatorRandom.nextInt(3) - 1, generatorRandom.nextInt(3) - 1))
                 }
-
-
-                world.worldUpdate(clock.time)
-                shell.engine.invalidate(clock.time - 10_000L)
-
-                shell.list<Rendered>().forEach { it.render(time) }
             }
+
+            // Dispatch global update.
+            world.worldUpdate(clock.time)
+
+            // Render everything.
+            shell.list<Rendered>().forEach { it.render(time) }
+
+            // Run invalidation.
+            shell.engine.invalidate(clock.time - 10_000L)
         }
 
+        // Process non-game input.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
             model = Mat.scaling(1f, 1f)
         if (Gdx.input.isKeyJustPressed(Keys.NUM_2))
@@ -211,12 +235,13 @@ class Frontend : F2DListener(-100f, 100f) {
             rand = !rand
 
         if (Gdx.input.isKeyJustPressed(Keys.GRAVE))
-            consoleVisible = !consoleVisible
+            debug = !debug
     }
 
     var selectedMover: Mover? = null
 
     override fun capture(result: Any, intersection: Vec) {
+        // Result is a mover, memorize it.
         if (result is Mover)
             selectedMover = result
     }
@@ -234,7 +259,6 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 }
 
-var frontendReady = false
 lateinit var frontend: Frontend
 
 fun main() {

@@ -1,4 +1,4 @@
-package eu.metatools.f2d.ex
+package eu.metatools.ex.math
 
 import eu.metatools.f2d.math.Pt
 
@@ -141,11 +141,19 @@ data class SDFSegment(val x: Int, val y: Int, val length: Int, val vertical: Boo
     fun sdf(radiusX: Float, radiusY: Float) =
         if (vertical)
             { pt: Pt ->
-                squareFromTo(Pt(x - radiusX, y - radiusY), Pt(x + radiusX, y + length - 1 + radiusY), pt)
+                squareFromTo(
+                    Pt(x - radiusX, y - radiusY),
+                    Pt(x + radiusX, y + length - 1 + radiusY),
+                    pt
+                )
             }
         else
             { pt: Pt ->
-                squareFromTo(Pt(x - radiusX, y - radiusY), Pt(x + length - 1 + radiusX, y + radiusY), pt)
+                squareFromTo(
+                    Pt(x - radiusX, y - radiusY),
+                    Pt(x + length - 1 + radiusX, y + radiusY),
+                    pt
+                )
             }
 
 }
@@ -190,7 +198,14 @@ class SDFComposer(val radiusX: Float = 0.5f, val radiusY: Float = 0.5f) {
             if (start != null && end != null) {
                 segments.remove(start)
                 segments.remove(end)
-                segments.add(SDFSegment(end.x, end.y, end.length + 1 + start.length, vertical))
+                segments.add(
+                    SDFSegment(
+                        end.x,
+                        end.y,
+                        end.length + 1 + start.length,
+                        vertical
+                    )
+                )
             } else if (start != null) {
                 segments.remove(start)
                 segments.add(start.extendStart())

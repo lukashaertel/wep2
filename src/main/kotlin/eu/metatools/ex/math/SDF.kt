@@ -1,4 +1,4 @@
-package eu.metatools.f2d.ex
+package eu.metatools.ex.math
 
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Pt
@@ -142,7 +142,12 @@ inline fun root(f: (Pt) -> Float, ipt: Pt, maxIter: Int = 8, o: Float = 0.8125f)
 
 
 fun main() {
-    val parts = (0..10).map { { pt: Pt -> square(Pt(1.0f, 0.5f), pt + Pt.X * it.toFloat() * 0.5f) } }
+    val parts = (0..10).map { { pt: Pt ->
+        square(
+            Pt(1.0f, 0.5f),
+            pt + Pt.X * it.toFloat() * 0.5f
+        )
+    } }
     val df = union(parts)
     val p = root(df, Pt(-0.25f, 0.2f))
     println(p)

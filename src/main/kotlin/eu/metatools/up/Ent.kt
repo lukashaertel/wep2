@@ -155,6 +155,12 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         id / method / time
 
     /**
+     * Gets the fractional seconds since the shell was initialized.
+     */
+    protected val elapsed
+        get() = (time.global - shell.initializedTime) / 1000.0
+
+    /**
      * Marks that an entity has been constructed. This will add the entity to the tracking of the [Engine] and deal with
      * undoing tracking on resets.
      */

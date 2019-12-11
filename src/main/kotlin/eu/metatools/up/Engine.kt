@@ -47,8 +47,9 @@ interface Engine {
     /**
      * Invalidates every time constrained value before the given time.
      */
-    fun invalidate(global: Long): Unit =
-        throw UnsupportedOperationException()
+    fun invalidate(global: Long) {
+        // Do nothing.
+    }
 }
 
 /**
