@@ -414,11 +414,11 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
                     Instruction(id, name, Time(it, player, rdc), emptyList())
                 }
 
-                // Transfer last time.
-                last = time
-
                 // Call unsafe local receive.
                 shell.engine.local(locals)
+
+                // Transfer last time.
+                last = time
             }
         }
     }

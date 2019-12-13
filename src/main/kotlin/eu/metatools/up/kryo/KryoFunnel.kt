@@ -5,18 +5,15 @@ package eu.metatools.up.kryo
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.io.Output
 import com.esotericsoftware.kryo.util.Pool
-import com.google.common.hash.Funnel
-import com.google.common.hash.HashCode
-import com.google.common.hash.HashFunction
-import com.google.common.hash.PrimitiveSink
+import com.google.common.hash.*
 import eu.metatools.up.Ent
 import eu.metatools.up.Part
 import eu.metatools.up.Shell
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
-import eu.metatools.up.dt.lx
 import java.io.OutputStream
 import java.util.*
+import kotlin.math.roundToInt
 
 /**
  * Uses a [Kryo] pool to funnel primitives.
@@ -26,6 +23,20 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
      * Redirects data writes to the primitive sink [target].
      */
     private class OutputPrimitiveSink(val target: PrimitiveSink) : Output() {
+        val surrogatePrecision = 100.0
+
+        /**
+         * Puts surrogates for rounding errors.
+         */
+        private fun PrimitiveSink.putFloatSurrogate(float: Float) =
+            putInt((float * surrogatePrecision).roundToInt())
+
+        /**
+         * Puts surrogates for rounding errors.
+         */
+        private fun PrimitiveSink.putDoubleSurrogate(double: Double) =
+            putInt((double * surrogatePrecision).roundToInt())
+
         override fun writeShort(value: Int) {
             target.putShort(value.toShort())
         }
@@ -44,12 +55,12 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
 
         override fun writeFloats(array: FloatArray, offset: Int, count: Int) {
             for (i in 0 until count)
-                target.putFloat(array[offset + i])
+                target.putFloatSurrogate(array[offset + i])
         }
 
         override fun writeDoubles(array: DoubleArray, offset: Int, count: Int) {
             for (i in 0 until count)
-                target.putDouble(array[offset + i])
+                target.putDoubleSurrogate(array[offset + i])
         }
 
         override fun write(value: Int) {
@@ -104,7 +115,7 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         }
 
         override fun writeVarFloat(value: Float, precision: Float, optimizePositive: Boolean): Int {
-            target.putFloat(value)
+            target.putFloatSurrogate(value)
             return 0
         }
 
@@ -134,7 +145,7 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         }
 
         override fun writeDouble(value: Double) {
-            target.putDouble(value)
+            target.putDoubleSurrogate(value)
         }
 
         override fun writeByte(value: Byte) {
@@ -153,7 +164,7 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         }
 
         override fun writeFloat(value: Float) {
-            target.putFloat(value)
+            target.putFloatSurrogate(value)
         }
 
         override fun require(required: Int): Boolean {
@@ -184,7 +195,7 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         }
 
         override fun writeVarDouble(value: Double, precision: Double, optimizePositive: Boolean): Int {
-            target.putDouble(value)
+            target.putDoubleSurrogate(value)
             return 0
         }
 
@@ -251,46 +262,46 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
 /**
  * Returns the hash for a part.
  */
-fun Part.hash(hashFunction: HashFunction, kryoPool: Pool<Kryo>): HashCode {
+fun Part.hashTo(target: Hasher, kryoPool: Pool<Kryo>) {
     val map = TreeMap<String, Any?>()
     persist(map::set)
-    return hashFunction.newHasher().putObject(map, KryoFunnel(kryoPool)).hash()
+    target.putObject(map, KryoFunnel(kryoPool))
 }
 
 /**
  * Returns the hash for a part.
  */
-fun Part.hash(hashFunction: HashFunction, configure: (Kryo) -> Unit) =
-    hash(hashFunction, KryoConfiguredPool(configure, false))
+fun Part.hashTo(target: Hasher, configure: (Kryo) -> Unit) =
+    hashTo(target, KryoConfiguredPool(configure, false))
 
 /**
  * Returns the hash for an entity, including it's [Ent.id].
  */
-fun Ent.hash(hashFunction: HashFunction, kryoPool: Pool<Kryo>): HashCode {
+fun Ent.hashTo(target: Hasher, kryoPool: Pool<Kryo>) {
     val map = TreeMap<Lx, Any?>()
     driver.persist { name, key, any -> map[id / name / key] = any }
-    return hashFunction.newHasher().putObject(map, KryoFunnel(kryoPool)).hash()
+    target.putObject(map, KryoFunnel(kryoPool))
 }
 
 /**
  * Returns the hash for an entity, including it's [Ent.id].
  */
-fun Ent.hash(hashFunction: HashFunction, configure: (Kryo) -> Unit) =
-    hash(hashFunction, KryoConfiguredPool(configure, false))
+fun Ent.hashTo(target: Hasher, configure: (Kryo) -> Unit) =
+    hashTo(target, KryoConfiguredPool(configure, false))
 
 /**
  * Returns the hash for a shell. As of now, this might not be stable for sign-offs, as [Ent.repeating] has local
  * parameters independent of sign-off.
  */
-fun Shell.hash(hashFunction: HashFunction, kryoPool: Pool<Kryo>): HashCode {
+fun Shell.hashTo(target: Hasher, kryoPool: Pool<Kryo>) {
     val map = TreeMap<Lx, Any?>()
     store(map::set)
-    return hashFunction.newHasher().putObject(map, KryoFunnel(kryoPool)).hash()
+    target.putObject(map, KryoFunnel(kryoPool))
 }
 
 /**
  * Returns the hash for a shell. As of now, this might not be stable for sign-offs, as [Ent.repeating] has local
  * parameters independent of sign-off.
  */
-fun Shell.hash(hashFunction: HashFunction, configure: (Kryo) -> Unit) =
-    hash(hashFunction, KryoConfiguredPool(configure, false))
+fun Shell.hashTo(target: Hasher, configure: (Kryo) -> Unit) =
+    hashTo(target, KryoConfiguredPool(configure, false))

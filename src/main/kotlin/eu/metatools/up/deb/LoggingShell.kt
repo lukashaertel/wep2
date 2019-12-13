@@ -25,9 +25,9 @@ data class LoggingShell<S : Shell>(val on: S, val appendable: Appendable) : Shel
     override fun <T : Any> list(kClass: KClass<T>) =
         on.list(kClass)
 
-    override fun load(shellIn: ShellIn) {
+    override fun load(shell: Shell, shellIn: ShellIn) {
         appendable.appendln("shell load $shellIn")
-        on.load(shellIn)
+        on.load(shell, shellIn)
         appendable.appendln("end")
     }
 

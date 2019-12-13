@@ -22,7 +22,7 @@ import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.*
-import eu.metatools.up.deb.LoggingShell
+import eu.metatools.up.deb.SnapshotShell
 import eu.metatools.up.dt.*
 import eu.metatools.up.kryo.*
 import eu.metatools.up.net.NetworkClaimer
@@ -122,9 +122,24 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * The shell that runs the game.
      */
-    val shell = LoggingShell(StandardShell(claimer.currentClaim).also {
+    val shell = SnapshotShell(StandardShell(claimer.currentClaim).also {
         it.send = net::instruction
-    }, System.out)
+    }, 3000L, {
+        engine.invalidate(it - 5000)
+
+        if (debug) {
+            val pool = KryoConfiguredPool(::configureKryo, false)
+            val target = Hashing.farmHashFingerprint64().newHasher()
+            list<Mover>().forEach { ent -> ent.hashTo(target, pool) }
+            val bytes = target.hash().asBytes()
+            hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
+            while (hashes.size > 5)
+                hashes.asReversed().removeAt(0).dispose()
+        }
+
+    }, {
+        println("Invalidated snapshot $it")
+    })
 
 
     /**
@@ -171,7 +186,7 @@ class Frontend : F2DListener(-100f, 100f) {
             // Restore, resolve root.
             val bundle = net.bundle()
             shell.on.critical {
-                shell.loadFromMap(bundle, true)
+                shell.loadFromMap(shell, bundle, true)
             }
             shell.resolve(lx / "root") as World
         }
@@ -263,43 +278,14 @@ class Frontend : F2DListener(-100f, 100f) {
         // Render everything.
         shell.list<Rendered>().forEach { it.render(time) }
 
-        // Check if sign off was set.
-        signOffValue?.let {
-            // Invalidate to it.
-            shell.engine.invalidate(it)
-
-            if (debug) {
-                // Store engine.
-                val map = TreeMap<Lx, Any?>()
-                shell.store(map::set)
-
-                // Remove instructions after the slack area.
-                val register = map[lx / ".engine" / ".register"] as List<Instruction>
-                map[lx / ".engine" / ".register"] = register.filter { inst -> inst.time.global < it + 2000 }
-
-                // Remove the ticking last (hacky).
-                map.remove(world.id / "tickers-0" / "last")
-
-                println(it)
-                println(map)
-
-                // Hash engine.
-                val kryoPool = KryoConfiguredPool(::configureKryo, false)
-                val hashCode = Hashing
-                    .farmHashFingerprint64()
-                    .newHasher()
-                    .putObject(map, KryoFunnel(kryoPool))
-                    .hash()
-
-                val bytes = hashCode.asBytes()
-                hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
-                while (hashes.size > 5)
-                    hashes.asReversed().removeAt(0).dispose()
-            }
-
-            // Reset.
-            signOffValue = null
-        }
+//        // Check if sign off was set.
+//        signOffValue?.let {
+//            // Invalidate to it.
+//            shell.engine.invalidate(it)
+//
+//            // Reset.
+//            signOffValue = null
+//        }
 
         if (debug) {
             for ((i, h) in hashes.withIndex()) {

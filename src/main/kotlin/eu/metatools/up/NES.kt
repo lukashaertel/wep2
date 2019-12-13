@@ -89,7 +89,7 @@ fun main() {
     } else {
         // Restore, resolve root.
         val bundle = network.bundle()
-        shell.load(bundle::get)
+        shell.load(shell, bundle::get)
         shell.resolve(lx / "root") as S
     }
 

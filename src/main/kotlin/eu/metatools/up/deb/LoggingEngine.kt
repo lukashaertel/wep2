@@ -5,6 +5,7 @@ import eu.metatools.up.Engine
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dt.Instruction
+import eu.metatools.up.dt.Time
 
 data class LoggingEngine<S : Shell, E : Engine>(override val shell: S, val on: E, val appendable: Appendable) : Engine {
 

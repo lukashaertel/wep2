@@ -237,7 +237,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
         }
     }
 
-    override fun load(shellIn: ShellIn) {
+    override fun load(shell: Shell, shellIn: ShellIn) {
         runWithStateOf(genesis) {
             // Disconnect and clear entity table.
             central.values.forEach { it.driver.disconnect() }
@@ -261,7 +261,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                 // Construct by arguments, map extra parameters by their type.
                 val ent = c.constructBy(e) { param ->
                     when {
-                        param.type.isSupertypeOf(scopeType) -> Box(this)
+                        param.type.isSupertypeOf(scopeType) -> Box(shell)
                         param.type.isSupertypeOf(lxType) -> Box(it)
                         else -> null
                     }
