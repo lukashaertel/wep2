@@ -3,13 +3,12 @@ package eu.metatools.up
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.constructBy
 import eu.metatools.up.lang.never
-import eu.metatools.up.lang.validate
 import java.util.*
 import kotlin.collections.HashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.full.cast
-import kotlin.reflect.full.createType
 import kotlin.reflect.full.isSupertypeOf
+import kotlin.reflect.typeOf
 
 /**
  * Standard shell and engine with bound player and proxy nodes for incoming and outgoing instructions.
@@ -19,12 +18,14 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
         /**
          * Type of the [Shell], used for restore.
          */
-        private val scopeType = Shell::class.createType()
+        @Suppress("experimental_api_usage_error")
+        private val scopeType = typeOf<Shell>()
 
         /**
          * Type of the [Lx], used for restore.
          */
-        private val lxType = Lx::class.createType()
+        @Suppress("experimental_api_usage_error")
+        private val lxType = typeOf<Lx>()
 
         /**
          * Bundle root.
@@ -99,7 +100,8 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
     /**
      * Currently capturing undo sequence.
      */
-    private var currentUndo = hashMapOf<Lx, () -> Unit>()
+    private var currentUndo = mutableListOf<() -> Unit>()
+
 
     /**
      * Run the [block] with the status at time. Will revert every instruction past the [time] and after invoking
@@ -125,8 +127,8 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                 // Resolve entity, perform operation.
                 resolve(it.instruction.target)?.driver?.perform(it.instruction)
 
-                // Compile undo.
-                val undos = currentUndo.values.toList()
+                // Compile undo. // TODO: Everyhing is horrible
+                val undos = currentUndo.asReversed().toList()
 
                 // Assign as new undo.
                 it.undo = {
@@ -149,8 +151,9 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                     }
                 }
 
-                // Connect entity.
+                // Connect entity, mark as ready.
                 ent.driver.connect(null)
+                ent.driver.ready()
             }
         }
 
@@ -166,15 +169,15 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
             }
         }
 
-        override fun capture(id: Lx, undo: () -> Unit) {
-            currentUndo.putIfAbsent(id, undo)
+        override fun capture(undo: () -> Unit) {
+            currentUndo.add(undo)
         }
 
         override fun exchange(instruction: Instruction) {
             runWithStateOf(instruction.time) {
                 // Add to register, transmit instruction with proxies.
                 insertToRegister(instruction)
-                onTransmit?.invoke(instruction.toProxyWith(shell))
+                send?.invoke(instruction.toProxyWith(shell))
             }
         }
 
@@ -289,6 +292,11 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                 .groupingBy { it.global }
                 .fold(Byte.MIN_VALUE) { p, c -> maxOf(p, c.local) }
                 .mapValuesTo(locals) { (_, v) -> v.inc() }
+
+            // Ready all values.
+            central.values.forEach {
+                it.driver.ready()
+            }
         }
     }
 
@@ -323,16 +331,12 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
     /**
      * Outgoing connection node, will be invoked with a fully proxified instruction.
      */
-    var onTransmit: ((Instruction) -> Unit)? = null
-
-    private fun insertToRegister(instruction: Instruction) {
-        require(register.put(instruction.time, Reg(instruction) {}) == null)
-    }
+    override var send: ((Instruction) -> Unit)? = null
 
     /**
      * Incoming connection node, call with a received proxified instruction.
      */
-    fun receive(instructions: Sequence<Instruction>) {
+    override fun receive(instructions: Sequence<Instruction>) {
         // Get minimum revert time.
         val limit = instructions.map(Instruction::time).min() ?: return
 
@@ -341,6 +345,11 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
             for (instruction in instructions)
                 insertToRegister(instruction.toValueWith(this))
         }
+    }
+
+
+    private fun insertToRegister(instruction: Instruction) {
+        require(register.put(instruction.time, Reg(instruction) {}) == null)
     }
 }
 

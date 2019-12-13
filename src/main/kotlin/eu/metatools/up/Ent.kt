@@ -5,6 +5,17 @@ import eu.metatools.up.lang.frequencyProgression
 import java.util.*
 import kotlin.experimental.inv
 
+// TODO Pls do.
+interface IEnt {
+    val shell: Shell
+    val id: Lx
+
+    /**
+     * TODO: Must use [Engine.amend].
+     */
+    val driver: Driver
+}
+
 /**
  * Base class for exchanged entity in a [shell].
  * @property shell The [Shell], must actually implement [Engine] but to guard from invoking system routing and
@@ -118,6 +129,15 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             executionMethod.set(null)
             executionTime.set(null)
         }
+
+        override fun ready() {
+            requireConnected()
+
+            // Ready on each part.
+            parts.forEach { (_, part) ->
+                part.ready()
+            }
+        }
     })
 
     /**
@@ -169,7 +189,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         shell.engine.add(ent)
 
         // Undo by excluding.
-        shell.engine.capture(id / ".exists") {
+        shell.engine.capture {
             shell.engine.remove(ent)
         }
 
@@ -185,7 +205,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         shell.engine.remove(ent)
 
         // Undo by adding.
-        shell.engine.capture(id / ".exists") {
+        shell.engine.capture {
             shell.engine.add(ent)
         }
     }
@@ -385,6 +405,10 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
 
             override fun disconnect() {
                 isConnected = false
+            }
+
+            override fun ready() {
+                // Nothing.
             }
 
             override fun toString() =

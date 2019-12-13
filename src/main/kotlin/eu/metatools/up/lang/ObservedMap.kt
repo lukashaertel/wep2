@@ -12,12 +12,6 @@ class ObservedMap<K : Comparable<K>, V>(
     val actual: NavigableMap<K, V>,
     val notify: (SortedMap<K, V>, SortedMap<K, V>) -> Unit
 ) : NavigableMap<K, V> {
-    init {
-        // Notify initial value assignment.
-        if (actual.isNotEmpty())
-            notify(actual.toSortedMap(), sortedMapOf())
-    }
-
     override fun containsValue(value: V) =
         // Check if actual contains value.
         actual.containsValue(value)
@@ -180,7 +174,7 @@ class ObservedMap<K : Comparable<K>, V>(
         return before
     }
 
-    override fun comparator(): Comparator<in K> =
+    override fun comparator(): Comparator<in K>? =
         // Return the actual map's comparator.
         actual.comparator()
 

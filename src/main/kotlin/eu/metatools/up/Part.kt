@@ -19,10 +19,18 @@ interface Part {
      */
     fun connect(partIn: PartIn?)
 
+    /**
+     * Saves the part to the output.
+     */
     fun persist(partOut: PartOut)
 
     /**
      * Invoked when parent [Ent] is disconnected or when removing from a connected [Ent].
      */
     fun disconnect()
+
+    /**
+     * Called when the entire system is connected.
+     */
+    fun ready()
 }

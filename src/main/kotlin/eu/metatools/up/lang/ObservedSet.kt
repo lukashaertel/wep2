@@ -11,12 +11,6 @@ class ObservedSet<E : Comparable<E>>(
     val actual: NavigableSet<E>,
     val notify: (SortedSet<E>, SortedSet<E>) -> Unit
 ) : NavigableSet<E> {
-    init {
-        // Notify initial value assignment.
-        if (actual.isNotEmpty())
-            notify(actual.toSortedSet(), sortedSetOf())
-    }
-
     override fun contains(element: E) =
         // Check if actual contains value.
         actual.contains(element)

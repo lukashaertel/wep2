@@ -138,8 +138,9 @@ class MapProperty<K : Comparable<K>, V>(
             // If listening, notify changed.
             changed?.invoke(MapChange(add, remove))
 
+            // TODO This is turbofucked, needs to "merge changes".
             // Capture undo.
-            shell.engine.capture(ent.id / name) {
+            shell.engine.capture {
                 // Undo changes properly.
                 current.actual.entries.removeAll(add.entries)
                 current.actual.putAll(remove)
@@ -178,6 +179,11 @@ class MapProperty<K : Comparable<K>, V>(
         validate(ent.driver.isConnected) {
             "Access to property in detached entity."
         } ?: current
+
+    override fun ready() {
+        // Invoke initial change.
+        changed?.invoke(MapChange(current.toSortedMap(), sortedMapOf()))
+    }
 
     override fun toString() =
         if (isConnected) current.toString() else "<$name, detached>"

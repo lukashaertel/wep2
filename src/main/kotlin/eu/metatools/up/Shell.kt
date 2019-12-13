@@ -1,15 +1,8 @@
 package eu.metatools.up
 
-import com.google.common.annotations.Beta
-import com.google.common.hash.HashCode
-import com.google.common.hash.HashFunction
-import com.google.common.hash.Hasher
-import com.google.common.hash.Hashing
-import eu.metatools.up.dsl.MapChange
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.Bind
 import eu.metatools.up.lang.BindGenerator
-import java.util.*
 import kotlin.reflect.KClass
 
 /**
@@ -56,6 +49,19 @@ interface Shell {
      * Stores the shell to the given [shellOut]. Corresponding [load] operations must restore the state fully.
      */
     fun store(shellOut: ShellOut)
+
+    /**
+     * Dispatches an instruction with proxies.
+     */
+    var send: ((Instruction) -> Unit)?
+        get() = throw UnsupportedOperationException("Shell does not support connection")
+        set(value) = throw UnsupportedOperationException("Shell does not support connection")
+
+    /**
+     * Receives an instruction with proxies.
+     */
+    fun receive(instruction: Sequence<Instruction>): Unit =
+        throw UnsupportedOperationException("Shell does not support connection")
 }
 
 /**

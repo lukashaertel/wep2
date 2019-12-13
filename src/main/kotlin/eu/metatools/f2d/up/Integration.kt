@@ -14,9 +14,8 @@ import java.util.*
  * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable (preventing it from drawing).
  */
 fun <T> Ent.enqueue(once: Once, subject: Drawable<T>, args: T, transformAt: (Double) -> Mat) {
-    val uuid = UUID.randomUUID()
     val closable = once.enqueue(subject, args, transformAt)
-    shell.engine.capture(lx / uuid) {
+    shell.engine.capture {
         closable.close()
     }
 }
@@ -25,9 +24,8 @@ fun <T> Ent.enqueue(once: Once, subject: Drawable<T>, args: T, transformAt: (Dou
  * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable (preventing it from drawing).
  */
 fun <T> Ent.enqueue(once: Once, subject: Drawable<T?>, transformAt: (Double) -> Mat) {
-    val uuid = UUID.randomUUID()
     val closable = once.enqueue(subject, transformAt)
-    shell.engine.capture(lx / uuid) {
+    shell.engine.capture {
         closable.close()
     }
 }
@@ -36,9 +34,8 @@ fun <T> Ent.enqueue(once: Once, subject: Drawable<T?>, transformAt: (Double) -> 
  * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable (preventing it from playing).
  */
 fun <T> Ent.enqueue(once: Once, subject: Playable<T>, args: T, transformAt: (Double) -> Mat) {
-    val uuid = UUID.randomUUID()
     val closable = once.enqueue(subject, args, transformAt)
-    shell.engine.capture(lx / uuid) {
+    shell.engine.capture {
         closable.close()
     }
 }
@@ -47,9 +44,8 @@ fun <T> Ent.enqueue(once: Once, subject: Playable<T>, args: T, transformAt: (Dou
  * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable (preventing it from playing).
  */
 fun <T> Ent.enqueue(once: Once, subject: Playable<T?>, transformAt: (Double) -> Mat) {
-    val uuid = UUID.randomUUID()
     val closable = once.enqueue(subject, transformAt)
-    shell.engine.capture(lx / uuid) {
+    shell.engine.capture {
         closable.close()
     }
 }
@@ -58,9 +54,8 @@ fun <T> Ent.enqueue(once: Once, subject: Playable<T?>, transformAt: (Double) -> 
  * Queues a [Capturable] in the [Once], undoes by closing the resulting auto-closable (preventing it from capturing).
  */
 fun <T> Ent.enqueue(once: Once, subject: Capturable<T>, args: T, result: Any, transformAt: (Double) -> Mat) {
-    val uuid = UUID.randomUUID()
     val closable = once.enqueue(subject, args, result, transformAt)
-    shell.engine.capture(lx / uuid) {
+    shell.engine.capture {
         closable.close()
     }
 }
@@ -69,9 +64,8 @@ fun <T> Ent.enqueue(once: Once, subject: Capturable<T>, args: T, result: Any, tr
  * Queues a [Capturable] in the [Once], undoes by closing the resulting auto-closable (preventing it from capturing).
  */
 fun <T> Ent.enqueue(once: Once, subject: Capturable<T?>, result: Any, transformAt: (Double) -> Mat) {
-    val uuid = UUID.randomUUID()
     val closable = once.enqueue(subject, result, transformAt)
-    shell.engine.capture(lx / uuid) {
+    shell.engine.capture {
         closable.close()
     }
 }

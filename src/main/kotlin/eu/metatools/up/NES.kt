@@ -69,7 +69,7 @@ fun main() {
     }
 
     // Connect sending to network.
-    shell.onTransmit = {
+    shell.send = {
         if (it.time.player == Short.MAX_VALUE)
             System.err.println("Leaked repeated instruction $it")
         network.instruction(it)

@@ -29,6 +29,9 @@ interface Driver {
      */
     fun connect(entIn: EntIn?)
 
+    /**
+     * Saves the entity driver to the output.
+     */
     fun persist(entOut: EntOut)
 
     /**
@@ -40,6 +43,11 @@ interface Driver {
      * Instruction-in node. Called by registered handlers.
      */
     fun perform(instruction: Instruction)
+
+    /**
+     * Called when the entire system is connected.
+     */
+    fun ready()
 }
 
 fun Driver.requireUnconnected() =

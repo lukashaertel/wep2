@@ -6,7 +6,6 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
-import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
 import com.esotericsoftware.minlog.Log
@@ -15,7 +14,6 @@ import eu.metatools.f2d.F2DListener
 import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.input.KeyStick
-import eu.metatools.f2d.context.Drawable
 import eu.metatools.f2d.context.LifecycleDrawable
 import eu.metatools.f2d.math.Cell
 import eu.metatools.f2d.math.Mat
@@ -124,7 +122,7 @@ class Frontend : F2DListener(-100f, 100f) {
      * The shell that runs the game.
      */
     val shell = StandardShell(claimer.currentClaim).also {
-        it.onTransmit = net::instruction
+        it.send = net::instruction
     }
 
 
@@ -280,6 +278,9 @@ class Frontend : F2DListener(-100f, 100f) {
 
                 // Remove the ticking last (hacky).
                 map.remove(world.id / "tickers-0" / "last")
+
+                println(it)
+                println(map)
 
                 // Hash engine.
                 val kryoPool = KryoConfiguredPool(::configureKryo, false)

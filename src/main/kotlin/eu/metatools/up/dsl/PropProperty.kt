@@ -25,13 +25,17 @@ data class PropChange<T>(val from: T, val to: T) : Change<PropChange<T>> {
         "$from -> $to"
 }
 
-// TODO: Changed delegate invocation on init.
+// TODO: Changed delegate invocation on init. Furthermore, no "initial value", use init twice?
 
 /**
  * Value property, uses the full [name] and the given initial value assignment [init] on non-restore.
  */
 class PropProperty<T>(
-    val ent: Ent, override val name: String, val init: () -> T, val changed: ((PropChange<T>) -> Unit)?
+    val ent: Ent,
+    override val name: String,
+    val init: () -> T,
+    val zero: Box<T>?,
+    val changed: ((PropChange<T>) -> Unit)?
 ) : Part, ReadWriteProperty<Any?, T> {
     private val shell get() = ent.shell
 
@@ -79,12 +83,17 @@ class PropProperty<T>(
         changed?.invoke(PropChange(previous, value))
 
         // Capture undo.
-        shell.engine.capture(ent.id / name) {
+        shell.engine.capture {
             current = Box(previous)
 
             // If listening, notify changed back.
             changed?.invoke(PropChange(value, previous))
         }
+    }
+
+    override fun ready() {
+        // Invoke initial change.
+        changed?.invoke(PropChange(requireNotNull(zero).value, current.value))
     }
 
     override fun toString() =
@@ -97,7 +106,7 @@ class PropProperty<T>(
 fun <T> prop(init: () -> T) =
     ReadWritePropertyProvider { ent: Ent, property ->
         // Create property from implied values.
-        PropProperty(ent, property.name, init, null).also {
+        PropProperty(ent, property.name, init, null, null).also {
             // Include in entity.
             ent.driver.configure(it)
         }
@@ -106,10 +115,10 @@ fun <T> prop(init: () -> T) =
 /**
  * Creates a tracked property.
  */
-fun <T> propObserved(init: () -> T, changed: (PropChange<T>) -> Unit) =
+fun <T> propObserved(init: () -> T, zero: T, changed: (PropChange<T>) -> Unit) =
     ReadWritePropertyProvider { ent: Ent, property ->
         // Create property from implied values.
-        PropProperty(ent, property.name, init, changed).also {
+        PropProperty(ent, property.name, init, Box(zero), changed).also {
             // Include in entity.
             ent.driver.configure(it)
         }

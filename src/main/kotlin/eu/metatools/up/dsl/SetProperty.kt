@@ -84,7 +84,7 @@ class SetProperty<E : Comparable<E>>(
             // If listening, notify changed.
             changed?.invoke(SetChange(add, remove))
 
-            shell.engine.capture(ent.id / name) {
+            shell.engine.capture {
                 // Undo changes properly.
                 current.actual.removeAll(add)
                 current.actual.addAll(remove)
@@ -114,6 +114,11 @@ class SetProperty<E : Comparable<E>>(
 
     override fun disconnect() {
         isConnected = false
+    }
+
+    override fun ready() {
+        // Invoke initial change.
+        changed?.invoke(SetChange(current.toSortedSet(), sortedSetOf()))
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =

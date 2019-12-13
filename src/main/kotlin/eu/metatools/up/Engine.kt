@@ -31,10 +31,9 @@ interface Engine {
      */
     fun remove(ent: Ent)
 
-    /**
-     * Captures the reset of the distinct [id] by invoking [undo]. Relative undo, should expect the post-state.
-     */
-    fun capture(id: Lx, undo: () -> Unit)
+    // TODO: Refactoring
+    fun capture( undo: () -> Unit): Unit =
+        throw UnsupportedOperationException("This engine does not support undo.")
 
     /**
      * Performs the operation, invoke via the [Ent.exchange] wrappers.
@@ -53,6 +52,8 @@ interface Engine {
         // Do nothing.
     }
 }
+
+
 
 /**
  * Runs the local method with the var-arg list.
