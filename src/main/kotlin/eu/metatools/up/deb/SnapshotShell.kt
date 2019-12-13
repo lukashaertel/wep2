@@ -32,7 +32,7 @@ data class SnapshotShell<S : Shell>(
 
         private fun dispatchFor(global: Long) {
             val old = lastSnapshotSlot
-            val new = (global - shell.initializedTime) / frequency
+            val new = global / frequency
 
             when {
                 old == null -> {

@@ -130,6 +130,9 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     val createMover = exchange(::onCreateMover)
 
     private fun onCreateMover(owner: Short) {
+        if (movers.any { it.owner == owner })
+            return
+
         // Get RNG to determine what mover to spawn.
         val rng = rng()
         val type = if (rng.nextBoolean()) Movers.Small else Movers.Large

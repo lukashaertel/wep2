@@ -13,6 +13,7 @@ import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import java.io.OutputStream
 import java.util.*
+import kotlin.math.round
 import kotlin.math.roundToInt
 
 /**
@@ -23,19 +24,19 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
      * Redirects data writes to the primitive sink [target].
      */
     private class OutputPrimitiveSink(val target: PrimitiveSink) : Output() {
-        val surrogatePrecision = 100.0
+        val surrogatePrecision = 4.0
 
         /**
          * Puts surrogates for rounding errors.
          */
         private fun PrimitiveSink.putFloatSurrogate(float: Float) =
-            putInt((float * surrogatePrecision).roundToInt())
+            putDouble(round(float * surrogatePrecision) / surrogatePrecision)
 
         /**
          * Puts surrogates for rounding errors.
          */
         private fun PrimitiveSink.putDoubleSurrogate(double: Double) =
-            putInt((double * surrogatePrecision).roundToInt())
+            putDouble(round(double * surrogatePrecision) / surrogatePrecision)
 
         override fun writeShort(value: Int) {
             target.putShort(value.toShort())

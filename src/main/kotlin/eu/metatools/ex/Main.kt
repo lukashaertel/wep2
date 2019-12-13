@@ -109,15 +109,15 @@ class Frontend : F2DListener(-100f, 100f) {
         System.err.println("Warning: Claim for engine has changed from $old to $new, this should not happen.")
     })
 
-    /**
-     * Sign-off coordinator.
-     */
-    private val signOff = NetworkSignOff(net,
-        initialDelay = clock.time.toNextFullSecond(),
-        changed = { _, new ->
-            if (new != null)
-                signOffValue = new
-        })
+//    /**
+//     * Sign-off coordinator.
+//     */
+//    private val signOff = NetworkSignOff(net,
+//        initialDelay = clock.time.toNextFullSecond(),
+//        changed = { _, new ->
+//            if (new != null)
+//                signOffValue = new
+//        })
 
     /**
      * The shell that runs the game.
@@ -154,7 +154,7 @@ class Frontend : F2DListener(-100f, 100f) {
      */
     lateinit var world: World
 
-    private var signOffValue: Long? = null
+    //private var signOffValue: Long? = null
 
     override fun create() {
         super.create()
@@ -238,7 +238,7 @@ class Frontend : F2DListener(-100f, 100f) {
             // Check if mover is there.
             if (mover == null) {
                 // It is not, allow for recreation.
-                if (Gdx.input.isKeyJustPressed(Keys.F1))
+                if (rand || Gdx.input.isKeyJustPressed(Keys.F1))
                     world.createMover(shell.player)
             } else {
                 // Get desired move direction.
@@ -329,7 +329,7 @@ class Frontend : F2DListener(-100f, 100f) {
     override fun dispose() {
         super.dispose()
 
-        signOff.close()
+//        signOff.close()
         claimer.close()
         clock.close()
         net.close()
