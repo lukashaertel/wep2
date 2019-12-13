@@ -127,7 +127,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                 // Resolve entity, perform operation.
                 resolve(it.instruction.target)?.driver?.perform(it.instruction)
 
-                // Compile undo. // TODO: Everyhing is horrible
+                // Compile undo.
                 val undos = currentUndo.asReversed().toList()
 
                 // Assign as new undo.
@@ -352,9 +352,3 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
         require(register.put(instruction.time, Reg(instruction) {}) == null)
     }
 }
-
-/**
- * Runs the receive method with the var-arg list.
- */
-fun StandardShell.receive(vararg instructions: Instruction) =
-    receive(instructions.asSequence())

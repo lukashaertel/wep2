@@ -60,7 +60,7 @@ interface Shell {
     /**
      * Receives an instruction with proxies.
      */
-    fun receive(instruction: Sequence<Instruction>): Unit =
+    fun receive(instructions: Sequence<Instruction>): Unit =
         throw UnsupportedOperationException("Shell does not support connection")
 }
 
@@ -219,3 +219,9 @@ fun Instruction.toValueWith(shell: Shell) =
  */
 fun Instruction.toProxyWith(shell: Shell) =
     Instruction(target, methodName, time, args.map(shell::toProxy))
+
+/**
+ * Runs the receive method with the var-arg list.
+ */
+fun Shell.receive(vararg instructions: Instruction) =
+    receive(instructions.asSequence())

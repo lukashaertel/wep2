@@ -203,9 +203,6 @@ class Mover(
     val shoot = exchange(::doShoot)
 
     private fun doShoot(d: Pt?) {
-        // TODO: Some problems with class registration, probably registration required or something, fucks up in
-        //       the request correlator. TODO: Re-verify, think thats solved via the pooling of Kryo/Output/Input.
-
         // Get the direction to shoot.
         val dir = d ?: Pt(look.x.toFloat(), look.y.toFloat())
 

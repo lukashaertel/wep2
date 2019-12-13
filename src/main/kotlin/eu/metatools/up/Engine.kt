@@ -32,7 +32,7 @@ interface Engine {
     fun remove(ent: Ent)
 
     // TODO: Refactoring
-    fun capture( undo: () -> Unit): Unit =
+    fun capture(undo: () -> Unit): Unit =
         throw UnsupportedOperationException("This engine does not support undo.")
 
     /**
@@ -52,7 +52,6 @@ interface Engine {
         // Do nothing.
     }
 }
-
 
 
 /**

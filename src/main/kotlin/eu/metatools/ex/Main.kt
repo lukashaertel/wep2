@@ -22,6 +22,7 @@ import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.*
+import eu.metatools.up.deb.LoggingShell
 import eu.metatools.up.dt.*
 import eu.metatools.up.kryo.*
 import eu.metatools.up.net.NetworkClaimer
@@ -121,9 +122,9 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * The shell that runs the game.
      */
-    val shell = StandardShell(claimer.currentClaim).also {
+    val shell = LoggingShell(StandardShell(claimer.currentClaim).also {
         it.send = net::instruction
-    }
+    }, System.out)
 
 
     /**
@@ -169,7 +170,7 @@ class Frontend : F2DListener(-100f, 100f) {
         } else {
             // Restore, resolve root.
             val bundle = net.bundle()
-            shell.critical {
+            shell.on.critical {
                 shell.loadFromMap(bundle, true)
             }
             shell.resolve(lx / "root") as World
@@ -194,7 +195,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     override fun render() {
         // Block network on all rendering, including sending via Once.
-        shell.critical {
+        shell.on.critical {
             super.render()
         }
     }

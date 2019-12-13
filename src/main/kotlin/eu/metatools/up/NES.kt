@@ -119,9 +119,6 @@ fun main() {
 
     updater.cancel(false)
 
-    // TODO: Probably not needed for now.
-    root.driver.disconnect()
-
     clock.close()
     claimer.close()
     network.close()

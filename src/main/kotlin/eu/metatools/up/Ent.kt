@@ -5,17 +5,6 @@ import eu.metatools.up.lang.frequencyProgression
 import java.util.*
 import kotlin.experimental.inv
 
-// TODO Pls do.
-interface IEnt {
-    val shell: Shell
-    val id: Lx
-
-    /**
-     * TODO: Must use [Engine.amend].
-     */
-    val driver: Driver
-}
-
 /**
  * Base class for exchanged entity in a [shell].
  * @property shell The [Shell], must actually implement [Engine] but to guard from invoking system routing and
