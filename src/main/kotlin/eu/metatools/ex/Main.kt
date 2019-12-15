@@ -236,9 +236,9 @@ class Frontend : F2DListener(-100f, 100f) {
             }
         }
 
-//
-//        // Dispatch global update.
-//        world.worldUpdate(clock.time)
+
+        // Dispatch global update.
+        world.worldUpdate(clock.time)
 
         // Render everything.
         shell.list<Rendered>().forEach { it.render(time) }

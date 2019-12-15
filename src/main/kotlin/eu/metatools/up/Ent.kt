@@ -322,9 +322,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         }
     }
 
-    // TODO: Full verification necessary.
-    // TODO: Initial as generator not nice.
-
     /**
      * Creates an non-exchanged wrapper that from the initial value to the currently passed value invokes the method
      * given by [function].
@@ -338,7 +335,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * remembering when the [Ent] was constructed.
      * @param function The function to run. Itself will have [time] properly assigned during it's invocation.
      */
-    @Deprecated("AAA", level = DeprecationLevel.ERROR)
     protected fun repeating(
         player: Short,
         frequency: Long,

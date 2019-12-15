@@ -4,15 +4,18 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
+private fun Long.coerceToInt() =
+    coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+
 /**
  * TODO: Float is a fuck.
  */
 data class Real(val numerator: Int) : Comparable<Real> {
 
     companion object {
-        const val precision = 1024
+        const val precision = 64
 
-        const val sqrtPrecision = 32
+        const val sqrtPrecision = 8
 
         val Zero = Real(0)
 
@@ -32,17 +35,26 @@ data class Real(val numerator: Int) : Comparable<Real> {
     override operator fun compareTo(other: Real) =
         numerator.compareTo(other.numerator)
 
-    operator fun div(other: Real) =
-        Real((precision * numerator) / other.numerator)
+    operator fun div(other: Real): Real {
+        val outNumerator = precision.toLong() * numerator.toLong() / other.numerator.toLong()
+        return Real(outNumerator.coerceToInt())
+    }
 
-    operator fun minus(other: Real) =
-        Real(numerator - other.numerator)
 
-    operator fun plus(other: Real) =
-        Real(numerator + other.numerator)
+    operator fun minus(other: Real): Real {
+        val outNumerator = numerator.toLong() - other.numerator.toLong()
+        return Real(outNumerator.coerceToInt())
+    }
 
-    operator fun times(other: Real) =
-        Real((numerator * other.numerator) / precision)
+    operator fun plus(other: Real): Real {
+        val outNumerator = numerator.toLong() + other.numerator.toLong()
+        return Real(outNumerator.coerceToInt())
+    }
+
+    operator fun times(other: Real): Real {
+        val outNumerator = (numerator.toLong() * other.numerator.toLong()) / precision.toLong()
+        return Real(outNumerator.coerceToInt())
+    }
 
     operator fun unaryMinus() = Real(-numerator)
     operator fun unaryPlus() = Real(numerator)
@@ -88,7 +100,6 @@ operator fun Real.plus(other: Double) =
 operator fun Real.times(other: Double) =
     times(other.toReal())
 
-
 fun Int.toReal() =
     Real(this * Real.precision)
 
@@ -98,9 +109,8 @@ fun Float.toReal() =
 fun Double.toReal() =
     Real((this * Real.precision).roundToInt())
 
-fun sqrt(real: Real) = Real(
-    Real.sqrtPrecision * sqrt(real.numerator.toDouble()).roundToInt()
-)
+fun sqrt(real: Real) =
+    Real(Real.sqrtPrecision * sqrt(real.numerator.toDouble()).roundToInt())
 
 fun abs(real: Real) =
     Real(abs(real.numerator))
