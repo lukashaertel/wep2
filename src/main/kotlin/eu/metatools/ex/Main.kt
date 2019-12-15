@@ -125,12 +125,21 @@ class Frontend : F2DListener(-100f, 100f) {
     val shell = SnapshotShell(StandardShell(claimer.currentClaim).also {
         it.send = net::instruction
     }, 3000L, {
+        println(it)
         engine.invalidate(it - 5000)
 
         if (debug) {
-            val pool = KryoConfiguredPool(::configureKryo, false)
+            val funnel = KryoFunnel(KryoConfiguredPool(::configureKryo, false))
             val target = Hashing.farmHashFingerprint64().newHasher()
-            list<Mover>().forEach { ent -> ent.hashTo(target, pool) }
+            store { key, any ->
+                if (key != lx / "root" / "tickers-0" / "last"
+                    && key != lx / ".engine" / ".register"
+                ) {
+                    target.putObject(key, funnel)
+                    target.putObject(any, funnel)
+                }
+                println("$key = $any")
+            }
             val bytes = target.hash().asBytes()
             hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
             while (hashes.size > 5)

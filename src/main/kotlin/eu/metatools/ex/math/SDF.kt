@@ -1,116 +1,103 @@
 package eu.metatools.ex.math
 
-import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Pt
-import eu.metatools.f2d.math.abs
-import eu.metatools.f2d.math.mapComponents
+import eu.metatools.f2d.math.*
 import kotlin.math.abs
-import kotlin.math.hypot
-import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Signed distance function for a square of a width and height of one.
  */
-fun square(dim: Pt, pt: Pt): Float {
+fun square(dim: RealPt, pt: RealPt): Real {
     val d = abs(pt) - dim
-    val distanceOut = hypot(max(d.x, 0f), max(d.y, 0f))
-    val distanceIn = min(max(d.x, d.y), 0f)
+    val distanceOut = hypot(max(d.x, Real.Zero), max(d.y, Real.Zero))
+    val distanceIn = min(max(d.x, d.y), Real.Zero)
     return distanceOut + distanceIn
 }
 
 /**
  * Applies a located square.
  */
-fun squareFromTo(start: Pt, end: Pt, pt: Pt): Float {
-    val dim = (end - start) / 2f
-    val center = (start + end) / 2f
+fun squareFromTo(start: RealPt, end: RealPt, pt: RealPt): Real {
+    val dim = (end - start) / 2.toReal()
+    val center = (start + end) / 2.toReal()
     return square(dim, pt - center)
 }
 
 /**
  * Binds the first argument.
  */
-fun square(dim: Pt = Pt.One) = { pt: Pt -> square(dim, pt) }
+fun square(dim: RealPt = RealPt.One) = { pt: RealPt -> square(dim, pt) }
 
 /**
  * Signed distance function for a circle with a diameter of one.
  */
-fun circle(radius: Float, pt: Pt) =
+fun circle(radius: Real, pt: RealPt) =
     pt.len - radius
 
 /**
  * Binds the first argument.
  */
-fun circle(radius: Float = 0.5f) = { pt: Pt -> circle(radius, pt) }
-
-/**
- * Multiplies the signed distance function with a matrix.
- */
-inline operator fun Mat.times(crossinline f: (Pt) -> Float) = { pt: Pt ->
-    f(this * pt)
-}
+fun circle(radius: Real = 0.5f.toReal()) = { pt: RealPt -> circle(radius, pt) }
 
 /**
  * Returns the union function on the given functions.
  */
-fun union(vararg fs: (Pt) -> Float) = { pt: Pt ->
-    var min = Float.POSITIVE_INFINITY
+fun union(vararg fs: (RealPt) -> Real) = { pt: RealPt ->
+    var min = Real.MAX_VALUE
     for (f in fs)
-        min = minOf(min, f(pt))
+        min = min(min, f(pt))
     min
 }
 
 /**
  * Returns the union function on the given functions.
  */
-fun union(fs: Sequence<(Pt) -> Float>) = { pt: Pt ->
-    var min = Float.POSITIVE_INFINITY
+fun union(fs: Sequence<(RealPt) -> Real>) = { pt: RealPt ->
+    var min = Real.MAX_VALUE
     for (f in fs)
-        min = minOf(min, f(pt))
+        min = min(min, f(pt))
     min
 }
 
 /**
  * Returns the union function on the given functions.
  */
-fun union(fs: Iterable<(Pt) -> Float>) = { pt: Pt ->
-    var min = Float.POSITIVE_INFINITY
+fun union(fs: Iterable<(RealPt) -> Real>) = { pt: RealPt ->
+    var min = Real.MAX_VALUE
     for (f in fs)
-        min = minOf(min, f(pt))
+        min = min(min, f(pt))
     min
 }
 
 /**
  * Epsilon value for derivative calculation.
  */
-private val e = 1f / 2.shl(16)
+private val e = Real(1)
 
 /**
  * Epsilon as X component.
  */
-private val ex = Pt(e, 0f)
+private val ex = RealPt(e, Real.Zero)
 
 /**
  * Epsilon as Y component.
  */
-private val ey = Pt(0f, e)
+private val ey = RealPt(Real.Zero, e)
 
 /**
  * Computes the derivative of [f] at [pt].
  */
-inline fun derivative(f: (Pt) -> Float, pt: Pt): Pt {
+inline fun derivative(f: (RealPt) -> Real, pt: RealPt): RealPt {
     val fv = f(pt)
     @Suppress("non_public_call_from_public_inline")
-    return Pt((f(pt + ex) - fv) / e, (f(pt + ey) - fv) / e)
+    return RealPt((f(pt + ex) - fv) / e, (f(pt + ey) - fv) / e)
 }
 
 /**
  * Finds the root of [f], starting at [pt].
  */
-inline fun root(f: (Pt) -> Float, ipt: Pt, maxIter: Int = 8, o: Float = 0.8125f): Pt {
+inline fun root(f: (RealPt) -> Real, ipt: RealPt, maxIter: Int = 8, o: Real = 0.8125f.toReal()): RealPt {
     // Compute reused value.
-    val io = 1f - o
+    val io = Real.One - o
 
     // Initialize iteration point.
     var pt = ipt
@@ -126,10 +113,9 @@ inline fun root(f: (Pt) -> Float, ipt: Pt, maxIter: Int = 8, o: Float = 0.8125f)
             return pt
 
         // Compute f over derivatives.
-        val dis = Pt(fv, fv) / derivative(f, pt).mapComponents {
-            if (it == 0f) Float.POSITIVE_INFINITY else it
+        val dis = RealPt(fv, fv) / derivative(f, pt).mapComponents {
+            if (it == Real.Zero) Real.MAX_VALUE else it
         }
-
 
         // Displace point, smooth to prevent overshoot.
         @Suppress("non_public_call_from_public_inline")
@@ -138,18 +124,4 @@ inline fun root(f: (Pt) -> Float, ipt: Pt, maxIter: Int = 8, o: Float = 0.8125f)
 
     // Return last best point.
     return pt
-}
-
-
-fun main() {
-    val parts = (0..10).map { { pt: Pt ->
-        square(
-            Pt(1.0f, 0.5f),
-            pt + Pt.X * it.toFloat() * 0.5f
-        )
-    } }
-    val df = union(parts)
-    val p = root(df, Pt(-0.25f, 0.2f))
-    println(p)
-
 }

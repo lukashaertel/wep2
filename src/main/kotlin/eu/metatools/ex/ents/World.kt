@@ -3,9 +3,7 @@ package eu.metatools.ex.ents
 import eu.metatools.f2d.context.Drawable
 import eu.metatools.ex.*
 import eu.metatools.ex.math.SDFComposer
-import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Pt
-import eu.metatools.f2d.math.Cell
+import eu.metatools.f2d.math.*
 import eu.metatools.f2d.tools.Static
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
@@ -68,12 +66,12 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     /**
      * Pre-computed SDFs per radius.
      */
-    private val sdfs = mutableMapOf<Float, (Pt) -> Float>()
+    private val sdfs = mutableMapOf<Real, (RealPt) -> Real>()
 
     /**
      * Gets the SDF for the given radius.
      */
-    fun sdf(radius: Float) =
+    fun sdf(radius: Real) =
         sdfs.getOrPut(radius) {
             clipping.sdf(radius)
         }
@@ -143,7 +141,7 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
                 Mover(
                     shell,
                     newId(),
-                    Pt(5f, 5f),
+                    RealPt(5f.toReal(), 5f.toReal()),
                     type,
                     owner
                 )

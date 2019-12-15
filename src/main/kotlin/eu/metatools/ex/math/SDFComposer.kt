@@ -1,6 +1,9 @@
 package eu.metatools.ex.math
 
 import eu.metatools.f2d.math.Pt
+import eu.metatools.f2d.math.Real
+import eu.metatools.f2d.math.RealPt
+import eu.metatools.f2d.math.toReal
 
 /**
  * A segment of the [SDFComposer].
@@ -138,20 +141,20 @@ data class SDFSegment(val x: Int, val y: Int, val length: Int, val vertical: Boo
     /**
      * Returns the SDF for this segment.
      */
-    fun sdf(radiusX: Float, radiusY: Float) =
+    fun sdf(radiusX: Real, radiusY: Real) =
         if (vertical)
-            { pt: Pt ->
+            { pt: RealPt ->
                 squareFromTo(
-                    Pt(x - radiusX, y - radiusY),
-                    Pt(x + radiusX, y + length - 1 + radiusY),
+                    RealPt(x.toReal() - radiusX, y.toReal() - radiusY),
+                    RealPt(x.toReal() + radiusX, (y + length - 1).toReal() + radiusY),
                     pt
                 )
             }
         else
-            { pt: Pt ->
+            { pt: RealPt ->
                 squareFromTo(
-                    Pt(x - radiusX, y - radiusY),
-                    Pt(x + length - 1 + radiusX, y + radiusY),
+                    RealPt(x.toReal() - radiusX, y.toReal() - radiusY),
+                    RealPt((x + length - 1).toReal() + radiusX, y.toReal() + radiusY),
                     pt
                 )
             }
@@ -161,11 +164,11 @@ data class SDFSegment(val x: Int, val y: Int, val length: Int, val vertical: Boo
 /**
  * Composes block based SDF segments of the given [radiusX] x [radiusY].
  */
-class SDFComposer(val radiusX: Float = 0.5f, val radiusY: Float = 0.5f) {
+class SDFComposer(val radiusX: Real = 0.5f.toReal(), val radiusY: Real = 0.5f.toReal()) {
     /**
      * Returns the SDF for a given object radius.
      */
-    fun sdf(radius: Float): (Pt) -> Float {
+    fun sdf(radius: Real): (RealPt) -> Real {
         // Get valid segments, i.e., not covered by another segment.
         val validSegments = segments.filterIndexed { i, segment ->
             segments.subList(i + 1, segments.size).none {

@@ -3,13 +3,12 @@ package eu.metatools.ex.ents
 import eu.metatools.f2d.context.refer
 import eu.metatools.ex.*
 import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Pt
+import eu.metatools.f2d.math.RealPt
+import eu.metatools.f2d.math.toReal
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.provideDelegate
-import eu.metatools.up.dt.Lx
-import eu.metatools.up.dt.div
-import eu.metatools.up.dt.lx
+import eu.metatools.up.dt.*
 import kotlin.math.atan2
 
 /**
@@ -22,7 +21,7 @@ import kotlin.math.atan2
  * @property damage Constant. The damage done by the bullet.
  */
 class Bullet(
-    shell: Shell, id: Lx, initPos: Pt, initVel: Pt, initMoveTime: Double, val damage: Int
+    shell: Shell, id: Lx, initPos: RealPt, initVel: RealPt, initMoveTime: Double, val damage: Int
 ) : Ent(shell, id), TraitMove,
     Ticking, Rendered {
     companion object {
@@ -62,16 +61,16 @@ class Bullet(
     /**
      * Constant. Radius.
      */
-    override val radius = 0.025f
+    override val radius = 0.025f.toReal()
 
     override fun render(time: Double) {
         // Get time.
         val (x, y) = posAt(time)
 
         // Transformation for displaying the bullet.
-        val mat = Mat.translation(Constants.tileWidth * x, Constants.tileHeight * y)
-            .rotateZ(atan2(vel.y, vel.x))
-            .scale(Constants.tileWidth * radius * 5f, Constants.tileHeight * radius * 2f)
+        val mat = Mat.translation(Constants.tileWidth * x.toFloat(), Constants.tileHeight * y.toFloat())
+            .rotateZ(atan2(vel.y.toFloat(), vel.x.toFloat()))
+            .scale(Constants.tileWidth * radius.toFloat() * 5f, Constants.tileHeight * radius.toFloat() * 2f)
 
         // Submit the solid.
         frontend.continuous.submit(solid, time, mat)

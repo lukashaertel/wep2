@@ -24,20 +24,6 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
      * Redirects data writes to the primitive sink [target].
      */
     private class OutputPrimitiveSink(val target: PrimitiveSink) : Output() {
-        val surrogatePrecision = 4.0
-
-        /**
-         * Puts surrogates for rounding errors.
-         */
-        private fun PrimitiveSink.putFloatSurrogate(float: Float) =
-            putDouble(round(float * surrogatePrecision) / surrogatePrecision)
-
-        /**
-         * Puts surrogates for rounding errors.
-         */
-        private fun PrimitiveSink.putDoubleSurrogate(double: Double) =
-            putDouble(round(double * surrogatePrecision) / surrogatePrecision)
-
         override fun writeShort(value: Int) {
             target.putShort(value.toShort())
         }
@@ -56,12 +42,12 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
 
         override fun writeFloats(array: FloatArray, offset: Int, count: Int) {
             for (i in 0 until count)
-                target.putFloatSurrogate(array[offset + i])
+                target.putFloat(array[offset + i])
         }
 
         override fun writeDoubles(array: DoubleArray, offset: Int, count: Int) {
             for (i in 0 until count)
-                target.putDoubleSurrogate(array[offset + i])
+                target.putDouble(array[offset + i])
         }
 
         override fun write(value: Int) {
@@ -116,7 +102,7 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         }
 
         override fun writeVarFloat(value: Float, precision: Float, optimizePositive: Boolean): Int {
-            target.putFloatSurrogate(value)
+            target.putFloat(value)
             return 0
         }
 
@@ -146,7 +132,7 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         }
 
         override fun writeDouble(value: Double) {
-            target.putDoubleSurrogate(value)
+            target.putDouble(value)
         }
 
         override fun writeByte(value: Byte) {
@@ -165,7 +151,7 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         }
 
         override fun writeFloat(value: Float) {
-            target.putFloatSurrogate(value)
+            target.putFloat(value)
         }
 
         override fun require(required: Int): Boolean {
@@ -196,7 +182,7 @@ class KryoFunnel(val kryoPool: Pool<Kryo>) : Funnel<Any?> {
         }
 
         override fun writeVarDouble(value: Double, precision: Double, optimizePositive: Boolean): Int {
-            target.putDoubleSurrogate(value)
+            target.putDouble(value)
             return 0
         }
 

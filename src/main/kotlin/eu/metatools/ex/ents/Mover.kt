@@ -5,9 +5,7 @@ import eu.metatools.f2d.context.limit
 import eu.metatools.f2d.context.offset
 import eu.metatools.f2d.context.refer
 import eu.metatools.ex.*
-import eu.metatools.f2d.math.Cell
-import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Pt
+import eu.metatools.f2d.math.*
 import eu.metatools.f2d.tools.Cube
 import eu.metatools.f2d.tools.Location
 import eu.metatools.f2d.tools.ReferText
@@ -16,9 +14,7 @@ import eu.metatools.f2d.up.enqueue
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.provideDelegate
-import eu.metatools.up.dt.Lx
-import eu.metatools.up.dt.div
-import eu.metatools.up.dt.lx
+import eu.metatools.up.dt.*
 import eu.metatools.up.lang.never
 import eu.metatools.up.lang.within
 
@@ -29,7 +25,7 @@ interface MoverKind {
     /**
      * The radius.
      */
-    val radius: Float
+    val radius: Real
 
     /**
      * The damage it does when shooting.
@@ -45,8 +41,8 @@ enum class Movers : MoverKind {
      * Small mover.
      */
     Small {
-        override val radius: Float
-            get() = 0.1f
+        override val radius = 0.1f.toReal()
+
         override val damage: Int
             get() = 2
     },
@@ -54,8 +50,7 @@ enum class Movers : MoverKind {
      * Large mover.
      */
     Large {
-        override val radius: Float
-            get() = 0.25f
+        override val radius = 0.25f.toReal()
         override val damage: Int
             get() = 1
     },
@@ -70,7 +65,7 @@ enum class Movers : MoverKind {
  * @property owner Constant. the owner of this mover.
  */
 class Mover(
-    shell: Shell, id: Lx, initPos: Pt, val kind: MoverKind, val owner: Short
+    shell: Shell, id: Lx, initPos: RealPt, val kind: MoverKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Ticking, TraitMove,
     TraitDamageable {
@@ -140,7 +135,7 @@ class Mover(
     /**
      * Current velocity.
      */
-    override var vel by { Pt() }
+    override var vel by { RealPt() }
 
     /**
      * Constant. Radius.
@@ -168,10 +163,10 @@ class Mover(
 
         // Create matrix for transformation.
         val mat = Mat.translation(
-            Constants.tileWidth * x,
-            Constants.tileHeight * y
+            Constants.tileWidth * x.toFloat(),
+            Constants.tileHeight * y.toFloat()
         )
-            .scale(Constants.tileWidth * kind.radius * 2f, Constants.tileHeight * kind.radius * 2f)
+            .scale(Constants.tileWidth * kind.radius.toFloat() * 2f, Constants.tileHeight * kind.radius.toFloat() * 2f)
 
         // Submit the visual and the capture.
         frontend.continuous.submit(solid.tint(color), time, mat)
@@ -190,7 +185,7 @@ class Mover(
 
     private fun doMoveInDirection(cell: Cell) {
         // Receive movement on trait.
-        receiveMove(elapsed, Pt(cell.x.toFloat(), cell.y.toFloat()))
+        receiveMove(elapsed, RealPt(cell.x.toReal(), cell.y.toReal()))
 
         // If movement non-empty, update look.
         if (!cell.isEmpty)
@@ -202,13 +197,22 @@ class Mover(
      */
     val shoot = exchange(::doShoot)
 
-    private fun doShoot(d: Pt?) {
+    private fun doShoot(d: RealPt?) {
         // Get the direction to shoot.
-        val dir = d ?: Pt(look.x.toFloat(), look.y.toFloat())
+        val dir = d ?: RealPt(look.x.toReal(), look.y.toReal())
 
         // Check if not empty, then construct the bullet.
         if (!dir.isEmpty)
-            constructed(Bullet(shell, newId(), pos + dir.nor * (radius + 0.1f), dir.nor * 5f, elapsed, kind.damage))
+            constructed(
+                Bullet(
+                    shell,
+                    newId(),
+                    pos + dir.nor * (radius + 0.1f.toReal()),
+                    dir.nor * 5f.toReal(),
+                    elapsed,
+                    kind.damage
+                )
+            )
     }
 
     override fun takeDamage(amount: Int) {
@@ -222,8 +226,8 @@ class Mover(
         // Render damage floating up.
         enqueue(frontend.once, boldText.limit(3.0).offset(start), amount.toString()) {
             Mat.translation(
-                Constants.tileWidth * x,
-                Constants.tileHeight * y + (it - start).toFloat() * 10
+                Constants.tileWidth * x.toFloat(),
+                Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10
             )
                 .scale(sx = frontend.fontSize, sy = frontend.fontSize)
         }

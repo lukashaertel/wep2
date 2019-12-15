@@ -1,8 +1,11 @@
 package eu.metatools.ex.ents
 
 import eu.metatools.ex.math.root
-import eu.metatools.f2d.math.Pt
 import eu.metatools.up.Ent
+import eu.metatools.f2d.math.Real
+import eu.metatools.f2d.math.RealPt
+import eu.metatools.f2d.math.toPt
+import eu.metatools.f2d.math.toReal
 
 /**
  * Entity has a radius.
@@ -11,7 +14,7 @@ interface TraitRadius {
     /**
      * The radius of the entity.
      */
-    val radius: Float
+    val radius: Real
 }
 
 /**
@@ -42,7 +45,7 @@ interface TraitMove : TraitWorld, TraitRadius {
     /**
      * The base position.
      */
-    var pos: Pt
+    var pos: RealPt
 
     /**
      * The movement time.
@@ -52,23 +55,23 @@ interface TraitMove : TraitWorld, TraitRadius {
     /**
      * The velocity.
      */
-    var vel: Pt
+    var vel: RealPt
 
     /**
      * Determines the actual position at the time.
      */
-    fun posAt(time: Double): Pt {
+    fun posAt(time: Double): RealPt {
         if (vel.isEmpty)
             return pos
 
-        val dt = (time - moveTime).toFloat()
+        val dt = (time - moveTime).toReal()
         return pos + vel * dt
     }
 
     /**
      * Receives a new movement.
      */
-    fun receiveMove(sec: Double, vel: Pt) {
+    fun receiveMove(sec: Double, vel: RealPt) {
         pos = posAt(sec)
         moveTime = sec
         this.vel = vel
@@ -92,9 +95,9 @@ interface TraitMove : TraitWorld, TraitRadius {
         // Get SDF for own radius, check if hitting. If so, un-clip and add world to result set.
         val sdf = world.sdf(radius)
         val distance = sdf(pos)
-        if (distance < 0.0) {
+        if (distance < Real.Zero) {
             val clip = root(sdf, pos)
-            pos = clip * 2f - pos
+            pos = (clip + clip) - pos
             hit += world
         }
 
@@ -104,6 +107,8 @@ interface TraitMove : TraitWorld, TraitRadius {
             if (other === this)
                 continue
             val d = other.pos - pos
+            if (d.len == Real.Zero)
+                continue
             val rs = radius + other.radius
             if (d.len < rs) {
                 val pen = rs - d.len
