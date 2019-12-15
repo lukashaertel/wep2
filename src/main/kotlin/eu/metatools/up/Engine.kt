@@ -51,6 +51,9 @@ interface Engine {
     fun invalidate(global: Long) {
         // Do nothing.
     }
+
+    fun lastRepeatingTime(player: Short, rdc: Byte): Long? =
+        throw UnsupportedOperationException("This engine does not support repeating.")
 }
 
 

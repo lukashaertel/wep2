@@ -108,7 +108,7 @@ class KryoRequestCorrelator(
     override fun sendReply(
         req: Message,
         req_id: Long,
-        reply: Any,
+        reply: Any?,
         is_exception: Boolean
     ) {
         // Track if buffer was created from an exception.

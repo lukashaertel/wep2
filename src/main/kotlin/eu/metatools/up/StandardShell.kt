@@ -200,6 +200,16 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                 locals.headMap(global).clear()
             }
         }
+
+        override fun lastRepeatingTime(player: Short, rdc: Byte): Long? {
+            critical {
+                return register.keys
+                    .asSequence()
+                    .filter { it.player == player && it.local == rdc }
+                    .map { it.global }
+                    .min()
+            }
+        }
     }
 
     override var initializedTime = System.currentTimeMillis()
@@ -237,7 +247,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
         }
     }
 
-    override fun load(shell: Shell, shellIn: ShellIn) {
+    override fun load(shellIn: ShellIn) {
         runWithStateOf(genesis) {
             // Disconnect and clear entity table.
             central.values.forEach { it.driver.disconnect() }
@@ -261,7 +271,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                 // Construct by arguments, map extra parameters by their type.
                 val ent = c.constructBy(e) { param ->
                     when {
-                        param.type.isSupertypeOf(scopeType) -> Box(shell)
+                        param.type.isSupertypeOf(scopeType) -> Box(this)
                         param.type.isSupertypeOf(lxType) -> Box(it)
                         else -> null
                     }
@@ -347,8 +357,10 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
         }
     }
 
-
     private fun insertToRegister(instruction: Instruction) {
-        require(register.put(instruction.time, Reg(instruction) {}) == null)
+        val before = register.put(instruction.time, Reg(instruction) {})
+        require(before == null || before.instruction == instruction) {
+            "Instruction slot ${instruction.time} already occupied."
+        }
     }
 }

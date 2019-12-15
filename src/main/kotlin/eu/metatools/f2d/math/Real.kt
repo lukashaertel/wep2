@@ -19,6 +19,7 @@ data class Real(val numerator: Int) : Comparable<Real> {
         val One = Real(precision)
 
         val MIN_VALUE = Real(Int.MIN_VALUE)
+
         val MAX_VALUE = Real(Int.MAX_VALUE)
     }
 
@@ -50,6 +51,44 @@ data class Real(val numerator: Int) : Comparable<Real> {
     override fun toString() = toFloat().toString()
 }
 
+operator fun Real.div(other: Int) =
+    div(other.toReal())
+
+operator fun Real.minus(other: Int) =
+    minus(other.toReal())
+
+operator fun Real.plus(other: Int) =
+    plus(other.toReal())
+
+operator fun Real.times(other: Int) =
+    times(other.toReal())
+
+operator fun Real.div(other: Float) =
+    div(other.toReal())
+
+operator fun Real.minus(other: Float) =
+    minus(other.toReal())
+
+operator fun Real.plus(other: Float) =
+    plus(other.toReal())
+
+operator fun Real.times(other: Float) =
+    times(other.toReal())
+
+
+operator fun Real.div(other: Double) =
+    div(other.toReal())
+
+operator fun Real.minus(other: Double) =
+    minus(other.toReal())
+
+operator fun Real.plus(other: Double) =
+    plus(other.toReal())
+
+operator fun Real.times(other: Double) =
+    times(other.toReal())
+
+
 fun Int.toReal() =
     Real(this * Real.precision)
 
@@ -63,155 +102,8 @@ fun sqrt(real: Real) = Real(
     Real.sqrtPrecision * sqrt(real.numerator.toDouble()).roundToInt()
 )
 
-data class RealPt(val x: Real, val y: Real) {
-    companion object {
-        /**
-         * The x unit point.
-         */
-        val X = RealPt(Real.One, Real.Zero)
-
-        /**
-         * The y unit point.
-         */
-        val Y = RealPt(Real.Zero, Real.One)
-
-        /**
-         * The zero point.
-         */
-        val Zero = RealPt(Real.Zero, Real.Zero)
-
-        /**
-         * The one point.
-         */
-        val One = RealPt(Real.One, Real.One)
-
-    }
-
-    constructor() : this(
-        Real.Zero,
-        Real.Zero
-    )
-
-    /**
-     * Adds the point component-wise.
-     */
-    operator fun plus(other: RealPt) =
-        RealPt(
-            x + other.x,
-            y + other.y
-        )
-
-    /**
-     * Subtracts the point component-wise.
-     */
-    operator fun minus(other: RealPt) =
-        RealPt(
-            x - other.x,
-            y - other.y
-        )
-
-    /**
-     * Multiplies the point component-wise.
-     */
-    operator fun times(other: RealPt) =
-        RealPt(
-            x * other.x,
-            y * other.y
-        )
-
-    /**
-     * Divides the point component-wise.
-     */
-    operator fun div(other: RealPt) =
-        RealPt(
-            x / other.x,
-            y / other.y
-        )
-
-    /**
-     * Adds the scalar component-wise.
-     */
-    operator fun plus(scalar: Real) =
-        RealPt(
-            x + scalar,
-            y + scalar
-        )
-
-
-    /**
-     * Subtracts the point component-wise.
-     */
-    operator fun minus(scalar: Real) =
-        RealPt(
-            x - scalar,
-            y - scalar
-        )
-
-    /**
-     * Multiplies the scalar component-wise.
-     */
-    operator fun times(scalar: Real) =
-        RealPt(
-            x * scalar,
-            y * scalar
-        )
-
-    /**
-     * Divides the scalar component-wise.
-     */
-    operator fun div(scalar: Real) =
-        RealPt(
-            x / scalar,
-            y / scalar
-        )
-
-    /**
-     * Negates this point.
-     */
-    operator fun unaryMinus() =
-        RealPt(-x, -y)
-
-    /**
-     * The squared length.
-     */
-    val lenSq by lazy { x * x + y * y }
-
-    /**
-     * The length.
-     */
-    val len by lazy { sqrt(lenSq) }
-
-    /**
-     * The normalized point.
-     */
-    val nor by lazy { div(len) }
-
-    /**
-     * Computes the dot product between this an another point.
-     */
-    infix fun dot(other: RealPt) =
-        x * other.x + y * other.y
-
-    val isEmpty get() = x.numerator == 0 && y.numerator == 0
-}
-
-/**
- * Applies the function on the components.
- */
-inline fun RealPt.mapComponents(block: (Real) -> Real) =
-    RealPt(block(x), block(y))
-
-/**
- * Applies the function on the pairs of components.
- */
-inline fun reduceComponents(a: RealPt, b: RealPt, block: (Real, Real) -> Real) =
-    RealPt(block(a.x, b.x), block(a.y, b.y))
-
 fun abs(real: Real) =
     Real(abs(real.numerator))
-
-fun abs(pt: RealPt) =
-    RealPt(abs(pt.x), abs(pt.y))
 
 fun min(a: Real, b: Real) =
     if (a < b) a else b
@@ -222,5 +114,3 @@ fun max(a: Real, b: Real) =
 fun hypot(a: Real, b: Real) =
     sqrt(a * a + b * b)
 
-fun RealPt.toPt() = Pt(x.toFloat(), y.toFloat())
-fun Pt.toReal() = RealPt(x.toReal(), y.toReal())

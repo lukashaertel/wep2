@@ -338,6 +338,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * remembering when the [Ent] was constructed.
      * @param function The function to run. Itself will have [time] properly assigned during it's invocation.
      */
+    @Deprecated("AAA", level = DeprecationLevel.ERROR)
     protected fun repeating(
         player: Short,
         frequency: Long,
@@ -357,7 +358,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         }
 
         var initial = Long.MAX_VALUE
-        var last = Long.MAX_VALUE
         var rdc = Byte.MIN_VALUE
 
         // Get ticker name for storing and loading.
@@ -375,11 +375,9 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
                 // Restore last value if loading.
                 if (partIn != null) {
                     initial = partIn("initial") as Long
-                    last = partIn("last") as Long
                     rdc = partIn("rdc") as Byte
                 } else {
                     initial = init()
-                    last = init()
                     rdc = repeatingDC++
                 }
 
@@ -388,7 +386,6 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
 
             override fun persist(partOut: PartOut) {
                 partOut("initial", initial)
-                partOut("last", last)
                 partOut("rdc", rdc)
             }
 
@@ -406,20 +403,16 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
 
         // Return non-exchanged local invocation.
         return { time ->
-            if (time > last) {
-                // TODO: Yes, this fucks up some stuff. Sign-off hashing shows that those generate differing outputs
+            val last = shell.engine.lastRepeatingTime(player, rdc) ?: initial
 
-                // Generate local instructions.
-                val locals = frequencyProgression(initial, frequency, last, time).asSequence().map {
-                    Instruction(id, name, Time(it, player, rdc), emptyList())
-                }
-
-                // Call unsafe local receive.
-                shell.engine.local(locals)
-
-                // Transfer last time.
-                last = time
+            // Generate local instructions.
+            val locals = frequencyProgression(initial, frequency, last, time).map {
+                Instruction(id, name, Time(it, player, rdc), emptyList())
             }
+
+            // Call unsafe local receive.
+            if (locals.isNotEmpty())
+                shell.engine.local(locals.asSequence())
         }
     }
 

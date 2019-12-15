@@ -44,7 +44,7 @@ interface Shell {
      * Resets and loads the shell from the given [ShellIn].
      * @param shell TODO In refactoring allow this to be done better.
      */
-    fun load(shell: Shell, shellIn: ShellIn)
+    fun load(shellIn: ShellIn)
 
     /**
      * Stores the shell to the given [shellOut]. Corresponding [load] operations must restore the state fully.
@@ -69,9 +69,9 @@ interface Shell {
  * Performs the [Shell.load] from a [map]. If [roundTripConsistency] is given as `true`, this map is then used to check
  * consistency the output after [Shell.store] on the just restored receiver.
  */
-fun Shell.loadFromMap(shell: Shell, map: Map<Lx, Any?>, roundTripConsistency: Boolean = false) {
+fun Shell.loadFromMap(map: Map<Lx, Any?>, roundTripConsistency: Boolean = false) {
     // Load from map.
-    load(shell, map::get)
+    load(map::get)
 
     // If no round-trip consistency, return.
     if (!roundTripConsistency)

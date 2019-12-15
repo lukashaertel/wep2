@@ -22,7 +22,6 @@ import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.*
-import eu.metatools.up.deb.SnapshotShell
 import eu.metatools.up.dt.*
 import eu.metatools.up.kryo.*
 import eu.metatools.up.net.NetworkClaimer
@@ -33,24 +32,6 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 val Long.sec get() = this / 1000.0
-
-
-fun strDiff(a: String, b: String) {
-    var l = ""
-    var r = ""
-    for (i in 0 until minOf(a.length, b.length)) {
-        l += a[i]
-        r += b[i]
-
-        if (a.subSequence(0, i) != b.subSequence(0, i)) {
-            println("Differing at $i")
-            println("A: ${a.substring(i)}")
-            println("B: ${b.substring(i)}")
-            return
-        }
-
-    }
-}
 
 fun Long.toNextFullSecond() =
     1000L - (this % 1000L)
@@ -102,53 +83,27 @@ class Frontend : F2DListener(-100f, 100f) {
 
     /**
      * Network player claimer. Claims and holds a player ID per UUID.
-     *
-     * TODO: Expiry is still a bit fucked.
      */
     private val claimer = NetworkClaimer(net, UUID.randomUUID(), changed = { old, new ->
         System.err.println("Warning: Claim for engine has changed from $old to $new, this should not happen.")
     })
 
-//    /**
-//     * Sign-off coordinator.
-//     */
-//    private val signOff = NetworkSignOff(net,
-//        initialDelay = clock.time.toNextFullSecond(),
-//        changed = { _, new ->
-//            if (new != null)
-//                signOffValue = new
-//        })
+    /**
+     * Sign-off coordinator.
+     */
+    private val signOff = NetworkSignOff(net,
+        initialDelay = clock.time.toNextFullSecond(),
+        changed = { _, new ->
+            if (new != null)
+                signOffValue = new
+        })
 
     /**
      * The shell that runs the game.
      */
-    val shell = SnapshotShell(StandardShell(claimer.currentClaim).also {
+    val shell = StandardShell(claimer.currentClaim).also {
         it.send = net::instruction
-    }, 3000L, {
-        println(it)
-        engine.invalidate(it - 5000)
-
-        if (debug) {
-            val funnel = KryoFunnel(KryoConfiguredPool(::configureKryo, false))
-            val target = Hashing.farmHashFingerprint64().newHasher()
-            store { key, any ->
-                if (key != lx / "root" / "tickers-0" / "last"
-                    && key != lx / ".engine" / ".register"
-                ) {
-                    target.putObject(key, funnel)
-                    target.putObject(any, funnel)
-                }
-                println("$key = $any")
-            }
-            val bytes = target.hash().asBytes()
-            hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
-            while (hashes.size > 5)
-                hashes.asReversed().removeAt(0).dispose()
-        }
-
-    }, {
-        println("Invalidated snapshot $it")
-    })
+    }
 
 
     /**
@@ -163,7 +118,7 @@ class Frontend : F2DListener(-100f, 100f) {
      */
     lateinit var world: World
 
-    //private var signOffValue: Long? = null
+    private var signOffValue: Long? = null
 
     override fun create() {
         super.create()
@@ -186,22 +141,23 @@ class Frontend : F2DListener(-100f, 100f) {
             }
         }
 
-        // Assign world from loading or creating.
-        world = if (net.isCoordinating) {
-            World(shell, lx / "root", stupidBox).also {
-                shell.engine.add(it)
-            }
-        } else {
-            // Restore, resolve root.
-            val bundle = net.bundle()
-            shell.on.critical {
-                shell.loadFromMap(shell, bundle, true)
-            }
-            shell.resolve(lx / "root") as World
-        }
+        shell.critical {
+            // Assign world from loading or creating.
+            world = if (net.isCoordinating) {
+                World(shell, lx / "root", stupidBox).also {
+                    shell.engine.add(it)
+                }
+            } else {
+                // Restore, resolve root.
+                val bundle = net.bundle()
 
-        shell.withTime(clock) {
-            world.createMover(shell.player)
+                shell.loadFromMap(bundle, true)
+                shell.resolve(lx / "root") as World
+            }
+
+            shell.withTime(clock) {
+                world.createMover(shell.player)
+            }
         }
     }
 
@@ -219,7 +175,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     override fun render() {
         // Block network on all rendering, including sending via Once.
-        shell.on.critical {
+        shell.critical {
             super.render()
         }
     }
@@ -280,21 +236,29 @@ class Frontend : F2DListener(-100f, 100f) {
             }
         }
 
-
-        // Dispatch global update.
-        world.worldUpdate(clock.time)
+//
+//        // Dispatch global update.
+//        world.worldUpdate(clock.time)
 
         // Render everything.
         shell.list<Rendered>().forEach { it.render(time) }
 
-//        // Check if sign off was set.
-//        signOffValue?.let {
-//            // Invalidate to it.
-//            shell.engine.invalidate(it)
-//
-//            // Reset.
-//            signOffValue = null
-//        }
+        // Check if sign off was set.
+        signOffValue?.let {
+            // Invalidate to it.
+            shell.engine.invalidate(it)
+
+            val target = Hashing.farmHashFingerprint64().newHasher()
+            shell.hashTo(target, ::configureKryo)
+            val bytes = target.hash().asBytes()
+            hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
+            while (hashes.size > 5)
+                hashes.asReversed().removeAt(0).dispose()
+
+
+            // Reset.
+            signOffValue = null
+        }
 
         if (debug) {
             for ((i, h) in hashes.withIndex()) {
@@ -338,7 +302,7 @@ class Frontend : F2DListener(-100f, 100f) {
     override fun dispose() {
         super.dispose()
 
-//        signOff.close()
+        signOff.close()
         claimer.close()
         clock.close()
         net.close()

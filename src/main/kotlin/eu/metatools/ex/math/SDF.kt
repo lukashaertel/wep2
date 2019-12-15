@@ -17,8 +17,8 @@ fun square(dim: RealPt, pt: RealPt): Real {
  * Applies a located square.
  */
 fun squareFromTo(start: RealPt, end: RealPt, pt: RealPt): Real {
-    val dim = (end - start) / 2.toReal()
-    val center = (start + end) / 2.toReal()
+    val dim = (end - start) / 2
+    val center = (start + end) / 2
     return square(dim, pt - center)
 }
 
