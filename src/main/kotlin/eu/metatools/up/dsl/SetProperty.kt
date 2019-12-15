@@ -135,6 +135,9 @@ class SetProperty<E : Comparable<E>>(
  */
 fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) =
     ReadOnlyPropertyProvider { ent: Ent, property ->
+        // Perform optional type check.
+        Types.performTypeCheck(ent, property, true)
+
         // Create set from implied values.
         SetProperty(ent, property.name, init, null).also {
             // Include in entity.
@@ -147,6 +150,9 @@ fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) =
  */
 fun <E : Comparable<E>> setObserved(init: () -> List<E> = ::emptyList, changed: (SetChange<E>) -> Unit) =
     ReadOnlyPropertyProvider { ent: Ent, property ->
+        // Perform optional type check.
+        Types.performTypeCheck(ent, property, true)
+
         // Create set from implied values.
         SetProperty(ent, property.name, init, changed).also {
             // Include in entity.

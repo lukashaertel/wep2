@@ -42,7 +42,6 @@ interface Shell {
 
     /**
      * Resets and loads the shell from the given [ShellIn].
-     * @param shell TODO In refactoring allow this to be done better.
      */
     fun load(shellIn: ShellIn)
 

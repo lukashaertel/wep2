@@ -149,7 +149,6 @@ class KryoRequestCorrelator(
         }
 
         // Copy the bytes, allows the original buffer to be reused.
-        // TODO: Would be nice if jgroups could help me out with this. GENERERALLY FUCKED IN GENERAL
         val buffer = output.toBytes()
 
         // Make the reply object.

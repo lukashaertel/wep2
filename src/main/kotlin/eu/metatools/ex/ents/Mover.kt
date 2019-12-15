@@ -27,6 +27,8 @@ interface MoverKind {
      */
     val radius: Real
 
+    val shotCost: Int
+
     /**
      * The damage it does when shooting.
      */
@@ -42,7 +44,8 @@ enum class Movers : MoverKind {
      */
     Small {
         override val radius = 0.1f.toReal()
-
+        override val shotCost: Int
+            get() = 10
         override val damage: Int
             get() = 2
     },
@@ -51,6 +54,8 @@ enum class Movers : MoverKind {
      */
     Large {
         override val radius = 0.25f.toReal()
+        override val shotCost: Int
+            get() = 8
         override val damage: Int
             get() = 1
     },
@@ -68,7 +73,7 @@ class Mover(
     shell: Shell, id: Lx, initPos: RealPt, val kind: MoverKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Ticking, TraitMove,
-    TraitDamageable {
+    TraitDamageable, TraitCollects {
     override val extraArgs = mapOf(
         "initPos" to initPos,
         "kind" to kind,
@@ -108,7 +113,17 @@ class Mover(
         /**
          * The text drawable.
          */
-        private val boldText by lazy {
+        private val captionText by lazy {
+            Resources.segoe[ReferText(
+                horizontal = Location.Center,
+                vertical = Location.Start
+            )]
+        }
+
+        /**
+         * The text drawable.
+         */
+        private val hitText by lazy {
             Resources.segoe[ReferText(
                 horizontal = Location.Center,
                 vertical = Location.Center,
@@ -142,6 +157,10 @@ class Mover(
      */
     override val radius get() = kind.radius
 
+    override val blocking get() = true
+
+    val shotCost get() = kind.shotCost
+
     /**
      * The color to render this mover with.
      */
@@ -150,12 +169,14 @@ class Mover(
     /**
      * The last moved direction (the look-direction).
      */
-    private var look by { Cell(0, 0) }
+    private var look by { RealPt.Zero }
 
     /**
      * The current health.
      */
     private var health by { 10 }
+
+    private var ownResources by { 0 }
 
     override fun render(time: Double) {
         // Get position of the mover.
@@ -165,12 +186,17 @@ class Mover(
         val mat = Mat.translation(
             Constants.tileWidth * x.toFloat(),
             Constants.tileHeight * y.toFloat()
-        )
-            .scale(Constants.tileWidth * kind.radius.toFloat() * 2f, Constants.tileHeight * kind.radius.toFloat() * 2f)
+        ).scale(Constants.tileWidth * kind.radius.toFloat() * 2f, Constants.tileHeight * kind.radius.toFloat() * 2f)
 
         // Submit the visual and the capture.
         frontend.continuous.submit(solid.tint(color), time, mat)
         frontend.continuous.submit(Cube, this, time, mat)
+
+        val mat2 = Mat.translation(
+            Constants.tileWidth * x.toFloat(),
+            Constants.tileHeight * y.toFloat()
+        ).translate(0f, -8f).scale(12f)
+        frontend.continuous.submit(captionText, "H: $health R: $ownResources", time, mat2)
     }
 
     override fun update(sec: Double, freq: Long) {
@@ -183,13 +209,13 @@ class Mover(
      */
     val moveInDirection = exchange(::doMoveInDirection)
 
-    private fun doMoveInDirection(cell: Cell) {
+    private fun doMoveInDirection(direction: RealPt) {
         // Receive movement on trait.
-        receiveMove(elapsed, RealPt(cell.x.toReal(), cell.y.toReal()))
+        receiveMove(elapsed, direction)
 
         // If movement non-empty, update look.
-        if (!cell.isEmpty)
-            look = cell
+        if (!direction.isEmpty)
+            look = direction
     }
 
     /**
@@ -199,20 +225,31 @@ class Mover(
 
     private fun doShoot(d: RealPt?) {
         // Get the direction to shoot.
-        val dir = d ?: RealPt(look.x.toReal(), look.y.toReal())
+        val dir = d ?: look
 
         // Check if not empty, then construct the bullet.
-        if (!dir.isEmpty)
-            constructed(
-                Bullet(
-                    shell,
-                    newId(),
-                    pos + dir.nor * (radius + 0.1f.toReal()),
-                    dir.nor * 5f.toReal(),
-                    elapsed,
-                    kind.damage
-                )
+        if (dir.isEmpty)
+            return
+
+        if (world.res + ownResources < 10)
+            return
+
+        ownResources -= shotCost
+        if (ownResources < 0) {
+            world.res += ownResources
+            ownResources = 0
+        }
+
+        constructed(
+            Bullet(
+                shell,
+                newId(),
+                pos + dir.nor * (radius + 0.1f.toReal()),
+                dir.nor * 5f.toReal(),
+                elapsed,
+                kind.damage
             )
+        )
     }
 
     override fun takeDamage(amount: Int) {
@@ -224,18 +261,21 @@ class Mover(
         val (x, y) = pos
 
         // Render damage floating up.
-        enqueue(frontend.once, boldText.limit(3.0).offset(start), amount.toString()) {
+        enqueue(frontend.once, hitText.limit(3.0).offset(start), amount.toString()) {
             Mat.translation(
                 Constants.tileWidth * x.toFloat(),
                 Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10
-            )
-                .scale(sx = frontend.fontSize, sy = frontend.fontSize)
+            ).scale(sx = frontend.fontSize, sy = frontend.fontSize)
         }
 
         // If dead now, remove the mover from the world and delete it.
-        if (health < 0) {
+        if (health <= 0) {
             world.movers.remove(this)
             delete(this)
         }
+    }
+
+    override fun collectResource(amount: Int) {
+        ownResources += amount
     }
 }

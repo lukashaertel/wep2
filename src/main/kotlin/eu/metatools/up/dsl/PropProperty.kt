@@ -25,8 +25,6 @@ data class PropChange<T>(val from: T, val to: T) : Change<PropChange<T>> {
         "$from -> $to"
 }
 
-// TODO: Changed delegate invocation on init. Furthermore, no "initial value", use init twice?
-
 /**
  * Value property, uses the full [name] and the given initial value assignment [init] on non-restore.
  */
@@ -105,6 +103,9 @@ class PropProperty<T>(
  */
 fun <T> prop(init: () -> T) =
     ReadWritePropertyProvider { ent: Ent, property ->
+        // Perform optional type check.
+        Types.performTypeCheck(ent, property, false)
+
         // Create property from implied values.
         PropProperty(ent, property.name, init, null, null).also {
             // Include in entity.
@@ -117,6 +118,9 @@ fun <T> prop(init: () -> T) =
  */
 fun <T> propObserved(init: () -> T, zero: T, changed: (PropChange<T>) -> Unit) =
     ReadWritePropertyProvider { ent: Ent, property ->
+        // Perform optional type check.
+        Types.performTypeCheck(ent, property, false)
+
         // Create property from implied values.
         PropProperty(ent, property.name, init, Box(zero), changed).also {
             // Include in entity.

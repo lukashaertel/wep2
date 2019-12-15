@@ -13,9 +13,9 @@ private fun Long.coerceToInt() =
 data class Real(val numerator: Int) : Comparable<Real> {
 
     companion object {
-        const val precision = 64
+        const val precision = 3600
 
-        const val sqrtPrecision = 8
+        const val sqrtPrecision = 60
 
         val Zero = Real(0)
 

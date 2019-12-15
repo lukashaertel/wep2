@@ -138,7 +138,6 @@ class MapProperty<K : Comparable<K>, V>(
             // If listening, notify changed.
             changed?.invoke(MapChange(add, remove))
 
-            // TODO This is turbofucked, needs to "merge changes".
             // Capture undo.
             shell.engine.capture {
                 // Undo changes properly.
@@ -194,6 +193,9 @@ class MapProperty<K : Comparable<K>, V>(
  */
 fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
     ReadOnlyPropertyProvider { ent: Ent, property ->
+        // Perform optional type check.
+        Types.performTypeCheck(ent, property, true)
+
         // Create map from implied values.
         MapProperty(ent, property.name, init, null).also {
             // Include in entity.
@@ -206,6 +208,9 @@ fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
  */
 fun <K : Comparable<K>, V> mapObserved(init: () -> Map<K, V> = ::emptyMap, changed: (MapChange<K, V>) -> Unit) =
     ReadOnlyPropertyProvider { ent: Ent, property ->
+        // Perform optional type check.
+        Types.performTypeCheck(ent, property, true)
+
         // Create map from implied values.
         MapProperty(ent, property.name, init, changed).also {
             // Include in entity.

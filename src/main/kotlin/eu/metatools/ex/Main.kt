@@ -15,9 +15,7 @@ import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.input.KeyStick
 import eu.metatools.f2d.context.LifecycleDrawable
-import eu.metatools.f2d.math.Cell
-import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.math.*
 import eu.metatools.f2d.tools.*
 import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
@@ -185,6 +183,15 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * The text drawable.
      */
+    private val segoe by lazy {
+        Resources.segoe[ReferText(
+            horizontal = Location.Start,
+            vertical = Location.End
+        )]
+    }
+    /**
+     * The text drawable.
+     */
     private val console by lazy {
         Resources.consolas[ReferText(
             horizontal = Location.Start,
@@ -211,7 +218,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
                 // Movement is present, pass to mover.
                 if (move != null)
-                    mover.moveInDirection(move)
+                    mover.moveInDirection(move.toReal())
 
                 // Space was pressed, shot in direction.
                 if (Gdx.input.isKeyJustPressed(Keys.SPACE))
@@ -230,8 +237,12 @@ class Frontend : F2DListener(-100f, 100f) {
                         mover.shoot(null)
 
                     // In some possibility, move.
-                    if (generatorRandom.nextDouble() > 0.4)
-                        mover.moveInDirection(Cell(generatorRandom.nextInt(3) - 1, generatorRandom.nextInt(3) - 1))
+                    if (generatorRandom.nextDouble() > 0.05) {
+                        val rmx = (generatorRandom.nextInt(3) - 1).toReal()
+                        val rmy = (generatorRandom.nextInt(3) - 1).toReal()
+                        mover.moveInDirection(RealPt(rmx, rmy))
+                    }
+
                 }
             }
         }
@@ -259,6 +270,8 @@ class Frontend : F2DListener(-100f, 100f) {
             // Reset.
             signOffValue = null
         }
+
+        continuous.submit(segoe, "Res: ${world.res}", time, Mat.translation(8f, 8f).scale(12f, 12f))
 
         if (debug) {
             for ((i, h) in hashes.withIndex()) {
@@ -314,5 +327,6 @@ lateinit var frontend: Frontend
 fun main() {
     frontend = Frontend()
     val config = LwjglApplicationConfiguration()
+    config.height = config.width
     LwjglApplication(frontend, config)
 }

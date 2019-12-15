@@ -6,6 +6,8 @@ import eu.metatools.f2d.math.Real
 import eu.metatools.f2d.math.RealPt
 import eu.metatools.f2d.math.toPt
 import eu.metatools.f2d.math.toReal
+import eu.metatools.up.list
+import java.util.*
 
 /**
  * Entity has a radius.
@@ -38,6 +40,10 @@ interface TraitDamageable {
     fun takeDamage(amount: Int)
 }
 
+interface TraitCollects {
+    fun collectResource(amount: Int)
+}
+
 /**
  * Entity moves, must have a world and a radius reference as well.
  */
@@ -56,6 +62,8 @@ interface TraitMove : TraitWorld, TraitRadius {
      * The velocity.
      */
     var vel: RealPt
+
+    val blocking: Boolean
 
     /**
      * Determines the actual position at the time.
@@ -80,17 +88,13 @@ interface TraitMove : TraitWorld, TraitRadius {
     /**
      * Updats the movement, returning a list of touched entities.
      */
-    fun updateMove(sec: Double, freq: Long): List<Ent> {
-        // No velocity, so nothing to do.
-        if (vel.isEmpty)
-            return emptyList()
+    fun updateMove(sec: Double, freq: Long): SortedSet<Ent> {
+        // Make result set.
+        val hit = TreeSet<Ent>()
 
         // Get base parameters.
         pos = posAt(sec)
         moveTime = sec
-
-        // Make result set.
-        val hit = mutableListOf<Ent>()
 
         // Get SDF for own radius, check if hitting. If so, un-clip and add world to result set.
         val sdf = world.sdf(radius)
@@ -102,18 +106,19 @@ interface TraitMove : TraitWorld, TraitRadius {
         }
 
         // Check all other movers, move away if clipping and add to result set.
-        for (other in world.movers) {
+        for (other in world.shell.list<TraitMove>()) {
             // Just as an example, not good code.
             if (other === this)
                 continue
+
             val d = other.pos - pos
-            if (d.len == Real.Zero)
-                continue
             val rs = radius + other.radius
-            if (d.len < rs) {
-                val pen = rs - d.len
-                pos -= d.nor * pen
-                hit += other
+            if (d.len <= rs) {
+                if (blocking && other.blocking && d.len != Real.Zero) {
+                    val pen = rs - d.len
+                    pos -= d.nor * pen
+                }
+                hit += other as Ent
             }
         }
 

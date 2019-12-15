@@ -1,41 +1,31 @@
 package eu.metatools.ex.ents
 
+import com.badlogic.gdx.graphics.Color
 import eu.metatools.f2d.context.refer
 import eu.metatools.ex.*
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.RealPt
 import eu.metatools.f2d.math.toReal
+import eu.metatools.f2d.tools.tint
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.*
 import kotlin.math.atan2
 
-/**
- * A moving bullet.
- * @param shell The shell for the [Ent].
- * @param id The ID for the [Ent].
- * @param initPos The initial position.
- * @param initVel The initial velocity.
- * @param initMoveTime The initial move time.
- * @property damage Constant. The damage done by the bullet.
- */
-class Bullet(
-    shell: Shell, id: Lx, initPos: RealPt, initVel: RealPt, initMoveTime: Double, val damage: Int
-) : Ent(shell, id), TraitMove,
-    Ticking, Rendered {
+class Respack(
+    shell: Shell, id: Lx, initPos: RealPt, val content: Int
+) : Ent(shell, id), TraitMove, Ticking, Rendered, TraitDamageable {
     companion object {
         /**
          * The drawable for the bullet.
          */
-        private val solid by lazy { Resources.solid.refer() }
+        private val solid by lazy { Resources.solid.refer().tint(Color.CYAN) }
     }
 
     override val extraArgs = mapOf(
         "initPos" to initPos,
-        "initVel" to initVel,
-        "initMoveTime" to initMoveTime,
-        "damage" to damage
+        "content" to content
     )
 
     /**
@@ -51,19 +41,19 @@ class Bullet(
     /**
      * Current move time.
      */
-    override var moveTime by { initMoveTime }
+    override var moveTime by { 0.0 }
 
     /**
      * Current velocity.
      */
-    override var vel by { initVel }
+    override var vel by { RealPt.Zero }
 
     /**
      * Constant. Radius.
      */
-    override val radius = 0.025f.toReal()
+    override val radius = 0.15f.toReal()
 
-    override val blocking get() = true
+    override val blocking get() = false
 
     override fun render(time: Double) {
         // Get time.
@@ -71,8 +61,8 @@ class Bullet(
 
         // Transformation for displaying the bullet.
         val mat = Mat.translation(Constants.tileWidth * x.toFloat(), Constants.tileHeight * y.toFloat())
-            .rotateZ(atan2(vel.y.toFloat(), vel.x.toFloat()))
-            .scale(Constants.tileWidth * radius.toFloat() * 5f, Constants.tileHeight * radius.toFloat() * 2f)
+            .rotateZ(time.toFloat())
+            .scale(Constants.tileWidth * radius.toFloat() * 2f, Constants.tileHeight * radius.toFloat() * 2f)
 
         // Submit the solid.
         frontend.continuous.submit(solid, time, mat)
@@ -87,11 +77,16 @@ class Bullet(
         if (hit.isNotEmpty())
             delete(this)
 
-        // For all items that are hit, dispatch the damage.
-        hit.forEach {
-            if (it is TraitDamageable)
-                it.takeDamage(damage)
+        for (it in hit) {
+            if (it is TraitCollects) {
+                it.collectResource(content)
+                return
+            }
         }
+    }
+
+    override fun takeDamage(amount: Int) {
+        delete(this)
     }
 
 }

@@ -339,7 +339,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         player: Short,
         frequency: Long,
         init: () -> Long,
-        function: () -> Any?
+        function: () -> Unit
     ): (Long) -> Unit {
         // Mark errors.
         require(!driver.isConnected) { "Marking repeating in connected entity, this is most likely an invalid call." }

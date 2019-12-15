@@ -8,6 +8,7 @@ import eu.metatools.f2d.tools.Static
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.*
+import eu.metatools.up.dt.Box
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
 
@@ -76,12 +77,34 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
             clipping.sdf(radius)
         }
 
+    var res by prop { 0 }
+
     /**
      * Repeater generating updates in 40ms intervals.
      */
-    val worldUpdate = repeating(Short.MAX_VALUE, 500, shell::initializedTime) {
+    val worldUpdate = repeating(Short.MAX_VALUE, 50, shell::initializedTime) {
         shell.list<Ticking>().forEach {
-            it.update((time.global - shell.initializedTime).sec, 500)
+            it.update((time.global - shell.initializedTime).sec, 50)
+        }
+
+        if (res < 100)
+            res += 1
+
+        val random = rng()
+        if (random.nextDouble() > 0.99 && tiles.isNotEmpty() && shell.list<Respack>().count() < 10) {
+            val xmin = tiles.keys.map { it.x }.min()!!
+            val xmax = tiles.keys.map { it.x }.max()!!
+            val ymin = tiles.keys.map { it.y }.min()!!
+            val ymax = tiles.keys.map { it.y }.max()!!
+
+            val (sx, sy) = generateSequence {
+                val rx = random.nextInt(xmax + 1 - xmin) + xmin
+                val ry = random.nextInt(ymax + 1 - ymin) + ymin
+                Triple(rx, ry, tiles[Cell(rx, ry)])
+            }.first { (_, _, v) -> v?.passable == true }
+
+            constructed(Respack(shell, newId(), RealPt(sx.toReal(), sy.toReal()), 10))
+
         }
     }
 
