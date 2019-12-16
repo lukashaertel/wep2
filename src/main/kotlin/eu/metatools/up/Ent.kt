@@ -3,7 +3,6 @@ package eu.metatools.up
 import eu.metatools.up.dt.*
 import eu.metatools.up.lang.frequencyProgression
 import java.util.*
-import kotlin.experimental.inv
 
 /**
  * Base class for exchanged entity in a [shell].
@@ -399,10 +398,10 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
 
         // Return non-exchanged local invocation.
         return { time ->
-            val last = shell.engine.lastRepeatingTime(player, rdc) ?: initial
+            val start = shell.engine.lastRepeatingTime(player, rdc)?.inc() ?: initial
 
             // Generate local instructions.
-            val locals = frequencyProgression(initial, frequency, last, time).map {
+            val locals = frequencyProgression(initial, frequency, start, time).map {
                 Instruction(id, name, Time(it, player, rdc), emptyList())
             }
 

@@ -4,7 +4,6 @@ import eu.metatools.ex.math.root
 import eu.metatools.up.Ent
 import eu.metatools.f2d.math.Real
 import eu.metatools.f2d.math.RealPt
-import eu.metatools.f2d.math.toPt
 import eu.metatools.f2d.math.toReal
 import eu.metatools.up.list
 import java.util.*
@@ -99,7 +98,7 @@ interface TraitMove : TraitWorld, TraitRadius {
         // Get SDF for own radius, check if hitting. If so, un-clip and add world to result set.
         val sdf = world.sdf(radius)
         val distance = sdf(pos)
-        if (distance < Real.Zero) {
+        if (distance < Real.ZERO) {
             val clip = root(sdf, pos)
             pos = (clip + clip) - pos
             hit += world
@@ -114,7 +113,7 @@ interface TraitMove : TraitWorld, TraitRadius {
             val d = other.pos - pos
             val rs = radius + other.radius
             if (d.len <= rs) {
-                if (blocking && other.blocking && d.len != Real.Zero) {
+                if (blocking && other.blocking && d.len != Real.ZERO) {
                     val pen = rs - d.len
                     pos -= d.nor * pen
                 }

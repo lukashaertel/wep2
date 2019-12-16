@@ -4,25 +4,51 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
+/**
+ * Coerces the value of the receiver in the range of valid [Int] values.
+ */
 private fun Long.coerceToInt() =
     coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
 
 /**
- * TODO: Float is a fuck.
+ * A fixed precision decimal number.
  */
 data class Real(val numerator: Int) : Comparable<Real> {
 
     companion object {
+        /**
+         * The denominator value.
+         */
         const val precision = 3600
 
+        /**
+         * The square root of the denominator value.
+         */
         const val sqrtPrecision = 60
 
-        val Zero = Real(0)
+        /**
+         * Zero.
+         */
+        val ZERO = Real(0)
 
-        val One = Real(precision)
+        /**
+         * One.
+         */
+        val ONE = Real(precision)
 
+        /**
+         * Smallest non-zero positive number.
+         */
+        val E = Real(1)
+
+        /**
+         * The minimum value.
+         */
         val MIN_VALUE = Real(Int.MIN_VALUE)
 
+        /**
+         * The maximum value.
+         */
         val MAX_VALUE = Real(Int.MAX_VALUE)
     }
 
@@ -57,10 +83,15 @@ data class Real(val numerator: Int) : Comparable<Real> {
     }
 
     operator fun unaryMinus() = Real(-numerator)
+
     operator fun unaryPlus() = Real(numerator)
+
     fun toFloat() = numerator / precision.toFloat()
+
     fun toDouble() = numerator / precision.toDouble()
-    override fun toString() = toFloat().toString()
+
+    override fun toString() =
+        roundForPrint(toFloat()).toString()
 }
 
 operator fun Real.div(other: Int) =
@@ -100,27 +131,69 @@ operator fun Real.plus(other: Double) =
 operator fun Real.times(other: Double) =
     times(other.toReal())
 
+/**
+ * Converts the value to a [Real].
+ */
+fun Byte.toReal() =
+    Real(this * Real.precision)
+
+/**
+ * Converts the value to a [Real].
+ */
+fun Short.toReal() =
+    Real(this * Real.precision)
+
+/**
+ * Converts the value to a [Real].
+ */
 fun Int.toReal() =
     Real(this * Real.precision)
 
+/**
+ * Converts the value to a [Real].
+ */
+fun Long.toReal() =
+    Real((this * Real.precision).coerceToInt())
+
+/**
+ * Converts the value to a [Real].
+ */
 fun Float.toReal() =
     Real((this * Real.precision).roundToInt())
 
+/**
+ * Converts the value to a [Real].
+ */
 fun Double.toReal() =
     Real((this * Real.precision).roundToInt())
 
+/**
+ * Determines the square root of the value [real].
+ */
 fun sqrt(real: Real) =
     Real(Real.sqrtPrecision * sqrt(real.numerator.toDouble()).roundToInt())
 
+/**
+ * Determines the absolute value of [real].
+ */
 fun abs(real: Real) =
     Real(abs(real.numerator))
 
+/**
+ * Determines the smaller of [a] and [b].
+ */
 fun min(a: Real, b: Real) =
     if (a < b) a else b
 
+/**
+ * Determines the larger of [a] and [b].
+ */
 fun max(a: Real, b: Real) =
     if (a < b) b else a
 
+/**
+ * Determines the hypotenuse of [a] and [b].
+ */
 fun hypot(a: Real, b: Real) =
     sqrt(a * a + b * b)
 

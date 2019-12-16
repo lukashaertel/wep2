@@ -11,7 +11,6 @@ import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.*
-import kotlin.math.atan2
 
 class Respack(
     shell: Shell, id: Lx, initPos: RealPt, val content: Int
@@ -46,7 +45,7 @@ class Respack(
     /**
      * Current velocity.
      */
-    override var vel by { RealPt.Zero }
+    override var vel by { RealPt.ZERO }
 
     /**
      * Constant. Radius.
@@ -65,7 +64,7 @@ class Respack(
             .scale(Constants.tileWidth * radius.toFloat() * 2f, Constants.tileHeight * radius.toFloat() * 2f)
 
         // Submit the solid.
-        frontend.continuous.submit(solid, time, mat)
+        frontend.submit(solid, time, mat)
     }
 
 

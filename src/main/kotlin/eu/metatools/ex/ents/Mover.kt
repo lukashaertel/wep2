@@ -130,6 +130,8 @@ class Mover(
                 bold = true
             )].tint(Color.RED)
         }
+
+        private val fire by lazy { Resources.fire.refer() }
     }
 
     /**
@@ -169,7 +171,7 @@ class Mover(
     /**
      * The last moved direction (the look-direction).
      */
-    private var look by { RealPt.Zero }
+    private var look by { RealPt.ZERO }
 
     /**
      * The current health.
@@ -189,14 +191,14 @@ class Mover(
         ).scale(Constants.tileWidth * kind.radius.toFloat() * 2f, Constants.tileHeight * kind.radius.toFloat() * 2f)
 
         // Submit the visual and the capture.
-        frontend.continuous.submit(solid.tint(color), time, mat)
-        frontend.continuous.submit(Cube, this, time, mat)
+        frontend.submit(solid.tint(color), time, mat)
+        frontend.submit(Cube, this, time, mat)
 
         val mat2 = Mat.translation(
             Constants.tileWidth * x.toFloat(),
             Constants.tileHeight * y.toFloat()
         ).translate(0f, -8f).scale(12f)
-        frontend.continuous.submit(captionText, "H: $health R: $ownResources", time, mat2)
+        frontend.submit(captionText, "H: $health R: $ownResources", time, mat2)
     }
 
     override fun update(sec: Double, freq: Long) {
@@ -250,6 +252,8 @@ class Mover(
                 kind.damage
             )
         )
+
+        enqueue(frontend, fire.offset(elapsed), null) { Mat.ID }
     }
 
     override fun takeDamage(amount: Int) {
@@ -261,7 +265,7 @@ class Mover(
         val (x, y) = pos
 
         // Render damage floating up.
-        enqueue(frontend.once, hitText.limit(3.0).offset(start), amount.toString()) {
+        enqueue(frontend, hitText.limit(3.0).offset(start), amount.toString()) {
             Mat.translation(
                 Constants.tileWidth * x.toFloat(),
                 Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10
@@ -277,5 +281,6 @@ class Mover(
 
     override fun collectResource(amount: Int) {
         ownResources += amount
+        enqueue(frontend, fire.offset(elapsed), null) { Mat.ID }
     }
 }

@@ -8,6 +8,12 @@ object Resources {
 
     val data by lazy { frontend.use(DataResource()) }
 
+    val fire by lazy {
+        frontend.use(SoundResource {
+            Gdx.files.internal("fire.wav")
+        })
+    }
+
     val terrain by lazy {
         frontend.use(AtlasResource {
             Gdx.files.internal(

@@ -271,11 +271,11 @@ class Frontend : F2DListener(-100f, 100f) {
             signOffValue = null
         }
 
-        continuous.submit(segoe, "Res: ${world.res}", time, Mat.translation(8f, 8f).scale(12f, 12f))
+        submit(segoe, "Res: ${world.res}", time, Mat.translation(8f, 8f).scale(12f, 12f))
 
         if (debug) {
             for ((i, h) in hashes.withIndex()) {
-                continuous.submit(h, time, Mat.translation(32f, 32f + (i * 64f)).scale(48f))
+                submit(h, time, Mat.translation(32f, 32f + (i * 64f)).scale(48f))
             }
         }
 

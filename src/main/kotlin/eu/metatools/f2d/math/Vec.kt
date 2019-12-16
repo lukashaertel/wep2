@@ -13,8 +13,8 @@ import kotlin.math.sqrt
 /**
  * A vector.
  */
-class Vec(val values: FloatArray, val offset: Int = 0)  {
-    companion object  {
+class Vec(val values: FloatArray, val offset: Int = 0) : Comparable<Vec> {
+    companion object {
         /**
          * The x unit vector.
          */
@@ -215,6 +215,15 @@ class Vec(val values: FloatArray, val offset: Int = 0)  {
         return r
     }
 
+    override fun compareTo(other: Vec): Int {
+        val rz = z.compareTo(other.z)
+        if (rz != 0) return rz
+        val ry = y.compareTo(other.y)
+        if (ry != 0) return ry
+        val rx = x.compareTo(other.x)
+        if (rx != 0) return rx
+        return 0
+    }
 
     override fun toString() = buildString {
         append('(')

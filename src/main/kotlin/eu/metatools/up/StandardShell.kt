@@ -207,7 +207,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                     .asSequence()
                     .filter { it.player == player && it.local == rdc }
                     .map { it.global }
-                    .min()
+                    .max()
             }
         }
     }

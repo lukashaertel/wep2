@@ -1,44 +1,45 @@
 package eu.metatools.f2d.math
 
-data class RealPt(val x: Real, val y: Real) {
+/**
+ * A point of [Real]s.
+ */
+data class RealPt(val x: Real, val y: Real) : Comparable<RealPt> {
     companion object {
         /**
          * The x unit point.
          */
-        val X = RealPt(
-            Real.One,
-            Real.Zero
-        )
+        val X = RealPt(Real.ONE, Real.ZERO)
 
         /**
          * The y unit point.
          */
-        val Y = RealPt(
-            Real.Zero,
-            Real.One
-        )
+        val Y = RealPt(Real.ZERO, Real.ONE)
 
         /**
          * The zero point.
          */
-        val Zero = RealPt(
-            Real.Zero,
-            Real.Zero
-        )
+        val ZERO = RealPt(Real.ZERO, Real.ZERO)
 
         /**
          * The one point.
          */
-        val One = RealPt(
-            Real.One,
-            Real.One
-        )
+        val ONE = RealPt(Real.ONE, Real.ONE)
+
+        /**
+         * The point of minimum real value.
+         */
+        val MIN_VALUE = RealPt(Real.MIN_VALUE, Real.MIN_VALUE)
+
+        /**
+         * The point of maximum real value.
+         */
+        val MAX_VALUE = RealPt(Real.MAX_VALUE, Real.MAX_VALUE)
 
     }
 
     constructor() : this(
-        Real.Zero,
-        Real.Zero
+        Real.ZERO,
+        Real.ZERO
     )
 
     /**
@@ -142,8 +143,23 @@ data class RealPt(val x: Real, val y: Real) {
         x * other.x + y * other.y
 
     val isEmpty get() = x.numerator == 0 && y.numerator == 0
-}
 
+    override fun compareTo(other: RealPt): Int {
+        val ry = y.compareTo(other.y)
+        if (ry != 0) return ry
+        val rx = x.compareTo(other.x)
+        if (rx != 0) return rx
+        return 0
+    }
+
+    override fun toString() = buildString {
+        append('(')
+        append(x)
+        append(", ")
+        append(y)
+        append(')')
+    }
+}
 
 operator fun RealPt.plus(scalar: Int) =
     plus(scalar.toReal())
@@ -156,6 +172,7 @@ operator fun RealPt.times(scalar: Int) =
 
 operator fun RealPt.div(scalar: Int) =
     div(scalar.toReal())
+
 operator fun RealPt.plus(scalar: Float) =
     plus(scalar.toReal())
 
@@ -181,7 +198,6 @@ operator fun RealPt.div(scalar: Double) =
     div(scalar.toReal())
 
 
-
 /**
  * Applies the function on the components.
  */
@@ -202,5 +218,6 @@ fun abs(pt: RealPt) =
 
 fun RealPt.toPt() =
     Pt(x.toFloat(), y.toFloat())
+
 fun Pt.toReal() =
     RealPt(x.toReal(), y.toReal())

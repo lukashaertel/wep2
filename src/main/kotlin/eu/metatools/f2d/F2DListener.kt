@@ -4,15 +4,17 @@ import com.badlogic.gdx.ApplicationListener
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import eu.metatools.f2d.context.Continuous
-import eu.metatools.f2d.context.Lifecycle
-import eu.metatools.f2d.context.Once
+import eu.metatools.f2d.context.*
+import eu.metatools.f2d.math.CoordsAt
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.util.uniformX
 import eu.metatools.f2d.util.uniformY
 
-abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : ApplicationListener {
+/**
+ * Basic application listener dispatching rendering and providing [UI] functionality via [Once] and [Continuous].
+ */
+abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : ApplicationListener, UI {
     companion object {
         /**
          * The time to use for the first delta.
@@ -57,20 +59,62 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
      */
     private lateinit var spriteBatch: SpriteBatch
 
+    /**
+     * The model transformation matrix.
+     */
+    var model = Mat.ID
 
-    var model = Mat.Id
-
-    var projection = Mat.NaN
+    /**
+     * The projection matrix, set from rendering.
+     */
+    var projection = Mat.NAN
+        private set
 
     /**
      * The one-shot renderer.
      */
-    val once = Once()
+    private val once = StandardOnce()
+
+    override fun <T> enqueue(subject: Capturable<T>, args: T, result: Any, coordinates: CoordsAt) =
+        once.enqueue(subject, args, result, coordinates)
+
+    override fun <T> enqueue(subject: Capturable<T?>, result: Any, coordinates: CoordsAt) =
+        once.enqueue(subject, result, coordinates)
+
+    override fun <T> enqueue(subject: Drawable<T>, args: T, coordinates: CoordsAt) =
+        once.enqueue(subject, args, coordinates)
+
+    override fun <T> enqueue(subject: Drawable<T?>, coordinates: CoordsAt) =
+        once.enqueue(subject, coordinates)
+
+    override fun <T> enqueue(subject: Playable<T>, args: T, coordinates: CoordsAt) =
+        once.enqueue(subject, args, coordinates)
+
+    override fun <T> enqueue(subject: Playable<T?>, coordinates: CoordsAt) =
+        once.enqueue(subject, coordinates)
 
     /**
      * The continuous renderer.
      */
-    val continuous = Continuous()
+    private val continuous = StandardContinuous()
+
+    override fun <T> submit(subject: Capturable<T>, args: T, result: Any, time: Double, transform: Mat) =
+        continuous.submit(subject, args, result, time, transform)
+
+    override fun <T> submit(subject: Capturable<T?>, result: Any, time: Double, transform: Mat) =
+        continuous.submit(subject, result, time, transform)
+
+    override fun <T> submit(subject: Drawable<T>, args: T, time: Double, transform: Mat) =
+        continuous.submit(subject, args, time, transform)
+
+    override fun <T> submit(subject: Drawable<T?>, time: Double, transform: Mat) =
+        continuous.submit(subject, time, transform)
+
+    override fun <T> submit(subject: Playable<T>, args: T, handle: Any, time: Double, transform: Mat) =
+        continuous.submit(subject, args, handle, time, transform)
+
+    override fun <T> submit(subject: Playable<T?>, handle: Any, time: Double, transform: Mat) =
+        continuous.submit(subject, handle, time, transform)
 
     /**
      * Gets the current time.

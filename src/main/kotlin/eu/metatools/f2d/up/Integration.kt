@@ -1,14 +1,8 @@
 package eu.metatools.f2d.up
 
-import eu.metatools.f2d.context.Capturable
-import eu.metatools.f2d.context.Drawable
-import eu.metatools.f2d.context.Once
-import eu.metatools.f2d.context.Playable
+import eu.metatools.f2d.context.*
 import eu.metatools.f2d.math.Mat
 import eu.metatools.up.Ent
-import eu.metatools.up.dt.div
-import eu.metatools.up.dt.lx
-import java.util.*
 
 /**
  * Queues a [Drawable] in the [Once], undoes by closing the resulting auto-closable (preventing it from drawing).
@@ -33,7 +27,7 @@ fun <T> Ent.enqueue(once: Once, subject: Drawable<T?>, transformAt: (Double) -> 
 /**
  * Queues a [Playable] in the [Once], undoes by closing the resulting auto-closable (preventing it from playing).
  */
-fun <T> Ent.enqueue(once: Once, subject: Playable<T>, args: T, transformAt: (Double) -> Mat) {
+    fun <T> Ent.enqueue(once: Once, subject: Playable<T>, args: T, transformAt: (Double) -> Mat) {
     val closable = once.enqueue(subject, args, transformAt)
     shell.engine.capture {
         closable.close()

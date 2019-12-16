@@ -10,7 +10,43 @@ import java.util.*
 /**
  * Methods to draw, play sounds and to capture input.
  */
-class Continuous(val trimExcess: Float = 0.25f) {
+interface Continuous {
+    /**
+     * Submits a capture call.
+     */
+    fun <T> submit(subject: Capturable<T>, args: T, result: Any, time: Double, transform: Mat)
+
+    /**
+     * Submits a capture call with args set to `null`.
+     */
+    fun <T> submit(subject: Capturable<T?>, result: Any, time: Double, transform: Mat)
+
+    /**
+     * Submits a draw call.
+     */
+    fun <T> submit(subject: Drawable<T>, args: T, time: Double, transform: Mat)
+
+    /**
+     * Submits a draw call with args set to `null`.
+     */
+    fun <T> submit(subject: Drawable<T?>, time: Double, transform: Mat)
+
+    /**
+     * Submits a play call.
+     */
+    fun <T> submit(subject: Playable<T>, args: T, handle: Any, time: Double, transform: Mat)
+
+    /**
+     * Submits a play call with args set to `null`.
+     */
+    fun <T> submit(subject: Playable<T?>, handle: Any, time: Double, transform: Mat)
+}
+
+/**
+ * Standard implementation of [Continuous].
+ * @property trimExcess How far outside of the view a center must lie for the subject to be ignored.
+ */
+class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
 
     /**
      * Capture in the current [begin]/[end] block.
@@ -70,12 +106,12 @@ class Continuous(val trimExcess: Float = 0.25f) {
     /**
      * The model transformation matrix in the current block.
      */
-    private var model = Mat.NaN
+    private var model = Mat.NAN
 
     /**
      * The projection matrix in the current block.
      */
-    private var projection = Mat.NaN
+    private var projection = Mat.NAN
 
     /**
      * The minimum in-bounds vector.
@@ -196,8 +232,8 @@ class Continuous(val trimExcess: Float = 0.25f) {
      */
     fun end() {
         // Reset bounds and matrices.
-        model = Mat.NaN
-        projection = Mat.NaN
+        model = Mat.NAN
+        projection = Mat.NAN
         excessMin = Vec.NaN
         excessMax = Vec.NaN
 
@@ -249,7 +285,7 @@ class Continuous(val trimExcess: Float = 0.25f) {
     /**
      * Submits a capture call.
      */
-    fun <T> submit(subject: Capturable<T>, args: T, result: Any, time: Double, transform: Mat) {
+    override fun <T> submit(subject: Capturable<T>, args: T, result: Any, time: Double, transform: Mat) {
         // Validate time and bounds.
         validate(subject, time, transform) {
             // Add a capture call on the correct Z index.
@@ -262,13 +298,13 @@ class Continuous(val trimExcess: Float = 0.25f) {
     /**
      * Submits a capture call with args set to `null`.
      */
-    fun <T> submit(subject: Capturable<T?>, result: Any, time: Double, transform: Mat) =
+    override fun <T> submit(subject: Capturable<T?>, result: Any, time: Double, transform: Mat) =
         submit(subject, null, result, time, transform)
 
     /**
      * Submits a draw call.
      */
-    fun <T> submit(subject: Drawable<T>, args: T, time: Double, transform: Mat) {
+    override fun <T> submit(subject: Drawable<T>, args: T, time: Double, transform: Mat) {
         // Validate time and bounds.
         validate(subject, time, transform) {
             // Add a draw call on the correct Z index.
@@ -281,13 +317,13 @@ class Continuous(val trimExcess: Float = 0.25f) {
     /**
      * Submits a draw call with args set to `null`.
      */
-    fun <T> submit(subject: Drawable<T?>, time: Double, transform: Mat) =
+    override fun <T> submit(subject: Drawable<T?>, time: Double, transform: Mat) =
         submit(subject, null, time, transform)
 
     /**
      * Submits a play call.
      */
-    fun <T> submit(subject: Playable<T>, args: T, handle: Any, time: Double, transform: Mat) {
+    override fun <T> submit(subject: Playable<T>, args: T, handle: Any, time: Double, transform: Mat) {
         // Validate time (no bounds for sound).
         validate(subject, time) {
             // Add to plays, sound is played in active projection space.
@@ -299,6 +335,6 @@ class Continuous(val trimExcess: Float = 0.25f) {
     /**
      * Submits a play call with args set to `null`.
      */
-    fun <T> submit(subject: Playable<T?>, handle: Any, time: Double, transform: Mat) =
+    override fun <T> submit(subject: Playable<T?>, handle: Any, time: Double, transform: Mat) =
         submit(subject, null, handle, time, transform)
 }

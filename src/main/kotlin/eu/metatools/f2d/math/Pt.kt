@@ -13,8 +13,8 @@ import kotlin.math.sqrt
 /**
  * A point.
  */
-class Pt(val values: FloatArray, val offset: Int = 0)  {
-    companion object  {
+class Pt(val values: FloatArray, val offset: Int = 0) : Comparable<Pt> {
+    companion object {
 
         /**
          * The x unit point.
@@ -29,27 +29,37 @@ class Pt(val values: FloatArray, val offset: Int = 0)  {
         /**
          * The zero point.
          */
-        val Zero = Pt(0f, 0f)
+        val ZERO = Pt(0f, 0f)
 
         /**
          * The one point.
          */
-        val One = Pt(1f, 1f)
+        val ONE = Pt(1f, 1f)
 
         /**
          * The point of NaN values.
          */
-        val NaN = Pt(Float.NaN, Float.NaN)
+        val NAN = Pt(Float.NaN, Float.NaN)
+
+        /**
+         * The point of minimum float value.
+         */
+        val MIN_VALUE = Pt(Float.MIN_VALUE, Float.MIN_VALUE)
+
+        /**
+         * The point of maximum float value.
+         */
+        val MAX_VALUE = Pt(Float.MAX_VALUE, Float.MAX_VALUE)
 
         /**
          * The point of negative infinity.
          */
-        val NegativeInfinity = Pt(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)
+        val NEGATIVE_INFINITY = Pt(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY)
 
         /**
          * The point of positive infinity.
          */
-        val PositiveInfinity = Pt(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+        val POSITIVE_INFINITY = Pt(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
     }
 
     /**
@@ -196,6 +206,13 @@ class Pt(val values: FloatArray, val offset: Int = 0)  {
         return r
     }
 
+    override fun compareTo(other: Pt): Int {
+        val ry = y.compareTo(other.y)
+        if (ry != 0) return ry
+        val rx = x.compareTo(other.x)
+        if (rx != 0) return rx
+        return 0
+    }
 
     override fun toString() = buildString {
         append('(')

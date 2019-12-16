@@ -1,15 +1,14 @@
 package eu.metatools.ex.math
 
 import eu.metatools.f2d.math.*
-import kotlin.math.abs
 
 /**
  * Signed distance function for a square of a width and height of one.
  */
 fun square(dim: RealPt, pt: RealPt): Real {
     val d = abs(pt) - dim
-    val distanceOut = hypot(max(d.x, Real.Zero), max(d.y, Real.Zero))
-    val distanceIn = min(max(d.x, d.y), Real.Zero)
+    val distanceOut = hypot(max(d.x, Real.ZERO), max(d.y, Real.ZERO))
+    val distanceIn = min(max(d.x, d.y), Real.ZERO)
     return distanceOut + distanceIn
 }
 
@@ -25,7 +24,7 @@ fun squareFromTo(start: RealPt, end: RealPt, pt: RealPt): Real {
 /**
  * Binds the first argument.
  */
-fun square(dim: RealPt = RealPt.One) = { pt: RealPt -> square(dim, pt) }
+fun square(dim: RealPt = RealPt.ONE) = { pt: RealPt -> square(dim, pt) }
 
 /**
  * Signed distance function for a circle with a diameter of one.
@@ -76,12 +75,12 @@ private val e = Real(1)
 /**
  * Epsilon as X component.
  */
-private val ex = RealPt(e, Real.Zero)
+private val ex = RealPt(e, Real.ZERO)
 
 /**
  * Epsilon as Y component.
  */
-private val ey = RealPt(Real.Zero, e)
+private val ey = RealPt(Real.ZERO, e)
 
 /**
  * Computes the derivative of [f] at [pt].
@@ -97,7 +96,7 @@ inline fun derivative(f: (RealPt) -> Real, pt: RealPt): RealPt {
  */
 inline fun root(f: (RealPt) -> Real, ipt: RealPt, maxIter: Int = 8, o: Real = 0.8125f.toReal()): RealPt {
     // Compute reused value.
-    val io = Real.One - o
+    val io = Real.ONE - o
 
     // Initialize iteration point.
     var pt = ipt
@@ -114,7 +113,7 @@ inline fun root(f: (RealPt) -> Real, ipt: RealPt, maxIter: Int = 8, o: Real = 0.
 
         // Compute f over derivatives.
         val dis = RealPt(fv, fv) / derivative(f, pt).mapComponents {
-            if (it == Real.Zero) Real.MAX_VALUE else it
+            if (it == Real.ZERO) Real.MAX_VALUE else it
         }
 
         // Displace point, smooth to prevent overshoot.

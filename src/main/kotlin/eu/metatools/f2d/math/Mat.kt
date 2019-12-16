@@ -42,7 +42,7 @@ class Mat(val values: FloatArray) {
         /**
          * The identity matrix.
          */
-        val Id = Mat(
+        val ID = Mat(
             1f, 0f, 0f, 0f,
             0f, 1f, 0f, 0f,
             0f, 0f, 1f, 0f,
@@ -52,7 +52,7 @@ class Mat(val values: FloatArray) {
         /**
          * The NaN matrix.
          */
-        val NaN = Mat(
+        val NAN = Mat(
             Float.NaN, Float.NaN, Float.NaN, Float.NaN,
             Float.NaN, Float.NaN, Float.NaN, Float.NaN,
             Float.NaN, Float.NaN, Float.NaN, Float.NaN,
@@ -80,9 +80,9 @@ class Mat(val values: FloatArray) {
          */
         fun rotation(ax: Float = 0f, ay: Float = 0f, az: Float = 0f, rad: Float = 0f): Mat {
             if (rad == 0f)
-                return Id
+                return ID
             if (ax == 0f || ay == 0f || az == 0f)
-                return Id
+                return ID
 
             // Length and normalized axis.
             val d = 1f / hypot(hypot(ax, ay), az)
@@ -120,7 +120,7 @@ class Mat(val values: FloatArray) {
          */
         fun rotationX(rad: Float): Mat {
             if (rad == 0f)
-                return Id
+                return ID
 
             // Trigonometric values.
             val c = cos(rad)
@@ -140,7 +140,7 @@ class Mat(val values: FloatArray) {
          */
         fun rotationY(rad: Float): Mat {
             if (rad == 0f)
-                return Id
+                return ID
 
             // Trigonometric values.
             val c = cos(rad)
@@ -160,7 +160,7 @@ class Mat(val values: FloatArray) {
          */
         fun rotationZ(rad: Float): Mat {
             if (rad == 0f)
-                return Id
+                return ID
 
             // Trigonometric values.
             val c = cos(rad)

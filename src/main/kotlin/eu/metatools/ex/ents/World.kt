@@ -82,9 +82,9 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     /**
      * Repeater generating updates in 40ms intervals.
      */
-    val worldUpdate = repeating(Short.MAX_VALUE, 50, shell::initializedTime) {
+    val worldUpdate = repeating(Short.MAX_VALUE, 40, shell::initializedTime) {
         shell.list<Ticking>().forEach {
-            it.update((time.global - shell.initializedTime).sec, 50)
+            it.update((time.global - shell.initializedTime).sec, 40)
         }
 
         if (res < 100)
@@ -134,7 +134,7 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     override fun render(time: Double) {
         // Render all times.
         for ((k, v) in tiles)
-            frontend.continuous.submit(
+            frontend.submit(
                 v.visual, time, Mat
                     .translation(Constants.tileWidth * k.x, Constants.tileHeight * k.y)
                     .scale(

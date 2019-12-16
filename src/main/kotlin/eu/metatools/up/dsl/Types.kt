@@ -33,6 +33,12 @@ object Types {
     @Suppress("experimental_api_usage_error")
     private val mutableCollectionType = typeOf<MutableCollection<*>>()
 
+    @Suppress("experimental_api_usage_error")
+    private val hashSetType = typeOf<HashSet<*>>()
+
+    @Suppress("experimental_api_usage_error")
+    private val hashMapType = typeOf<HashMap<*, *>>()
+
     /**
      * Set of checked properties.
      */
@@ -79,6 +85,13 @@ object Types {
                     // Warn for mutable collections.
                     if (!allowMutable && mutableCollectionType.isSupertypeOf(type))
                         report("Use immutable type or use set or map property. ")
+
+                    // Warn for hash based types.
+                    if (hashSetType.isSupertypeOf(type))
+                        report("Use stable set or set property.")
+
+                    if (hashMapType.isSupertypeOf(type))
+                        report("Use stable map or map property.")
 
                     // Warn for each argument.
                     type.arguments.forEach {

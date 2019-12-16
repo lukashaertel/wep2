@@ -75,7 +75,7 @@ class Bullet(
             .scale(Constants.tileWidth * radius.toFloat() * 5f, Constants.tileHeight * radius.toFloat() * 2f)
 
         // Submit the solid.
-        frontend.continuous.submit(solid, time, mat)
+        frontend.submit(solid, time, mat)
     }
 
 
