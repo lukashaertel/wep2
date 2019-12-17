@@ -35,8 +35,28 @@ data class RealPt(val x: Real, val y: Real) : Comparable<RealPt> {
          */
         val MAX_VALUE = RealPt(Real.MAX_VALUE, Real.MAX_VALUE)
 
+        /**
+         * Constructs a new [RealPt] with the arguments converted via [toReal].
+         */
+        fun from(x: Int, y: Int) =
+            RealPt(x.toReal(), y.toReal())
+
+        /**
+         * Constructs a new [RealPt] with the arguments converted via [toReal].
+         */
+        fun from(x: Float, y: Float) =
+            RealPt(x.toReal(), y.toReal())
+
+        /**
+         * Constructs a new [RealPt] with the arguments converted via [toReal].
+         */
+        fun from(x: Double, y: Double) =
+            RealPt(x.toReal(), y.toReal())
     }
 
+    /**
+     * Creates a zero real point.
+     */
     constructor() : this(
         Real.ZERO,
         Real.ZERO

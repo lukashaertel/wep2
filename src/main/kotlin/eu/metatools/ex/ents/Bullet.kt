@@ -6,6 +6,7 @@ import eu.metatools.f2d.context.UI
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.RealPt
 import eu.metatools.f2d.math.toReal
+import eu.metatools.f2d.tools.Cube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.provideDelegate
@@ -22,7 +23,7 @@ import kotlin.math.atan2
  * @property damage Constant. The damage done by the bullet.
  */
 class Bullet(
-    shell: Shell, id: Lx, val ui: UI,
+    shell: Shell, id: Lx, val ui: Frontend,
     initPos: RealPt, initVel: RealPt, initMoveTime: Double, val damage: Int
 ) : Ent(shell, id), TraitMove,
     Ticking, Rendered {
@@ -78,6 +79,7 @@ class Bullet(
 
         // Submit the solid.
         ui.submit(solid, time, mat)
+        ui.submit(Cube, this, time, mat)
     }
 
 

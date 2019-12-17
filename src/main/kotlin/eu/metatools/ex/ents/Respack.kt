@@ -6,6 +6,7 @@ import eu.metatools.ex.*
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.RealPt
 import eu.metatools.f2d.math.toReal
+import eu.metatools.f2d.tools.Cube
 import eu.metatools.f2d.tools.tint
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
@@ -13,13 +14,14 @@ import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.*
 
 class Respack(
-    shell: Shell, id: Lx, initPos: RealPt, val content: Int
+    shell: Shell, id: Lx, val ui: Frontend,
+    initPos: RealPt, val content: Int
 ) : Ent(shell, id), TraitMove, Ticking, Rendered, TraitDamageable {
     companion object {
         /**
          * The drawable for the bullet.
          */
-        private val solid by lazy { Resources.solid.refer().tint(Color.CYAN) }
+        private val solid by lazy { Resources.solid.refer() }
     }
 
     override val extraArgs = mapOf(
@@ -63,8 +65,12 @@ class Respack(
             .rotateZ(time.toFloat())
             .scale(Constants.tileWidth * radius.toFloat() * 2f, Constants.tileHeight * radius.toFloat() * 2f)
 
+        // Get color.
+        val activeColor = if (ui.isSelected(this)) Color.WHITE else Color.CYAN
+
         // Submit the solid.
-        frontend.submit(solid, time, mat)
+        ui.submit(solid.tint(activeColor), time, mat)
+        ui.submit(Cube, this, time, mat)
     }
 
 

@@ -296,16 +296,18 @@ class Frontend : F2DListener(-100f, 100f) {
             debugNet = !debugNet
             Log.set(if (debugNet) Log.LEVEL_DEBUG else Log.LEVEL_INFO)
         }
-
     }
 
     private var capture: Pair<Any, RealPt>? = null
+
+    fun isSelected(any: Any) =
+        capture?.first == any
 
     override fun capture(result: Any?, intersection: Vec) {
         val (x, y) = model.inv * intersection
 
         // Memorize result.
-        capture = (result ?: world) to RealPt((x / Constants.tileWidth).toReal(), (y / Constants.tileHeight).toReal())
+        capture = (result ?: world) to RealPt.from(x / Constants.tileWidth, y / Constants.tileHeight)
     }
 
     override fun pause() = Unit

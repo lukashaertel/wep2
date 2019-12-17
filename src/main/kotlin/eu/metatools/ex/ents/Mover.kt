@@ -71,7 +71,7 @@ enum class Movers : MoverKind {
  * @property owner Constant. the owner of this mover.
  */
 class Mover(
-    shell: Shell, id: Lx, val ui: UI,
+    shell: Shell, id: Lx, val ui: Frontend,
     initPos: RealPt, val kind: MoverKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Ticking, TraitMove,
@@ -192,8 +192,11 @@ class Mover(
             Constants.tileHeight * y.toFloat()
         ).scale(Constants.tileWidth * kind.radius.toFloat() * 2f, Constants.tileHeight * kind.radius.toFloat() * 2f)
 
+        // Get color.
+        val activeColor = if (ui.isSelected(this)) Color.WHITE else color
+
         // Submit the visual and the capture.
-        ui.submit(solid.tint(color), time, mat)
+        ui.submit(solid.tint(activeColor), time, mat)
         ui.submit(Cube, this, time, mat)
 
         val mat2 = Mat.translation(

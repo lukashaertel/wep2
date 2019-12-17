@@ -59,7 +59,7 @@ enum class Tiles : TileKind {
  * @param map The map data.
  */
 class World(
-    shell: Shell, id: Lx, val ui: UI,
+    shell: Shell, id: Lx, val ui: Frontend,
     map: Map<Cell, TileKind>
 ) : Ent(shell, id), Rendered, TraitDamageable {
     override val extraArgs = mapOf("map" to map)
@@ -108,7 +108,12 @@ class World(
                 Triple(rx, ry, tiles[Cell(rx, ry)])
             }.first { (_, _, v) -> v?.passable == true }
 
-            constructed(Respack(shell, newId(), RealPt(sx.toReal(), sy.toReal()), 10))
+            constructed(
+                Respack(
+                    shell, newId(), ui,
+                    RealPt(sx.toReal(), sy.toReal()), 10
+                )
+            )
 
         }
     }
