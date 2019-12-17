@@ -13,7 +13,7 @@ class NetworkClaimer(
     val network: Network,
     val uuid: UUID,
     changed: ((Short, Short) -> Unit)? = null,
-    rate: Long = 1000L,
+    rate: Long = 10_000L,
     initialDelay: Long = 0L
 ) : AutoCloseable {
     /**

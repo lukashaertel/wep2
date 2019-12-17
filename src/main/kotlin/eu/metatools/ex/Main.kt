@@ -50,8 +50,6 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 
     val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
-        leaseTime = 60,
-        leaseTimeUnit = TimeUnit.SECONDS,
         configureKryo = ::configureKryo
     )
 
@@ -269,13 +267,17 @@ class Frontend : F2DListener(-100f, 100f) {
             // Invalidate to it.
             shell.engine.invalidate(it)
 
-            val target = Hashing.farmHashFingerprint64().newHasher()
-            shell.hashTo(target, ::configureKryo)
-            val bytes = target.hash().asBytes()
-            hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
-            while (hashes.size > 5)
-                hashes.asReversed().removeAt(0).dispose()
-
+            if (debug) {
+                val target = Hashing.farmHashFingerprint64().newHasher()
+                shell.hashTo(target, ::configureKryo)
+                val bytes = target.hash().asBytes()
+                hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
+                while (hashes.size > 5)
+                    hashes.asReversed().removeAt(0).dispose()
+            } else {
+                if (hashes.isNotEmpty())
+                    hashes.asReversed().removeAt(0).dispose()
+            }
 
             // Reset.
             signOffValue = null

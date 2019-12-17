@@ -85,7 +85,7 @@ fun makeNetwork(
     leaseTime: Long = 30L,
     leaseTimeUnit: TimeUnit = TimeUnit.MINUTES,
     requestTimeout: Long = 1000L,
-    signOffSlack: Long = 5_000L,
+    signOffSlack: Long = 10_000L,
     configureKryo: (Kryo) -> Unit = {
         setDefaults(it)
         registerKotlinSerializers(it)
