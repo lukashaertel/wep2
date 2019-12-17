@@ -2,6 +2,7 @@ package eu.metatools.ex.ents
 
 import eu.metatools.f2d.context.refer
 import eu.metatools.ex.*
+import eu.metatools.f2d.context.UI
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.RealPt
 import eu.metatools.f2d.math.toReal
@@ -21,7 +22,8 @@ import kotlin.math.atan2
  * @property damage Constant. The damage done by the bullet.
  */
 class Bullet(
-    shell: Shell, id: Lx, initPos: RealPt, initVel: RealPt, initMoveTime: Double, val damage: Int
+    shell: Shell, id: Lx, val ui: UI,
+    initPos: RealPt, initVel: RealPt, initMoveTime: Double, val damage: Int
 ) : Ent(shell, id), TraitMove,
     Ticking, Rendered {
     companion object {
@@ -75,7 +77,7 @@ class Bullet(
             .scale(Constants.tileWidth * radius.toFloat() * 5f, Constants.tileHeight * radius.toFloat() * 2f)
 
         // Submit the solid.
-        frontend.submit(solid, time, mat)
+        ui.submit(solid, time, mat)
     }
 
 

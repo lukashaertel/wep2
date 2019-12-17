@@ -6,6 +6,7 @@ import eu.metatools.up.lang.never
 import java.util.*
 import kotlin.collections.HashMap
 import kotlin.reflect.KClass
+import kotlin.reflect.KParameter
 import kotlin.reflect.full.cast
 import kotlin.reflect.full.isSupertypeOf
 import kotlin.reflect.typeOf
@@ -247,7 +248,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
         }
     }
 
-    override fun load(shellIn: ShellIn) {
+    override fun load(shellIn: ShellIn, global: ((KParameter) -> Any)?) {
         runWithStateOf(genesis) {
             // Disconnect and clear entity table.
             central.values.forEach { it.driver.disconnect() }
@@ -273,7 +274,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                     when {
                         param.type.isSupertypeOf(scopeType) -> Box(this)
                         param.type.isSupertypeOf(lxType) -> Box(it)
-                        else -> null
+                        else -> global?.invoke(param)?.let { constant -> Box(constant) }
                     }
                 }
 

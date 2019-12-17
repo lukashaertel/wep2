@@ -5,6 +5,7 @@ import eu.metatools.f2d.context.limit
 import eu.metatools.f2d.context.offset
 import eu.metatools.f2d.context.refer
 import eu.metatools.ex.*
+import eu.metatools.f2d.context.UI
 import eu.metatools.f2d.math.*
 import eu.metatools.f2d.tools.Cube
 import eu.metatools.f2d.tools.Location
@@ -70,7 +71,8 @@ enum class Movers : MoverKind {
  * @property owner Constant. the owner of this mover.
  */
 class Mover(
-    shell: Shell, id: Lx, initPos: RealPt, val kind: MoverKind, val owner: Short
+    shell: Shell, id: Lx, val ui: UI,
+    initPos: RealPt, val kind: MoverKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Ticking, TraitMove,
     TraitDamageable, TraitCollects {
@@ -191,14 +193,14 @@ class Mover(
         ).scale(Constants.tileWidth * kind.radius.toFloat() * 2f, Constants.tileHeight * kind.radius.toFloat() * 2f)
 
         // Submit the visual and the capture.
-        frontend.submit(solid.tint(color), time, mat)
-        frontend.submit(Cube, this, time, mat)
+        ui.submit(solid.tint(color), time, mat)
+        ui.submit(Cube, this, time, mat)
 
         val mat2 = Mat.translation(
             Constants.tileWidth * x.toFloat(),
             Constants.tileHeight * y.toFloat()
         ).translate(0f, -8f).scale(12f)
-        frontend.submit(captionText, "H: $health R: $ownResources", time, mat2)
+        ui.submit(captionText, "H: $health R: $ownResources", time, mat2)
     }
 
     override fun update(sec: Double, freq: Long) {
@@ -244,16 +246,12 @@ class Mover(
 
         constructed(
             Bullet(
-                shell,
-                newId(),
-                pos + dir.nor * (radius + 0.1f.toReal()),
-                dir.nor * 5f.toReal(),
-                elapsed,
-                kind.damage
+                shell, newId(), ui,
+                pos + dir.nor * (radius + 0.1f.toReal()), dir.nor * 5f.toReal(), elapsed, kind.damage
             )
         )
 
-        enqueue(frontend, fire.offset(elapsed), null) { Mat.ID }
+        enqueue(ui, fire.offset(elapsed), null) { Mat.ID }
     }
 
     override fun takeDamage(amount: Int) {
@@ -265,11 +263,11 @@ class Mover(
         val (x, y) = pos
 
         // Render damage floating up.
-        enqueue(frontend, hitText.limit(3.0).offset(start), amount.toString()) {
+        enqueue(ui, hitText.limit(3.0).offset(start), amount.toString()) {
             Mat.translation(
                 Constants.tileWidth * x.toFloat(),
                 Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10
-            ).scale(sx = frontend.fontSize, sy = frontend.fontSize)
+            ).scale(16f)
         }
 
         // If dead now, remove the mover from the world and delete it.
@@ -281,6 +279,6 @@ class Mover(
 
     override fun collectResource(amount: Int) {
         ownResources += amount
-        enqueue(frontend, fire.offset(elapsed), null) { Mat.ID }
+        enqueue(ui, fire.offset(elapsed), null) { Mat.ID }
     }
 }

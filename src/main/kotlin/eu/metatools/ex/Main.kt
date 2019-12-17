@@ -6,8 +6,6 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
-import com.esotericsoftware.kryo.Kryo
-import com.esotericsoftware.kryo.serializers.DefaultSerializers
 import com.esotericsoftware.minlog.Log
 import com.google.common.hash.Hashing
 import eu.metatools.f2d.F2DListener
@@ -15,10 +13,9 @@ import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.input.KeyStick
 import eu.metatools.f2d.context.LifecycleDrawable
+import eu.metatools.f2d.context.UI
 import eu.metatools.f2d.math.*
 import eu.metatools.f2d.tools.*
-import eu.metatools.f2d.up.kryo.registerF2DSerializers
-import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.*
 import eu.metatools.up.dt.*
 import eu.metatools.up.kryo.*
@@ -28,6 +25,11 @@ import eu.metatools.up.net.NetworkSignOff
 import eu.metatools.up.net.makeNetwork
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.NoSuchElementException
+import kotlin.reflect.KParameter
+import kotlin.reflect.full.isSubtypeOf
+import kotlin.reflect.full.isSupertypeOf
+import kotlin.reflect.typeOf
 
 val Long.sec get() = this / 1000.0
 
@@ -35,28 +37,6 @@ fun Long.toNextFullSecond() =
     1000L - (this % 1000L)
 
 class Frontend : F2DListener(-100f, 100f) {
-    private fun configureKryo(kryo: Kryo) {
-        // Add basic serialization.
-        setDefaults(kryo)
-        registerKotlinSerializers(kryo)
-        registerUpSerializers(kryo)
-
-        // Add graphics serialization.
-        registerGDXSerializers(kryo)
-        registerF2DSerializers(kryo)
-
-        // Register data objects.
-        kryo.register(
-            Movers::class.java, DefaultSerializers.EnumSerializer(
-                Movers::class.java
-            )
-        )
-        kryo.register(
-            Tiles::class.java, DefaultSerializers.EnumSerializer(
-                Tiles::class.java
-            )
-        )
-    }
 
     private fun handleBundle(): Map<Lx, Any?> {
         val result = hashMapOf<Lx, Any?>()
@@ -103,6 +83,13 @@ class Frontend : F2DListener(-100f, 100f) {
         it.send = net::instruction
     }
 
+    @Suppress("experimental_api_usage_error")
+    private fun resolveGlobal(param: KParameter): Any {
+        if (param.type.isSubtypeOf(typeOf<UI>()) && param.type.isSupertypeOf(typeOf<Frontend>()))
+            return this
+
+        throw NoSuchElementException(param.toString())
+    }
 
     /**
      * The current time of the connected system.
@@ -142,14 +129,14 @@ class Frontend : F2DListener(-100f, 100f) {
         shell.critical {
             // Assign world from loading or creating.
             world = if (net.isCoordinating) {
-                World(shell, lx / "root", stupidBox).also {
+                World(shell, lx / "root", this, stupidBox).also {
                     shell.engine.add(it)
                 }
             } else {
                 // Restore, resolve root.
                 val bundle = net.bundle()
 
-                shell.loadFromMap(bundle, true)
+                shell.loadFromMap(bundle, ::resolveGlobal, check = true)
                 shell.resolve(lx / "root") as World
             }
 
@@ -165,8 +152,6 @@ class Frontend : F2DListener(-100f, 100f) {
     var rand = false
 
     private val keyStick = KeyStick()
-
-    var fontSize = Constants.tileHeight / 2f
 
     private fun ownMover(): Mover? =
         shell.list<Mover>().find { it.owner == shell.player }
@@ -201,6 +186,8 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private val hashes = mutableListOf<LifecycleDrawable<Unit?>>()
 
+    private var scaling = Mat.scaling(2f)
+
     override fun render(time: Double, delta: Double) {
         // Bind current time.
         shell.withTime(clock) {
@@ -209,10 +196,21 @@ class Frontend : F2DListener(-100f, 100f) {
 
             // Check if mover is there.
             if (mover == null) {
+                model = Mat.ID
+
                 // It is not, allow for recreation.
                 if (rand || Gdx.input.isKeyJustPressed(Keys.F1))
                     world.createMover(shell.player)
             } else {
+                val (x, y) = mover.posAt(time)
+                model = Mat.translation(
+                    Gdx.graphics.width / 2f,
+                    Gdx.graphics.height / 2f
+                ) * scaling * Mat.translation(
+                    -x.toFloat() * Constants.tileWidth,
+                    -y.toFloat() * Constants.tileHeight
+                )
+
                 // Get desired move direction.
                 val move = keyStick.fetch()
 
@@ -225,10 +223,11 @@ class Frontend : F2DListener(-100f, 100f) {
                     mover.shoot(null)
 
                 // Mouse is pressed, shoot at target.
-                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT))
-                    selectedMover?.takeIf { it.driver.isConnected }?.let { o ->
-                        mover.shoot(o.pos - mover.pos)
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                    capture?.let { (result, pos) ->
+                        mover.shoot(pos - mover.pos)
                     }
+                }
 
                 // Check if randomly playing.
                 if (rand) {
@@ -281,11 +280,11 @@ class Frontend : F2DListener(-100f, 100f) {
 
         // Process non-game input.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
-            model = Mat.scaling(1f, 1f)
+            scaling = Mat.scaling(1f, 1f)
         if (Gdx.input.isKeyJustPressed(Keys.NUM_2))
-            model = Mat.scaling(2f, 2f)
+            scaling = Mat.scaling(2f, 2f)
         if (Gdx.input.isKeyJustPressed(Keys.NUM_3))
-            model = Mat.scaling(3f, 3f)
+            scaling = Mat.scaling(3f, 3f)
 
         if (Gdx.input.isKeyJustPressed(Keys.R))
             rand = !rand
@@ -300,12 +299,13 @@ class Frontend : F2DListener(-100f, 100f) {
 
     }
 
-    var selectedMover: Mover? = null
+    private var capture: Pair<Any, RealPt>? = null
 
-    override fun capture(result: Any, intersection: Vec) {
-        // Result is a mover, memorize it.
-        if (result is Mover)
-            selectedMover = result
+    override fun capture(result: Any?, intersection: Vec) {
+        val (x, y) = model.inv * intersection
+
+        // Memorize result.
+        capture = (result ?: world) to RealPt((x / Constants.tileWidth).toReal(), (y / Constants.tileHeight).toReal())
     }
 
     override fun pause() = Unit

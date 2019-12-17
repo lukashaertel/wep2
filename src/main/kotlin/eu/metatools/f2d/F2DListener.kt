@@ -151,11 +151,9 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         // Send all sounds.
         continuous.play(time)
 
-        // Perform capture for primary pointer.
-        continuous.collect(time, Gdx.input.uniformX, Gdx.input.uniformY)?.let { (result, intersection) ->
-            capture(result, intersection)
-        }
-
+        // Perform capture for primary pointer and handle.
+        val (result, intersection) = continuous.collect(time, Gdx.input.uniformX, Gdx.input.uniformY)
+        capture(result, intersection)
 
         // Finalize batch for this call.
         continuous.end()
@@ -164,7 +162,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     /**
      * Handles captures of the pointer.
      */
-    open fun capture(result: Any, intersection: Vec) = Unit
+    open fun capture(result: Any?, intersection: Vec) = Unit
 
     /**
      * Renders the graphics, sound and captures at the time.

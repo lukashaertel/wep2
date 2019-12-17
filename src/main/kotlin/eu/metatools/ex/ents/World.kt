@@ -3,7 +3,9 @@ package eu.metatools.ex.ents
 import eu.metatools.f2d.context.Drawable
 import eu.metatools.ex.*
 import eu.metatools.ex.math.SDFComposer
+import eu.metatools.f2d.context.UI
 import eu.metatools.f2d.math.*
+import eu.metatools.f2d.tools.Cube
 import eu.metatools.f2d.tools.Static
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
@@ -56,7 +58,10 @@ enum class Tiles : TileKind {
  * @param id The ID for the [Ent].
  * @param map The map data.
  */
-class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Rendered, TraitDamageable {
+class World(
+    shell: Shell, id: Lx, val ui: UI,
+    map: Map<Cell, TileKind>
+) : Ent(shell, id), Rendered, TraitDamageable {
     override val extraArgs = mapOf("map" to map)
 
     /**
@@ -134,7 +139,7 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
     override fun render(time: Double) {
         // Render all times.
         for ((k, v) in tiles)
-            frontend.submit(
+            ui.submit(
                 v.visual, time, Mat
                     .translation(Constants.tileWidth * k.x, Constants.tileHeight * k.y)
                     .scale(
@@ -161,11 +166,8 @@ class World(shell: Shell, id: Lx, map: Map<Cell, TileKind>) : Ent(shell, id), Re
         movers.add(
             constructed(
                 Mover(
-                    shell,
-                    newId(),
-                    RealPt(5f.toReal(), 5f.toReal()),
-                    type,
-                    owner
+                    shell, newId(), ui,
+                    RealPt(5f.toReal(), 5f.toReal()), type, owner
                 )
             )
         )

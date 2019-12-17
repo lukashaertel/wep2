@@ -205,7 +205,7 @@ class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
     /**
      * Captures input on negative Z axis and projection space coordinates [x] and [y].
      */
-    fun collect(time: Double, x: Float, y: Float): Pair<Any, Vec>? {
+    fun collect(time: Double, x: Float, y: Float): Pair<Any?, Vec> {
         // Create ray in inverted projection space.
         val origin = projection.inv * Vec(x, y, 1f)
         val direction = projection.inv.rotate(-Vec.Z)
@@ -224,7 +224,7 @@ class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
                     return capture.result to intersection
             }
 
-        return null
+        return null to origin
     }
 
     /**

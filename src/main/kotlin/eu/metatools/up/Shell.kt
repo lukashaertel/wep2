@@ -4,6 +4,7 @@ import eu.metatools.up.dt.*
 import eu.metatools.up.lang.Bind
 import eu.metatools.up.lang.BindGenerator
 import kotlin.reflect.KClass
+import kotlin.reflect.KParameter
 
 /**
  * Shell passed for [Ent]s, provides accessible methods of an [Engine].
@@ -41,9 +42,9 @@ interface Shell {
     fun <T : Any> list(kClass: KClass<T>): Sequence<T>
 
     /**
-     * Resets and loads the shell from the given [ShellIn].
+     * Resets and loads the shell from the given [ShellIn]. Additional parameters might be resolved by [global].
      */
-    fun load(shellIn: ShellIn)
+    fun load(shellIn: ShellIn, global: ((KParameter) -> Any)? = null)
 
     /**
      * Stores the shell to the given [shellOut]. Corresponding [load] operations must restore the state fully.
@@ -65,38 +66,38 @@ interface Shell {
 }
 
 /**
- * Performs the [Shell.load] from a [map]. If [roundTripConsistency] is given as `true`, this map is then used to check
+ * Performs the [Shell.load] from a [map]. If [check] is given as `true`, this map is then used to check
  * consistency the output after [Shell.store] on the just restored receiver.
  */
-fun Shell.loadFromMap(map: Map<Lx, Any?>, roundTripConsistency: Boolean = false) {
+fun Shell.loadFromMap(map: Map<Lx, Any?>, global: ((KParameter) -> Any)? = null, check: Boolean = false) {
     // Load from map.
-    load(map::get)
+    load(map::get, global)
 
     // If no round-trip consistency, return.
-    if (!roundTripConsistency)
+    if (!check)
         return
 
     // Store to check-map.
-    val check = mutableMapOf<Lx, Any?>()
-    storeToMap(check)
+    val consistency = mutableMapOf<Lx, Any?>()
+    storeToMap(consistency)
 
     // Get map-delta.
-    val overIn = map.keys subtract check.keys
-    val overOut = check.keys subtract map.keys
-    val equiv = map.keys union check.keys
+    val overIn = map.keys subtract consistency.keys
+    val overOut = consistency.keys subtract map.keys
+    val equiv = map.keys union consistency.keys
 
     // Create difference on values.
     val differing = mutableMapOf<Lx, Pair<Any?, Any?>>()
     equiv.forEach {
         val left = map.getValue(it)
-        val right = check.getValue(it)
+        val right = consistency.getValue(it)
         if (left != right)
             differing[it] = left to right
     }
 
     // If any is not empty, throw an inconsistency exception.
     if (overIn.isNotEmpty() || overOut.isNotEmpty() || differing.isNotEmpty())
-        throw InconsistencyException("Inconsistency on load", map, check, overIn, overOut, differing)
+        throw InconsistencyException("Inconsistency on load", map, consistency, overIn, overOut, differing)
 }
 
 /**
