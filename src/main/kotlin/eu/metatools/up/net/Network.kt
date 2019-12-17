@@ -81,7 +81,7 @@ fun makeNetwork(
     cluster: String,
     onBundle: () -> Map<Lx, Any?>,
     onReceive: (Instruction) -> Unit,
-    stack: String = "fast.xml",
+    stack: String = "udp.xml",
     leaseTime: Long = 30L,
     leaseTimeUnit: TimeUnit = TimeUnit.MINUTES,
     requestTimeout: Long = 1000L,

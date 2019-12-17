@@ -95,7 +95,7 @@ class Respack(
     }
 
     override val describe: String
-        get() = "Lädierter Schädel" /// "$content resources"
+        get() = "$content resources"
 
 
 }

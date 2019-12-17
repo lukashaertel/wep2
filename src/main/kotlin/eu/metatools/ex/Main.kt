@@ -188,11 +188,11 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * The text drawable.
      */
-    private val console by lazy {
-        Resources.consolas[ReferText(
-            horizontal = Location.Start,
-            vertical = Location.End
-        )]
+    private val pingDrawable by lazy {
+        Resources.segoe[ReferText(
+            horizontal = Location.End,
+            vertical = Location.Start
+        )].tint(Color.LIGHT_GRAY)
     }
 
     private val hashes = mutableListOf<LifecycleDrawable<Unit?>>()
@@ -294,6 +294,13 @@ class Frontend : F2DListener(-100f, 100f) {
                 ).scale(32f)
             )
         }
+        submit(
+            pingDrawable, "Offset: ${clock.currentDeltaTime}ms", time, model.inv * Mat.translation(
+                Gdx.graphics.width.toFloat() - 16f,
+                Gdx.graphics.height.toFloat() - 16f,
+                -50f
+            ).scale(24f)
+        )
 
 
         if (debug) {
