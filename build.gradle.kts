@@ -19,6 +19,7 @@ dependencies {
 
     compile("org.jgroups:jgroups:4.1.8.Final")
     compile("com.google.guava:guava:28.1-jre")
+    compile("org.locationtech.jts:jts-core:1.16.1")
 
     compile("com.badlogicgames.gdx:gdx:$gdxVersion")
     compile("com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion")

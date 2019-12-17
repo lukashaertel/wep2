@@ -26,6 +26,7 @@ fun registerGDXSerializers(kryo: Kryo) {
  */
 fun registerF2DSerializers(kryo: Kryo) {
     kryo.register(Cell::class.java, CellSerializer)
+    kryo.register(Tri::class.java, TriSerializer)
     kryo.register(Mat::class.java, MatSerializer)
     kryo.register(Pt::class.java, PtSerializer)
     kryo.register(Pts::class.java, PtsSerializer)

@@ -16,7 +16,7 @@ import eu.metatools.up.dt.*
 class Respack(
     shell: Shell, id: Lx, val ui: Frontend,
     initPos: RealPt, val content: Int
-) : Ent(shell, id), TraitMove, Ticking, Rendered, TraitDamageable {
+) : Ent(shell, id), TraitMove, Ticking, Rendered, TraitDamageable, HasDescription {
     companion object {
         /**
          * The drawable for the bullet.
@@ -66,7 +66,7 @@ class Respack(
             .scale(Constants.tileWidth * radius.toFloat() * 2f, Constants.tileHeight * radius.toFloat() * 2f)
 
         // Get color.
-        val activeColor = if (ui.isSelected(this)) Color.WHITE else Color.CYAN
+        val activeColor = if (ui.isSelected(this)) Color.WHITE else Color.GRAY
 
         // Submit the solid.
         ui.submit(solid.tint(activeColor), time, mat)
@@ -93,5 +93,9 @@ class Respack(
     override fun takeDamage(amount: Int) {
         delete(this)
     }
+
+    override val describe: String
+        get() = "Lädierter Schädel" /// "$content resources"
+
 
 }

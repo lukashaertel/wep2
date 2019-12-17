@@ -1,6 +1,5 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.ex.math.root
 import eu.metatools.up.Ent
 import eu.metatools.f2d.math.Real
 import eu.metatools.f2d.math.RealPt
@@ -26,6 +25,10 @@ interface TraitWorld {
      * The world.
      */
     val world: World
+}
+
+interface HasDescription {
+    val describe: String
 }
 
 /**
@@ -96,12 +99,13 @@ interface TraitMove : TraitWorld, TraitRadius {
         moveTime = sec
 
         // Get SDF for own radius, check if hitting. If so, un-clip and add world to result set.
-        val sdf = world.sdf(radius)
-        val distance = sdf(pos)
-        if (distance < Real.ZERO) {
-            val clip = root(sdf, pos)
-            pos = (clip + clip) - pos
+        // TODO: Levels.
+        val dt = world.evaluateCollision(0, radius, pos)
+        if (dt.inside) {
+            pos = dt.support + (dt.support - pos) * radius
             hit += world
+
+            // TODO: Update velocity maybe?
         }
 
         // Check all other movers, move away if clipping and add to result set.

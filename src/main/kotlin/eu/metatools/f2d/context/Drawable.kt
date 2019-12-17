@@ -13,6 +13,16 @@ interface Drawable<in T> : Timed {
 }
 
 /**
+ * Renders the drawables at the same time.
+ */
+infix fun <T> Drawable<T>.under(other: Drawable<T>) = object : Drawable<T> {
+    override fun draw(args: T, time: Double, spriteBatch: SpriteBatch) {
+        this@under.draw(args, time, spriteBatch)
+        other.draw(args, time, spriteBatch)
+    }
+}
+
+/**
  * Returns a drawable instance that is fixed to end after the given time.
  */
 infix fun <T> Drawable<T>.limit(duration: Double) = object : Drawable<T> {

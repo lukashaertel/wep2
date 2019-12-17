@@ -6,6 +6,7 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
+import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.minlog.Log
 import com.google.common.hash.Hashing
 import eu.metatools.f2d.F2DListener
@@ -174,6 +175,16 @@ class Frontend : F2DListener(-100f, 100f) {
             vertical = Location.End
         )]
     }
+
+    private val descriptionDrawable by lazy {
+        Resources.segoe[ReferText(
+            horizontal = Location.Center,
+            vertical = Location.Start,
+            bold = true
+        )].tint(Color.YELLOW)
+    }
+
+
     /**
      * The text drawable.
      */
@@ -270,11 +281,24 @@ class Frontend : F2DListener(-100f, 100f) {
             signOffValue = null
         }
 
-        submit(segoe, "Res: ${world.res}", time, Mat.translation(8f, 8f).scale(12f, 12f))
+        //TODO: Fix UI cooordinate system.
+
+        submit(segoe, "${world.res} shared resources", time, model.inv * Mat.translation(60f, 10f, -50f).scale(24f))
+
+        (capture?.first as? HasDescription)?.let {
+            submit(
+                descriptionDrawable, it.describe, time, model.inv * Mat.translation(
+                    Gdx.graphics.width.toFloat() / 2f,
+                    Gdx.graphics.height.toFloat() - 16f,
+                    -50f
+                ).scale(32f)
+            )
+        }
+
 
         if (debug) {
             for ((i, h) in hashes.withIndex()) {
-                submit(h, time, Mat.translation(32f, 32f + (i * 64f)).scale(48f))
+                submit(h, time, model.inv * Mat.translation(32f, 32f + (i * 64f), -40f).scale(48f))
             }
         }
 

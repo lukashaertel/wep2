@@ -75,7 +75,7 @@ class Mover(
     initPos: RealPt, val kind: MoverKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Ticking, TraitMove,
-    TraitDamageable, TraitCollects {
+    TraitDamageable, TraitCollects, HasDescription {
     override val extraArgs = mapOf(
         "initPos" to initPos,
         "kind" to kind,
@@ -241,10 +241,10 @@ class Mover(
         if (world.res + ownResources < 10)
             return
 
-        ownResources -= shotCost
-        if (ownResources < 0) {
-            world.res += ownResources
-            ownResources = 0
+        world.res -= shotCost
+        if (world.res < 0) {
+            ownResources += world.res
+            world.res = 0
         }
 
         constructed(
@@ -284,4 +284,8 @@ class Mover(
         ownResources += amount
         enqueue(ui, fire.offset(elapsed), null) { Mat.ID }
     }
+
+    override val describe: String
+        get() = if (shell.player == owner) "You" else "Enemy"
+
 }

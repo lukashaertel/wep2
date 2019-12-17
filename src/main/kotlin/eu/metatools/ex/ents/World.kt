@@ -2,17 +2,26 @@ package eu.metatools.ex.ents
 
 import eu.metatools.f2d.context.Drawable
 import eu.metatools.ex.*
-import eu.metatools.ex.math.SDFComposer
-import eu.metatools.f2d.context.UI
+import eu.metatools.ex.ents.TileShape.*
+import eu.metatools.ex.math.*
+import eu.metatools.f2d.context.under
 import eu.metatools.f2d.math.*
-import eu.metatools.f2d.tools.Cube
 import eu.metatools.f2d.tools.Static
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.*
-import eu.metatools.up.dt.Box
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
+
+enum class TileShape {
+    Passable,
+    Solid,
+    WedgeTopLeft,
+    WedgeTopRight,
+    WedgeBottomRight,
+    WedgeBottomLeft,
+    Circle
+}
 
 /**
  * A tile kind.
@@ -24,9 +33,9 @@ interface TileKind {
     val visual: Drawable<Unit?>
 
     /**
-     * True if passable.
+     * Shape of the tile
      */
-    val passable: Boolean
+    val shape: TileShape
 }
 
 /**
@@ -35,20 +44,35 @@ interface TileKind {
 enum class Tiles : TileKind {
     Ground {
         override val visual by lazy {
-            Resources.terrain[Static("tile390")]
+            Resources.terrain[Static("tile109")]
         }
 
-        override val passable: Boolean
-            get() = true
+        override val shape = Passable
 
     },
     Wall {
         override val visual by lazy {
-            Resources.terrain[Static("tile702")]
+            Resources.terrain[Static("tile462")]
         }
-        override val passable: Boolean
-            get() = false
 
+        override val shape = Solid
+
+    },
+    Cover {
+        override val visual by lazy {
+            Resources.terrain[Static("tile614")]
+        }
+
+        override val shape = Passable
+
+    },
+    Edge {
+        override val visual by lazy {
+            Ground.visual under
+                    Resources.terrain[Static("tile231")]
+        }
+
+        override val shape = WedgeBottomLeft
     }
 }
 
@@ -60,36 +84,26 @@ enum class Tiles : TileKind {
  */
 class World(
     shell: Shell, id: Lx, val ui: Frontend,
-    map: Map<Cell, TileKind>
+    map: Map<Tri, TileKind>
 ) : Ent(shell, id), Rendered, TraitDamageable {
     override val extraArgs = mapOf("map" to map)
-
     /**
-     * The composer building the SDF.
+     * Collision composer.
      */
-    private val clipping = SDFComposer()
+    private val collisions = hashMapOf<Int, Hull>()
 
-    /**
-     * Pre-computed SDFs per radius.
-     */
-    private val sdfs = mutableMapOf<Real, (RealPt) -> Real>()
+    fun evaluateCollision(level: Int, radius: Real, pt: RealPt) =
+        collisions[level]?.evaluate(radius, pt) ?: Collision.NONE
 
-    /**
-     * Gets the SDF for the given radius.
-     */
-    fun sdf(radius: Real) =
-        sdfs.getOrPut(radius) {
-            clipping.sdf(radius)
-        }
 
     var res by prop { 0 }
 
     /**
-     * Repeater generating updates in 40ms intervals.
+     * Repeater generating updates in 50ms intervals.
      */
-    val worldUpdate = repeating(Short.MAX_VALUE, 40, shell::initializedTime) {
+    val worldUpdate = repeating(Short.MAX_VALUE, 50, shell::initializedTime) {
         shell.list<Ticking>().forEach {
-            it.update((time.global - shell.initializedTime).sec, 40)
+            it.update((time.global - shell.initializedTime).sec, 50)
         }
 
         if (res < 100)
@@ -105,8 +119,8 @@ class World(
             val (sx, sy) = generateSequence {
                 val rx = random.nextInt(xmax + 1 - xmin) + xmin
                 val ry = random.nextInt(ymax + 1 - ymin) + ymin
-                Triple(rx, ry, tiles[Cell(rx, ry)])
-            }.first { (_, _, v) -> v?.passable == true }
+                Triple(rx, ry, tiles[Tri(rx, ry, 0)])
+            }.first { (_, _, v) -> v?.shape == Passable }
 
             constructed(
                 Respack(
@@ -118,22 +132,31 @@ class World(
         }
     }
 
+    private fun evalShape(x: Int, y: Int, shape: TileShape) = when (shape) {
+        Passable -> null
+        Solid -> polyRect(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5))
+        WedgeTopLeft -> polyWedge(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5), Corner.TopLeft)
+        WedgeTopRight -> polyWedge(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5), Corner.TopLeft)
+        WedgeBottomRight -> polyWedge(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5), Corner.BottomRight)
+        WedgeBottomLeft -> polyWedge(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5), Corner.BottomLeft)
+        Circle -> polyCircle(RealPt.from(x, y), 0.5.toReal())
+    }
+
     /**
      * The map from world location to tile kind. Changes update the SDF composer.
      */
-    val tiles by mapObserved<Cell, TileKind>({ map }) {
+    val tiles by mapObserved<Tri, TileKind>({ map }) {
         // Remove impassable tiles.
         for ((k, v) in it.removed)
-            if (!v.passable)
-                clipping.remove(k.x, k.y)
+            evalShape(k.x, k.y, v.shape)?.let { poly ->
+                collisions[k.z]?.union?.remove(poly)
+            }
 
         // Add new impassable tiles.
         for ((k, v) in it.added)
-            if (!v.passable)
-                clipping.add(k.x, k.y)
-
-        // Reset memorization cache.
-        sdfs.clear()
+            evalShape(k.x, k.y, v.shape)?.let { poly ->
+                collisions.getOrPut(k.z, ::Hull).union.add(poly)
+            }
     }
 
     /**
@@ -146,7 +169,11 @@ class World(
         for ((k, v) in tiles)
             ui.submit(
                 v.visual, time, Mat
-                    .translation(Constants.tileWidth * k.x, Constants.tileHeight * k.y)
+                    .translation(
+                        Constants.tileWidth * k.x,
+                        Constants.tileHeight * k.y + Constants.tileDepth * k.z,
+                        -k.z.toFloat()
+                    )
                     .scale(
                         Constants.tileWidth,
                         Constants.tileHeight
