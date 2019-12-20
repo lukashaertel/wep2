@@ -60,11 +60,6 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     private lateinit var spriteBatch: SpriteBatch
 
     /**
-     * The model transformation matrix.
-     */
-    var model = Mat.ID
-
-    /**
      * The projection matrix, set from rendering.
      */
     var projection = Mat.NAN
@@ -132,7 +127,7 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
 
         // Start drawing with the current matrices.
-        continuous.begin(model, projection)
+        continuous.begin(projection)
 
         // Bind the current time, generate delta and set new last time.
         val time = time

@@ -2,9 +2,11 @@ package eu.metatools.ex.ents
 
 import eu.metatools.f2d.context.Drawable
 import eu.metatools.ex.*
-import eu.metatools.ex.ents.TileShape.*
+import eu.metatools.ex.data.Material
+import eu.metatools.ex.data.PolyTemplates
 import eu.metatools.ex.math.*
-import eu.metatools.f2d.context.under
+import eu.metatools.f2d.context.over
+import eu.metatools.f2d.context.shift
 import eu.metatools.f2d.math.*
 import eu.metatools.f2d.tools.Static
 import eu.metatools.up.Ent
@@ -12,67 +14,85 @@ import eu.metatools.up.Shell
 import eu.metatools.up.dsl.*
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
+import java.util.*
 
-enum class TileShape {
-    Passable,
-    Solid,
-    WedgeTopLeft,
-    WedgeTopRight,
-    WedgeBottomRight,
-    WedgeBottomLeft,
-    Circle
+
+interface Tile {
+    val visual: Drawable<Unit?>? get() = null
+    val material: Material? get() = null
+    val collision: List<Poly>? get() = null
+    val blockers: List<Poly>? get() = null
+    val exits: List<Pair<Poly, Int>>? get() = null
+    val extras: Map<String, Any>? get() = null
 }
 
-/**
- * A tile kind.
- */
-interface TileKind {
-    /**
-     * The visual to draw.
-     */
-    val visual: Drawable<Unit?>
-
-    /**
-     * Shape of the tile
-     */
-    val shape: TileShape
-}
-
-/**
- * Some instances of tiles.
- */
-enum class Tiles : TileKind {
-    Ground {
+enum class StandardTile : Tile {
+    Floor {
         override val visual by lazy {
-            Resources.terrain[Static("tile109")]
+            Resources.terrain[Static("tile171")]
         }
-
-        override val shape = Passable
-
+        override val material = Material.Stone
+        override val extras = mapOf("RSP" to true)
     },
-    Wall {
-        override val visual by lazy {
-            Resources.terrain[Static("tile462")]
-        }
-
-        override val shape = Solid
-
-    },
-    Cover {
+    Tile {
         override val visual by lazy {
             Resources.terrain[Static("tile614")]
         }
-
-        override val shape = Passable
-
+        override val material = Material.Stone
+        override val extras = mapOf("RSP" to true)
     },
-    Edge {
+    Wall {
         override val visual by lazy {
-            Ground.visual under
-                    Resources.terrain[Static("tile231")]
+            Resources.terrain[Static("tile492")]
         }
-
-        override val shape = WedgeBottomLeft
+        override val collision =
+            PolyTemplates.Block.poly
+        override val blockers: List<Poly>?
+            get() = collision
+        override val material = Material.Stone
+    },
+    StairsFst {
+        override val visual by lazy {
+            Resources.terrain[Static("tile618")]
+        }
+        override val material = Material.Stone
+        override val collision =
+            PolyTemplates.HalfRampLeftFst.poly + PolyTemplates.HalfRampCapLeftFst.poly
+        override val blockers: List<Poly>?
+            get() = collision
+        override val exits =
+            PolyTemplates.TrapezoidRight.poly.map { it to 1 } +
+                    PolyTemplates.TrapezoidLeft.poly.map { it.move(RealPt(1f, 0f)) to 0 }
+    },
+    StairsSnd {
+        override val visual by lazy {
+            Resources.terrain[Static("tile617")]
+        }
+        override val material = Material.Stone
+        override val collision =
+            PolyTemplates.HalfRampLeftSnd.poly + PolyTemplates.HalfRampCapLeftSnd.poly
+        override val blockers: List<Poly>?
+            get() = collision
+    },
+    StairsTopFst {
+        override val material = Material.Stone
+        override val visual by lazy {
+            Resources.terrain[Static("tile586")]
+        }
+        override val blockers =
+            PolyTemplates.HalfRampLeftFst.poly + PolyTemplates.HalfRampCapLeftFst.poly
+    },
+    StairsTopSnd {
+        override val material = Material.Stone
+        override val visual by lazy {
+            Resources.terrain[Static("tile585")]
+        }
+        override val blockers =
+            PolyTemplates.HalfRampLeftSnd.poly + PolyTemplates.HalfRampCapLeftSnd.poly
+    },
+    Blocking {
+        override val blockers =
+            PolyTemplates.Block.poly
     }
 }
 
@@ -84,16 +104,18 @@ enum class Tiles : TileKind {
  */
 class World(
     shell: Shell, id: Lx, val ui: Frontend,
-    map: Map<Tri, TileKind>
+    map: Map<Tri, Tile>
 ) : Ent(shell, id), Rendered, TraitDamageable {
     override val extraArgs = mapOf("map" to map)
     /**
      * Collision composer.
      */
-    private val collisions = hashMapOf<Int, Hull>()
+    val collisions = hashMapOf<Pair<Boolean, Int>, Regions>()
 
-    fun evaluateCollision(level: Int, radius: Real, pt: RealPt) =
-        collisions[level]?.evaluate(radius, pt) ?: Collision.NONE
+    val entries = hashMapOf<Int, Regions>()
+
+    fun evaluateCollision(flying: Boolean, level: Int, radius: Real, pt: RealPt) =
+        collisions[flying to level]?.collision(radius, pt) ?: Collision.NONE
 
 
     var res by prop { 0 }
@@ -120,43 +142,56 @@ class World(
                 val rx = random.nextInt(xmax + 1 - xmin) + xmin
                 val ry = random.nextInt(ymax + 1 - ymin) + ymin
                 Triple(rx, ry, tiles[Tri(rx, ry, 0)])
-            }.first { (_, _, v) -> v?.shape == Passable }
+            }.first { (_, _, v) -> v?.extras?.get("RSP") == true }
 
             constructed(
                 Respack(
                     shell, newId(), ui,
-                    RealPt(sx.toReal(), sy.toReal()), 10
+                    RealPt(sx.toReal(), sy.toReal()), 0, 10
                 )
             )
 
         }
     }
 
-    private fun evalShape(x: Int, y: Int, shape: TileShape) = when (shape) {
-        Passable -> null
-        Solid -> polyRect(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5))
-        WedgeTopLeft -> polyWedge(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5), Corner.TopLeft)
-        WedgeTopRight -> polyWedge(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5), Corner.TopLeft)
-        WedgeBottomRight -> polyWedge(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5), Corner.BottomRight)
-        WedgeBottomLeft -> polyWedge(RealPt.from(x - 0.5, y - 0.5), RealPt.from(x + 0.5, y + 0.5), Corner.BottomLeft)
-        Circle -> polyCircle(RealPt.from(x, y), 0.5.toReal())
-    }
-
     /**
      * The map from world location to tile kind. Changes update the SDF composer.
      */
-    val tiles by mapObserved<Tri, TileKind>({ map }) {
-        // Remove impassable tiles.
-        for ((k, v) in it.removed)
-            evalShape(k.x, k.y, v.shape)?.let { poly ->
-                collisions[k.z]?.union?.remove(poly)
+    val tiles by mapObserved<Tri, Tile>({ map }) {
+        for ((k, v) in it.removed) {
+            val offset = RealPt(k.x, k.y)
+            v.collision?.let { polys ->
+                for (poly in polys)
+                    collisions[true to k.z]?.union?.remove(poly.move(offset))
             }
+            v.blockers?.let { polys ->
+                for (poly in polys)
+                    collisions[false to k.z]?.union?.remove(poly.move(offset))
+            }
+            v.exits?.let { shifts ->
+                for ((poly, displacement) in shifts)
+                    entries[k.z + displacement]?.union?.remove(poly.move(offset))
+            }
+        }
 
-        // Add new impassable tiles.
-        for ((k, v) in it.added)
-            evalShape(k.x, k.y, v.shape)?.let { poly ->
-                collisions.getOrPut(k.z, ::Hull).union.add(poly)
+
+        for ((k, v) in it.added) {
+            val offset = RealPt(k.x, k.y)
+            v.collision?.let { polys ->
+                for (poly in polys) {
+                    collisions.getOrPut(true to k.z, ::Regions).union.add(poly.move(offset))
+                }
             }
+            v.blockers?.let { polys ->
+                for (poly in polys) {
+                    collisions.getOrPut(false to k.z, ::Regions).union.add(poly.move(offset))
+                }
+            }
+            v.exits?.let { shifts ->
+                for ((poly, displacement) in shifts)
+                    entries.getOrPut(k.z + displacement, ::Regions).union.add(poly.move(offset))
+            }
+        }
     }
 
     /**
@@ -164,21 +199,24 @@ class World(
      */
     val movers by set<Mover>()
 
-    override fun render(time: Double) {
+    override fun render(mat: Mat, time: Double) {
         // Render all times.
         for ((k, v) in tiles)
-            ui.submit(
-                v.visual, time, Mat
-                    .translation(
-                        Constants.tileWidth * k.x,
-                        Constants.tileHeight * k.y + Constants.tileDepth * k.z,
-                        -k.z.toFloat()
-                    )
-                    .scale(
-                        Constants.tileWidth,
-                        Constants.tileHeight
-                    )
-            )
+            v.visual?.let {
+                ui.submit(
+                    it, time, mat * Mat
+                        .translation(
+                            Constants.tileWidth * k.x,
+                            Constants.tileHeight * (k.y + k.z),
+                            -k.z.toFloat()
+                        )
+                        .scale(
+                            Constants.tileWidth,
+                            Constants.tileHeight
+                        )
+                )
+            }
+
     }
 
     /**
@@ -199,7 +237,7 @@ class World(
             constructed(
                 Mover(
                     shell, newId(), ui,
-                    RealPt(5f.toReal(), 5f.toReal()), type, owner
+                    RealPt(5f.toReal(), 5f.toReal()), 0, type, owner
                 )
             )
         )

@@ -152,6 +152,7 @@ class TextResource(
          */
         val characteristic = Characteristic(name, activeArgsResource.bold, activeArgsResource.italic)
 
+        // TODO: With updated model constraints on the continuous renderer, the size computations might change.
         override fun draw(args: String, time: Double, spriteBatch: SpriteBatch) {
             // Get source from parameter.
             val source = requireNotNull(fromParams[characteristic]) {

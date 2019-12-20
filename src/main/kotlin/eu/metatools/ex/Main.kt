@@ -7,6 +7,7 @@ import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.maps.tiled.TmxMapLoader
 import com.esotericsoftware.minlog.Log
 import com.google.common.hash.Hashing
 import eu.metatools.f2d.F2DListener
@@ -104,8 +105,13 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private var signOffValue: Long? = null
 
+    var model = Mat.ID
+
     override fun create() {
         super.create()
+
+        val tl = TmxMapLoader()
+        val tm = tl.load("Example.tmx")
 
         // Set model scaling to display scaled up.
         model = Mat.scaling(2f, 2f)
@@ -260,7 +266,7 @@ class Frontend : F2DListener(-100f, 100f) {
         world.worldUpdate(clock.time)
 
         // Render everything.
-        shell.list<Rendered>().forEach { it.render(time) }
+        shell.list<Rendered>().forEach { it.render(model, time) }
 
         // Check if sign off was set.
         signOffValue?.let {
@@ -285,11 +291,11 @@ class Frontend : F2DListener(-100f, 100f) {
 
         //TODO: Fix UI cooordinate system.
 
-        submit(segoe, "${world.res} shared resources", time, model.inv * Mat.translation(60f, 10f, -50f).scale(24f))
+        submit(segoe, "${world.res} shared resources", time, Mat.translation(60f, 10f, -50f).scale(24f))
 
         (capture?.first as? HasDescription)?.let {
             submit(
-                descriptionDrawable, it.describe, time, model.inv * Mat.translation(
+                descriptionDrawable, it.describe, time, Mat.translation(
                     Gdx.graphics.width.toFloat() / 2f,
                     Gdx.graphics.height.toFloat() - 16f,
                     -50f
@@ -297,7 +303,7 @@ class Frontend : F2DListener(-100f, 100f) {
             )
         }
         submit(
-            pingDrawable, "Offset: ${clock.currentDeltaTime}ms", time, model.inv * Mat.translation(
+            pingDrawable, "Offset: ${clock.currentDeltaTime}ms", time, Mat.translation(
                 Gdx.graphics.width.toFloat() - 16f,
                 Gdx.graphics.height.toFloat() - 16f,
                 -50f
@@ -307,7 +313,26 @@ class Frontend : F2DListener(-100f, 100f) {
 
         if (debug) {
             for ((i, h) in hashes.withIndex()) {
-                submit(h, time, model.inv * Mat.translation(32f, 32f + (i * 64f), -40f).scale(48f))
+                submit(h, time, Mat.translation(32f, 32f + (i * 64f), -40f).scale(48f))
+            }
+        }
+
+        val matTS = model.translate(z = -30f).scale(Constants.tileWidth, Constants.tileHeight)
+        //
+        val om = ownMover()
+        if (om != null) {
+            val r = world.collisions[false to om.level]
+            for (p in r?.plus.orEmpty()) {
+                (p + p.first()).zipWithNext().forEach { (f, t) ->
+                    submit(Resources.shapes[ReferLine(f.toPt(), t.toPt())], time, matTS)
+                }
+            }
+        }
+        for (r in world.entries.values) {
+            for (p in r.plus) {
+                (p + p.first()).zipWithNext().forEach { (f, t) ->
+                    submit(Resources.shapes[ReferLine(f.toPt(), t.toPt())], time, matTS)
+                }
             }
         }
 
@@ -340,7 +365,7 @@ class Frontend : F2DListener(-100f, 100f) {
         val (x, y) = model.inv * intersection
 
         // Memorize result.
-        capture = (result ?: world) to RealPt.from(x / Constants.tileWidth, y / Constants.tileHeight)
+        capture = (result ?: world) to RealPt(x / Constants.tileWidth, y / Constants.tileHeight)
     }
 
     override fun pause() = Unit

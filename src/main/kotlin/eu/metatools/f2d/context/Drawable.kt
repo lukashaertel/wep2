@@ -1,6 +1,11 @@
 package eu.metatools.f2d.context
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.math.Vector3
+import eu.metatools.f2d.math.Mat
+import eu.metatools.f2d.math.Pt
+import eu.metatools.f2d.math.Vec
+import org.jgroups.demos.Draw
 
 /**
  * A drawable instance.
@@ -19,6 +24,25 @@ infix fun <T> Drawable<T>.under(other: Drawable<T>) = object : Drawable<T> {
     override fun draw(args: T, time: Double, spriteBatch: SpriteBatch) {
         this@under.draw(args, time, spriteBatch)
         other.draw(args, time, spriteBatch)
+    }
+}
+
+/**
+ * Inverse of [under].
+ */
+infix fun <T> Drawable<T>.over(other: Drawable<T>) = other under this
+
+
+/**
+ * Shifts the transformation matrix by the given amount.
+ */
+fun <T> Drawable<T>.shift(x: Float, y: Float) = object : Drawable<T> {
+    override fun draw(args: T, time: Double, spriteBatch: SpriteBatch) {
+        val (xPrime, yPrime) = Mat(spriteBatch.transformMatrix.values).rotate(Pt(x, y))
+
+        spriteBatch.transformMatrix = spriteBatch.transformMatrix.trn(xPrime, yPrime, 0f)
+        this@shift.draw(args, time, spriteBatch)
+        spriteBatch.transformMatrix = spriteBatch.transformMatrix.trn(-xPrime, -yPrime, 0f)
     }
 }
 

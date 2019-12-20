@@ -8,41 +8,6 @@ import eu.metatools.f2d.math.reduceComponents
 import java.util.*
 
 /**
- * Methods to draw, play sounds and to capture input.
- */
-interface Continuous {
-    /**
-     * Submits a capture call.
-     */
-    fun <T> submit(subject: Capturable<T>, args: T, result: Any, time: Double, transform: Mat)
-
-    /**
-     * Submits a capture call with args set to `null`.
-     */
-    fun <T> submit(subject: Capturable<T?>, result: Any, time: Double, transform: Mat)
-
-    /**
-     * Submits a draw call.
-     */
-    fun <T> submit(subject: Drawable<T>, args: T, time: Double, transform: Mat)
-
-    /**
-     * Submits a draw call with args set to `null`.
-     */
-    fun <T> submit(subject: Drawable<T?>, time: Double, transform: Mat)
-
-    /**
-     * Submits a play call.
-     */
-    fun <T> submit(subject: Playable<T>, args: T, handle: Any, time: Double, transform: Mat)
-
-    /**
-     * Submits a play call with args set to `null`.
-     */
-    fun <T> submit(subject: Playable<T?>, handle: Any, time: Double, transform: Mat)
-}
-
-/**
  * Standard implementation of [Continuous].
  * @property trimExcess How far outside of the view a center must lie for the subject to be ignored.
  */
@@ -104,11 +69,6 @@ class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
     }
 
     /**
-     * The model transformation matrix in the current block.
-     */
-    private var model = Mat.NAN
-
-    /**
      * The projection matrix in the current block.
      */
     private var projection = Mat.NAN
@@ -148,15 +108,14 @@ class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
     /**
      * Starts the block with the given matrices.
      */
-    fun begin(model: Mat, projection: Mat) {
+    fun begin(projection: Mat) {
         // Transfer matrices.
-        this.model = model
         this.projection = projection
 
         // Setup bounds.
         excessMin = Vec.PositiveInfinity
         excessMax = Vec.NegativeInfinity
-        for (v in model.inv * projection.inv * excessVectors) {
+        for (v in projection.inv * excessVectors) {
             excessMin = reduceComponents(excessMin, v, ::minOf)
             excessMax = reduceComponents(excessMax, v, ::maxOf)
         }
@@ -232,7 +191,6 @@ class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
      */
     fun end() {
         // Reset bounds and matrices.
-        model = Mat.NAN
         projection = Mat.NAN
         excessMin = Vec.NaN
         excessMax = Vec.NaN
@@ -290,7 +248,7 @@ class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
         validate(subject, time, transform) {
             // Add a capture call on the correct Z index.
             captures.getOrPut(transform.center.z, ::mutableListOf).add(
-                Capture(subject, args, result, model * transform)
+                Capture(subject, args, result, transform)
             )
         }
     }
@@ -309,7 +267,7 @@ class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
         validate(subject, time, transform) {
             // Add a draw call on the correct Z index.
             draws.getOrPut(transform.center.z, ::mutableListOf).add(
-                Draw(subject, args, model * transform)
+                Draw(subject, args, transform)
             )
         }
     }
@@ -328,7 +286,7 @@ class StandardContinuous(val trimExcess: Float = 0.25f) : Continuous {
         validate(subject, time) {
             // Add to plays, sound is played in active projection space.
             plays[Play(subject, args, handle)] =
-                projection * model * transform
+                projection * transform
         }
     }
 

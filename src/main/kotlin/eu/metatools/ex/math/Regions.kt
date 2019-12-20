@@ -13,6 +13,15 @@ import kotlin.math.sin
  */
 typealias Poly = List<RealPt>
 
+fun Poly.flipX() =
+    map { RealPt(it.x.unaryMinus(), it.y) }
+
+fun Poly.flipY() =
+    map { RealPt(it.x, it.y.unaryMinus()) }
+
+fun Poly.move(by: RealPt) =
+    map { it + by }
+
 /**
  * A polygon group that can be added to or removed from.
  */
@@ -49,18 +58,28 @@ data class Collision(val support: RealPt, val distance: Real, val inside: Boolea
 /**
  * Geometry based collision.
  */
-class Hull {
+class Regions {
     private val factory by lazy { GeometryFactory() }
 
     /**
      * Additives polygons.
      */
-    private val plus = hashSetOf<Poly>()
+    private val plusSet = hashSetOf<Poly>()
 
     /**
      * Subtractive polygons.
      */
-    private val minus = hashSetOf<Poly>()
+    private val minusSet = hashSetOf<Poly>()
+
+    /**
+     * Gets a copy of the additive polygons.
+     */
+    val plus get() = plusSet.toSet()
+
+    /**
+     * Gets a copy of the subtractive polygons.
+     */
+    val minus get() = minusSet.toSet()
 
     /**
      * The base geometry or null if not computed.
@@ -77,7 +96,7 @@ class Hull {
      */
     val union = object : PolyGroup {
         override fun add(poly: Poly): Boolean {
-            if (!plus.add(poly))
+            if (!plusSet.add(poly))
                 return false
 
             base = null
@@ -86,7 +105,7 @@ class Hull {
         }
 
         override fun remove(poly: Poly): Boolean {
-            if (!plus.remove(poly))
+            if (!plusSet.remove(poly))
                 return false
 
             base = null
@@ -100,7 +119,7 @@ class Hull {
      */
     val subtract = object : PolyGroup {
         override fun add(poly: Poly): Boolean {
-            if (!minus.add(poly))
+            if (!minusSet.add(poly))
                 return false
 
             base = null
@@ -109,7 +128,7 @@ class Hull {
         }
 
         override fun remove(poly: Poly): Boolean {
-            if (!minus.remove(poly))
+            if (!minusSet.remove(poly))
                 return false
 
             base = null
@@ -128,38 +147,43 @@ class Hull {
      * Converts the receiver to a coordinate.
      */
     private fun Coordinate.toReal(): RealPt =
-        RealPt.from(x, y)
+        RealPt(x, y)
 
     /**
      * Converts the receiver to a polygon with the factory.
      */
-    private fun Poly.toPolygon(): Polygon =
-        factory.createPolygon(Array(size + 1) { i ->
-            get(i.rem(size)).toCoordinate()
+    private fun Poly.toGeometry(): Geometry? =
+        factory.createPolygon(Array(size + 1) {
+            get(it.rem(size)).toCoordinate()
         })
+
 
     /**
      * Computes the SDF for the radius.
      */
     private fun computeForRadius(radius: Real): Geometry? {
         val source = base ?: run {
-            if (plus.isEmpty())
+            if (plusSet.isEmpty())
                 return null
 
             // Add all.
-            val fromPlus = plus.asSequence()
-                .map<Poly, Geometry> { it.toPolygon() }
+            val fromPlus = plusSet.asSequence()
+                .mapNotNull { it.toGeometry() }
                 .reduce { a, b -> a.union(b) }
 
             // Subtract all.
-            val fromMinus = minus.asSequence()
-                .map<Poly, Geometry> { it.toPolygon() }
+            val fromMinus = minusSet.asSequence()
+                .mapNotNull { it.toGeometry() }
                 .fold(fromPlus) { a, b -> a.difference(b) }
 
             // Update base and return value.
             base = fromMinus
             fromMinus
         }
+
+        // No radius, return the value immediately.
+        if (radius == Real.ZERO)
+            return source
 
         // Get the buffered geometry.
         return source.buffer(radius.toDouble())
@@ -174,7 +198,7 @@ class Hull {
     /**
      * Takes an object radius [radius] and a center [pt]. Returns the distance and the supporting point.
      */
-    fun evaluate(radius: Real, pt: RealPt): Collision {
+    fun collision(radius: Real, pt: RealPt): Collision {
         // Get geometry or return default.
         val geometry = forRadius(radius)
             ?: return Collision.NONE
@@ -191,6 +215,21 @@ class Hull {
 
         // Return distance and supporting point.
         return Collision(output.getCoordinate(0).toReal(), output.distance.toReal(), inside)
+    }
+
+    /**
+     *  Takes an object radius [radius] and a center [pt]. Returns true if contained.
+     */
+    fun contains(radius: Real, pt: RealPt): Boolean {
+        // Get geometry or return default.
+        val geometry = forRadius(radius)
+            ?: return false
+
+        // Get coordinate from point.
+        val coordinate = pt.toCoordinate()
+
+        // Return if point is contained.
+        return geometry.contains(factory.createPoint(coordinate))
     }
 }
 
@@ -213,7 +252,7 @@ fun polyCircle(center: RealPt, radius: Real, segments: Int = 16): Poly {
     return List(segments - 1) { i ->
         val x = cos(ss * i) * radius.toDouble()
         val y = sin(ss * i) * radius.toDouble()
-        RealPt.from(center.x.toDouble() + x, center.y.toDouble() + y)
+        RealPt(center.x.toDouble() + x, center.y.toDouble() + y)
     }
 }
 

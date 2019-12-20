@@ -72,12 +72,13 @@ enum class Movers : MoverKind {
  */
 class Mover(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: RealPt, val kind: MoverKind, val owner: Short
+    initPos: RealPt, initLevel: Int, val kind: MoverKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Ticking, TraitMove,
     TraitDamageable, TraitCollects, HasDescription {
     override val extraArgs = mapOf(
         "initPos" to initPos,
+        "initLevel" to initLevel,
         "kind" to kind,
         "owner" to owner
     )
@@ -146,6 +147,8 @@ class Mover(
      */
     override var pos by { initPos }
 
+    override var level by { initLevel }
+
     /**
      * Current move time.
      */
@@ -182,28 +185,32 @@ class Mover(
 
     private var ownResources by { 0 }
 
-    override fun render(time: Double) {
+    override val flying = false
+
+    override fun render(mat: Mat, time: Double) {
         // Get position of the mover.
         val (x, y) = posAt(time)
 
         // Create matrix for transformation.
-        val mat = Mat.translation(
+        val mat2 = Mat.translation(
             Constants.tileWidth * x.toFloat(),
-            Constants.tileHeight * y.toFloat()
+            Constants.tileHeight * y.toFloat(),
+            -level.toFloat()
         ).scale(Constants.tileWidth * kind.radius.toFloat() * 2f, Constants.tileHeight * kind.radius.toFloat() * 2f)
 
         // Get color.
         val activeColor = if (ui.isSelected(this)) Color.WHITE else color
 
         // Submit the visual and the capture.
-        ui.submit(solid.tint(activeColor), time, mat)
-        ui.submit(Cube, this, time, mat)
+        ui.submit(solid.tint(activeColor), time, mat * mat2)
+        ui.submit(Cube, this, time, mat * mat2)
 
-        val mat2 = Mat.translation(
+        val mat3 = Mat.translation(
             Constants.tileWidth * x.toFloat(),
-            Constants.tileHeight * y.toFloat()
+            Constants.tileHeight * y.toFloat(),
+            -level.toFloat()
         ).translate(0f, -8f).scale(12f)
-        ui.submit(captionText, "H: $health R: $ownResources", time, mat2)
+        ui.submit(captionText, "H: $health R: $ownResources", time, mat * mat3)
     }
 
     override fun update(sec: Double, freq: Long) {
@@ -250,7 +257,7 @@ class Mover(
         constructed(
             Bullet(
                 shell, newId(), ui,
-                pos + dir.nor * (radius + 0.1f.toReal()), dir.nor * 5f.toReal(), elapsed, kind.damage
+                pos + dir.nor * (radius + 0.1f.toReal()), dir.nor * 5f.toReal(), elapsed, level, kind.damage
             )
         )
 
@@ -269,7 +276,8 @@ class Mover(
         enqueue(ui, hitText.limit(3.0).offset(start), amount.toString()) {
             Mat.translation(
                 Constants.tileWidth * x.toFloat(),
-                Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10
+                Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10,
+                -level.toFloat()
             ).scale(16f)
         }
 
@@ -286,6 +294,6 @@ class Mover(
     }
 
     override val describe: String
-        get() = if (shell.player == owner) "You" else "Enemy"
+        get() = if (shell.player == owner) "You ($level)" else "Enemy"
 
 }

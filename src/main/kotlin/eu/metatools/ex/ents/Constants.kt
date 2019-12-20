@@ -13,6 +13,4 @@ object Constants {
      * Height of the tile.
      */
     val tileHeight = 32f
-
-    val tileDepth = 8f
 }

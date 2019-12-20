@@ -24,7 +24,7 @@ import kotlin.math.atan2
  */
 class Bullet(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: RealPt, initVel: RealPt, initMoveTime: Double, val damage: Int
+    initPos: RealPt, initVel: RealPt, initMoveTime: Double, initLevel: Int, val damage: Int
 ) : Ent(shell, id), TraitMove,
     Ticking, Rendered {
     companion object {
@@ -38,6 +38,7 @@ class Bullet(
         "initPos" to initPos,
         "initVel" to initVel,
         "initMoveTime" to initMoveTime,
+        "initLevel" to initLevel,
         "damage" to damage
     )
 
@@ -61,6 +62,8 @@ class Bullet(
      */
     override var vel by { initVel }
 
+    override var level by { initLevel }
+
     /**
      * Constant. Radius.
      */
@@ -68,18 +71,22 @@ class Bullet(
 
     override val blocking get() = true
 
-    override fun render(time: Double) {
+    override val flying = true
+    override fun render(mat: Mat, time: Double) {
         // Get time.
         val (x, y) = posAt(time)
 
         // Transformation for displaying the bullet.
-        val mat = Mat.translation(Constants.tileWidth * x.toFloat(), Constants.tileHeight * y.toFloat())
+        val mat2 = mat * Mat.translation(
+            Constants.tileWidth * x.toFloat(), Constants.tileHeight * y.toFloat(),
+            -level.toFloat()
+        )
             .rotateZ(atan2(vel.y.toFloat(), vel.x.toFloat()))
             .scale(Constants.tileWidth * radius.toFloat() * 5f, Constants.tileHeight * radius.toFloat() * 2f)
 
         // Submit the solid.
-        ui.submit(solid, time, mat)
-        ui.submit(Cube, this, time, mat)
+        ui.submit(solid, time, mat2)
+        ui.submit(Cube, this, time, mat2)
     }
 
 

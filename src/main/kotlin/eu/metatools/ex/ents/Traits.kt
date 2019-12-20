@@ -67,6 +67,10 @@ interface TraitMove : TraitWorld, TraitRadius {
 
     val blocking: Boolean
 
+    var level: Int
+
+    val flying: Boolean
+
     /**
      * Determines the actual position at the time.
      */
@@ -98,9 +102,17 @@ interface TraitMove : TraitWorld, TraitRadius {
         pos = posAt(sec)
         moveTime = sec
 
+        // Set level to single entry key.
+        if (!flying)
+            world.entries.entries.singleOrNull {
+                it.value.contains(radius, pos)
+            }?.let {
+                level = it.key
+            }
+
         // Get SDF for own radius, check if hitting. If so, un-clip and add world to result set.
         // TODO: Levels.
-        val dt = world.evaluateCollision(0, radius, pos)
+        val dt = world.evaluateCollision(flying, level, radius, pos)
         if (dt.inside) {
             pos = dt.support + (dt.support - pos) * radius
             hit += world
@@ -112,6 +124,8 @@ interface TraitMove : TraitWorld, TraitRadius {
         for (other in world.shell.list<TraitMove>()) {
             // Just as an example, not good code.
             if (other === this)
+                continue
+            if (other.level != level)
                 continue
 
             val d = other.pos - pos

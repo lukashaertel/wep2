@@ -15,7 +15,7 @@ import eu.metatools.up.dt.*
 
 class Respack(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: RealPt, val content: Int
+    initPos: RealPt, initLevel: Int, val content: Int
 ) : Ent(shell, id), TraitMove, Ticking, Rendered, TraitDamageable, HasDescription {
     companion object {
         /**
@@ -26,6 +26,7 @@ class Respack(
 
     override val extraArgs = mapOf(
         "initPos" to initPos,
+        "initLevel" to initLevel,
         "content" to content
     )
 
@@ -48,6 +49,7 @@ class Respack(
      * Current velocity.
      */
     override var vel by { RealPt.ZERO }
+    override var level by { initLevel }
 
     /**
      * Constant. Radius.
@@ -56,12 +58,16 @@ class Respack(
 
     override val blocking get() = false
 
-    override fun render(time: Double) {
+    override val flying = false
+    override fun render(mat: Mat, time: Double) {
         // Get time.
         val (x, y) = posAt(time)
 
         // Transformation for displaying the bullet.
-        val mat = Mat.translation(Constants.tileWidth * x.toFloat(), Constants.tileHeight * y.toFloat())
+        val mat2 = Mat.translation(
+            Constants.tileWidth * x.toFloat(), Constants.tileHeight * y.toFloat(),
+            -level.toFloat()
+        )
             .rotateZ(time.toFloat())
             .scale(Constants.tileWidth * radius.toFloat() * 2f, Constants.tileHeight * radius.toFloat() * 2f)
 
@@ -69,8 +75,8 @@ class Respack(
         val activeColor = if (ui.isSelected(this)) Color.WHITE else Color.GRAY
 
         // Submit the solid.
-        ui.submit(solid.tint(activeColor), time, mat)
-        ui.submit(Cube, this, time, mat)
+        ui.submit(solid.tint(activeColor), time, mat * mat2)
+        ui.submit(Cube, this, time, mat * mat2)
     }
 
 

@@ -5,6 +5,7 @@ import eu.metatools.f2d.tools.*
 
 object Resources {
     val solid by lazy { frontend.use(SolidResource()) }
+    val shapes by lazy { frontend.use(ShapeResource()) }
 
     val data by lazy { frontend.use(DataResource()) }
 
