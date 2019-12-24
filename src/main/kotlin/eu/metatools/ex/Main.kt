@@ -7,13 +7,13 @@ import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.maps.tiled.TmxMapLoader
 import com.esotericsoftware.minlog.Log
 import com.google.common.hash.Hashing
 import eu.metatools.f2d.F2DListener
 import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.input.KeyStick
+import eu.metatools.ex.math.toPts
 import eu.metatools.f2d.context.LifecycleDrawable
 import eu.metatools.f2d.context.UI
 import eu.metatools.f2d.math.*
@@ -26,7 +26,6 @@ import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.NetworkSignOff
 import eu.metatools.up.net.makeNetwork
 import java.util.*
-import java.util.concurrent.TimeUnit
 import kotlin.NoSuchElementException
 import kotlin.reflect.KParameter
 import kotlin.reflect.full.isSubtypeOf
@@ -109,9 +108,6 @@ class Frontend : F2DListener(-100f, 100f) {
 
     override fun create() {
         super.create()
-
-        val tl = TmxMapLoader()
-        val tm = tl.load("Example.tmx")
 
         // Set model scaling to display scaled up.
         model = Mat.scaling(2f, 2f)
@@ -318,21 +314,38 @@ class Frontend : F2DListener(-100f, 100f) {
         }
 
         val matTS = model.translate(z = -30f).scale(Constants.tileWidth, Constants.tileHeight)
-        //
+
         val om = ownMover()
         if (om != null) {
-            val r = world.collisions[false to om.level]
-            for (p in r?.plus.orEmpty()) {
-                (p + p.first()).zipWithNext().forEach { (f, t) ->
-                    submit(Resources.shapes[ReferLine(f.toPt(), t.toPt())], time, matTS)
-                }
+            val plus = world.hull[om.level]?.plus.orEmpty() +
+                    world.clip[om.level]?.plus.orEmpty()
+
+            val minus = world.hull[om.level]?.minus.orEmpty() +
+                    world.clip[om.level]?.minus.orEmpty()
+
+            for (p in plus) {
+                val c = p.avg()
+                submit(
+                    Resources.shapes[ReferPoly(p.map { it - c }.toPts())],
+                    time, matTS.translate(c.x.toFloat(), c.y.toFloat())
+                )
+            }
+            for (p in minus) {
+                val c = p.avg()
+                submit(
+                    Resources.shapes[ReferPoly(p.map { it - c }.toPts())].tint(Color.RED),
+                    time, matTS.translate(c.x.toFloat(), c.y.toFloat())
+                )
             }
         }
+
         for (r in world.entries.values) {
             for (p in r.plus) {
-                (p + p.first()).zipWithNext().forEach { (f, t) ->
-                    submit(Resources.shapes[ReferLine(f.toPt(), t.toPt())], time, matTS)
-                }
+                val c = p.avg()
+                submit(
+                    Resources.shapes[ReferPoly(p.map { it - c }.toPts())].tint(Color.CYAN),
+                    time, matTS.translate(c.x.toFloat(), c.y.toFloat())
+                )
             }
         }
 

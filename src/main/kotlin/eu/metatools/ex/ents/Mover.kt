@@ -185,7 +185,7 @@ class Mover(
 
     private var ownResources by { 0 }
 
-    override val flying = false
+    override val clips = true
 
     override fun render(mat: Mat, time: Double) {
         // Get position of the mover.

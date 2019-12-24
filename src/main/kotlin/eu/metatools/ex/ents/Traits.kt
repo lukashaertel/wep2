@@ -69,7 +69,10 @@ interface TraitMove : TraitWorld, TraitRadius {
 
     var level: Int
 
-    val flying: Boolean
+    /**
+     * If true, mover clips on both solid hull and clip hints.
+     */
+    val clips: Boolean get() = true
 
     /**
      * Determines the actual position at the time.
@@ -103,7 +106,7 @@ interface TraitMove : TraitWorld, TraitRadius {
         moveTime = sec
 
         // Set level to single entry key.
-        if (!flying)
+        if (clips)
             world.entries.entries.singleOrNull {
                 it.value.contains(radius, pos)
             }?.let {
@@ -111,8 +114,7 @@ interface TraitMove : TraitWorld, TraitRadius {
             }
 
         // Get SDF for own radius, check if hitting. If so, un-clip and add world to result set.
-        // TODO: Levels.
-        val dt = world.evaluateCollision(flying, level, radius, pos)
+        val dt = world.evaluateCollision(clips, level, radius, pos)
         if (dt.inside) {
             pos = dt.support + (dt.support - pos) * radius
             hit += world

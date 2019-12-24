@@ -71,7 +71,7 @@ class Bullet(
 
     override val blocking get() = true
 
-    override val flying = true
+    override val clips = false
     override fun render(mat: Mat, time: Double) {
         // Get time.
         val (x, y) = posAt(time)

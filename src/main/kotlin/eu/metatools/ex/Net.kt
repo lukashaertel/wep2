@@ -3,7 +3,7 @@ package eu.metatools.ex
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
 import eu.metatools.ex.ents.Movers
-import eu.metatools.ex.ents.StandardTile
+import eu.metatools.ex.ents.Tiles
 import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
 import eu.metatools.up.kryo.registerKotlinSerializers
@@ -28,9 +28,9 @@ fun configureKryo(kryo: Kryo) {
        )
    )
    kryo.register(
-       StandardTile::class.java,
+       Tiles::class.java,
        DefaultSerializers.EnumSerializer(
-           StandardTile::class.java
+           Tiles::class.java
        )
    )
 }

@@ -9,20 +9,6 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * A list of points.
- */
-typealias Poly = List<RealPt>
-
-fun Poly.flipX() =
-    map { RealPt(it.x.unaryMinus(), it.y) }
-
-fun Poly.flipY() =
-    map { RealPt(it.x, it.y.unaryMinus()) }
-
-fun Poly.move(by: RealPt) =
-    map { it + by }
-
-/**
  * A polygon group that can be added to or removed from.
  */
 interface PolyGroup {
@@ -40,7 +26,7 @@ interface PolyGroup {
 /**
  * A collision with point, distance and flag if inside.
  */
-data class Collision(val support: RealPt, val distance: Real, val inside: Boolean) {
+data class Collision(val support: RealPt, val distance: Real, val inside: Boolean) : Comparable<Collision> {
     companion object {
         /**
          * No collision.
@@ -53,6 +39,13 @@ data class Collision(val support: RealPt, val distance: Real, val inside: Boolea
      */
     val signedDistance
         get() = if (inside) -distance else distance
+
+    override fun compareTo(other: Collision): Int {
+        val rd = signedDistance.compareTo(other.signedDistance)
+        if (rd != 0) return rd
+        val rs = support.compareTo(other.support)
+        return rs
+    }
 }
 
 /**

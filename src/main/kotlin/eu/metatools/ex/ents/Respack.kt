@@ -58,7 +58,7 @@ class Respack(
 
     override val blocking get() = false
 
-    override val flying = false
+    override val clips = true
     override fun render(mat: Mat, time: Double) {
         // Get time.
         val (x, y) = posAt(time)

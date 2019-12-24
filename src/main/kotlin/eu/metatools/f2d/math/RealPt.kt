@@ -236,3 +236,36 @@ fun RealPt.toPt() =
 
 fun Pt.toReal() =
     RealPt(x.toReal(), y.toReal())
+
+/**
+ * Sums up all values.
+ */
+fun Iterable<RealPt>.sum() = fold(0 to 0) { (x, y), it ->
+    // Sum up both parts as integers.
+    (x + it.x.numerator) to (y + it.y.numerator)
+}.let { (x, y) ->
+    // Convert to real point.
+    RealPt(Real(x), Real(y))
+}
+
+/**
+ * Gets the average of the iterable.
+ */
+fun Iterable<RealPt>.avg() = fold(Triple(0, 0, 0)) { (x, y, c), it ->
+    // Sum up both parts as integers.
+    Triple(x + it.x.numerator, y + it.y.numerator, c.inc())
+}.let { (x, y, c) ->
+    // Convert to real point.
+    RealPt(Real(x / c), Real(y / c))
+}
+
+/**
+ * Sums up all values.
+ */
+fun Sequence<RealPt>.sum() = fold(0 to 0) { (x, y), it ->
+    // Sum up both parts as integers.
+    (x + it.x.numerator) to (y + it.y.numerator)
+}.let { (x, y) ->
+    // Convert to real point.
+    RealPt(Real(x), Real(y))
+}
