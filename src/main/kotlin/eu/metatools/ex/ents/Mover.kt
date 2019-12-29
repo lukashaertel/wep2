@@ -271,10 +271,11 @@ class Mover(
         // Get time to start animation and position.
         val start = elapsed
         val (x, y) = pos
+        val level = level
 
         // Render damage floating up.
         enqueue(ui, hitText.limit(3.0).offset(start), amount.toString()) {
-            Mat.translation(
+            ui.model * Mat.translation(
                 Constants.tileWidth * x.toFloat(),
                 Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10,
                 -level.toFloat()

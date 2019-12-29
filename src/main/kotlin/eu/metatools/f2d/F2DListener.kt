@@ -5,7 +5,6 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import eu.metatools.f2d.context.*
-import eu.metatools.f2d.math.CoordsAt
 import eu.metatools.f2d.math.Mat
 import eu.metatools.f2d.math.Vec
 import eu.metatools.f2d.util.uniformX
@@ -70,22 +69,22 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
      */
     private val once = StandardOnce()
 
-    override fun <T> enqueue(subject: Capturable<T>, args: T, result: Any, coordinates: CoordsAt) =
+    override fun <T> enqueue(subject: Capturable<T>, args: T, result: Any, coordinates: (Double) -> Mat) =
         once.enqueue(subject, args, result, coordinates)
 
-    override fun <T> enqueue(subject: Capturable<T?>, result: Any, coordinates: CoordsAt) =
+    override fun <T> enqueue(subject: Capturable<T?>, result: Any, coordinates: (Double) -> Mat) =
         once.enqueue(subject, result, coordinates)
 
-    override fun <T> enqueue(subject: Drawable<T>, args: T, coordinates: CoordsAt) =
+    override fun <T> enqueue(subject: Drawable<T>, args: T, coordinates: (Double) -> Mat) =
         once.enqueue(subject, args, coordinates)
 
-    override fun <T> enqueue(subject: Drawable<T?>, coordinates: CoordsAt) =
+    override fun <T> enqueue(subject: Drawable<T?>, coordinates: (Double) -> Mat) =
         once.enqueue(subject, coordinates)
 
-    override fun <T> enqueue(subject: Playable<T>, args: T, coordinates: CoordsAt) =
+    override fun <T> enqueue(subject: Playable<T>, args: T, coordinates: (Double) -> Mat) =
         once.enqueue(subject, args, coordinates)
 
-    override fun <T> enqueue(subject: Playable<T?>, coordinates: CoordsAt) =
+    override fun <T> enqueue(subject: Playable<T?>, coordinates: (Double) -> Mat) =
         once.enqueue(subject, coordinates)
 
     /**
