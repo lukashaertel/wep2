@@ -13,7 +13,6 @@ import eu.metatools.f2d.F2DListener
 import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.input.KeyStick
-import eu.metatools.ex.math.toPts
 import eu.metatools.f2d.context.LifecycleDrawable
 import eu.metatools.f2d.context.UI
 import eu.metatools.f2d.math.*
@@ -313,42 +312,6 @@ class Frontend : F2DListener(-100f, 100f) {
             }
         }
 
-        val matTS = model.translate(z = -30f).scale(Constants.tileWidth, Constants.tileHeight)
-
-        val om = ownMover()
-        if (om != null) {
-            val plus = world.hull[om.level]?.plus.orEmpty() +
-                    world.clip[om.level]?.plus.orEmpty()
-
-            val minus = world.hull[om.level]?.minus.orEmpty() +
-                    world.clip[om.level]?.minus.orEmpty()
-
-            for (p in plus) {
-                val c = p.avg()
-                submit(
-                    Resources.shapes[ReferPoly(p.map { it - c }.toPts())],
-                    time, matTS.translate(c.x.toFloat(), c.y.toFloat())
-                )
-            }
-            for (p in minus) {
-                val c = p.avg()
-                submit(
-                    Resources.shapes[ReferPoly(p.map { it - c }.toPts())].tint(Color.RED),
-                    time, matTS.translate(c.x.toFloat(), c.y.toFloat())
-                )
-            }
-        }
-
-        for (r in world.entries.values) {
-            for (p in r.plus) {
-                val c = p.avg()
-                submit(
-                    Resources.shapes[ReferPoly(p.map { it - c }.toPts())].tint(Color.CYAN),
-                    time, matTS.translate(c.x.toFloat(), c.y.toFloat())
-                )
-            }
-        }
-
         // Process non-game input.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
             scaling = Mat.scaling(1f, 1f)
@@ -356,6 +319,8 @@ class Frontend : F2DListener(-100f, 100f) {
             scaling = Mat.scaling(2f, 2f)
         if (Gdx.input.isKeyJustPressed(Keys.NUM_3))
             scaling = Mat.scaling(3f, 3f)
+        if (Gdx.input.isKeyJustPressed(Keys.NUM_4))
+            scaling = Mat.scaling(4f, 4f)
 
         if (Gdx.input.isKeyJustPressed(Keys.R))
             rand = !rand

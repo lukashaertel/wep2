@@ -27,12 +27,12 @@ val stupidBox = mutableMapOf<Tri, Template>().also {
     it[Tri(5, 2, 0)] = Tiles.Wall
     it[Tri(5, 3, 0)] = Tiles.Wall
     it[Tri(7, 3, 0)] = Tiles.Wall
-    it[Tri(7, 6, 0)] = Tiles.Wall
+    it[Tri(9, 6, 0)] = Tiles.Wall
 
 
     it[Tri(1, 2, 0)] = Tiles.StairLeft
     it[Tri(1, 6, 0)] = Tiles.StairLeft
-    it[Tri(8, 7, 0)] = Tiles.StairRight
+    it[Tri(7, 6, 0)] = Tiles.StairRight
 
     for (x in 1..9)
         for (y in 1..9)

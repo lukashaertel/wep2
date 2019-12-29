@@ -5,64 +5,64 @@ import eu.metatools.f2d.math.RealPt
 import eu.metatools.f2d.math.toReal
 
 object PolyTemplates {
-    val Block: Poly = polyRect(
+    val Block = polyRect(
         RealPt(
             -0.5f,
             -0.5f
         ), RealPt(0.5f, 0.5f)
     )
-    val RampLeft: Poly = listOf(
+    val RampLeft = Poly(
         RealPt(-0.5f, -0.5f),
         RealPt(0.5f, -0.5f),
         RealPt(-0.5f, 0.5f)
     )
-    val RampCapLeft: Poly = listOf(
+    val RampCapLeft = Poly(
         RealPt(-0.5f, 1.5f),
         RealPt(0.5f, 0.5f),
         RealPt(0.5f, 0.45f),
         RealPt(-0.5f, 1.45f)
     )
 
-    val RampLeftLong: Poly = listOf(
+    val RampLeftLong = Poly(
         RealPt(-0.5f, -0.5f),
         RealPt(1.5f, -0.5f),
         RealPt(-0.5f, 0.5f)
     )
 
-    val RampCapLeftLong: Poly = listOf(
+    val RampCapLeftLong = Poly(
         RealPt(-0.5f, 1.5f),
         RealPt(1.5f, 0.5f),
         RealPt(1.5f, 0.45f),
         RealPt(-0.5f, 1.45f)
     )
 
-    val RampBoundsLeftLong: Poly = listOf(
+    val RampBoundsLeftLong = Poly(
         RealPt(1.5f, -0.5f),
         RealPt(-0.5f, 0.5f),
         RealPt(-0.5f, 1.45f),
         RealPt(1.5f, 0.45f)
     )
 
-    val RampRightLong: Poly = RampLeftLong.flipX().move(1, 0)
+    val RampRightLong = RampLeftLong.flipX().move(1, 0)
 
-    val RampCapRightLong: Poly = RampCapLeftLong.flipX().move(1, 0)
+    val RampCapRightLong = RampCapLeftLong.flipX().move(1, 0)
 
-    val RampBoundsRightLong: Poly = RampBoundsLeftLong.flipX().move(1, 0)
+    val RampBoundsRightLong = RampBoundsLeftLong.flipX().move(1, 0)
 
-    val RampRight: Poly = RampLeft.flipX()
+    val RampRight = RampLeft.flipX()
 
-    val RampCapRight: Poly = RampCapLeft.flipX()
+    val RampCapRight = RampCapLeft.flipX()
 
-    val TrapezoidRight: Poly = listOf(
+    val TrapezoidRight = Poly(
         RealPt(0.5f, 0.5f),
         RealPt(0.5f, -0.5f),
         RealPt(0.0f, -.25f),
         RealPt(0.0f, 0.25f)
     )
 
-    val TrapezoidLeft: Poly = TrapezoidRight.flipX()
+    val TrapezoidLeft = TrapezoidRight.flipX()
 
-    val SmallCircle: Poly = polyCircle(
+    val SmallCircle = polyCircle(
         RealPt.ZERO,
         0.25f.toReal(),
         8

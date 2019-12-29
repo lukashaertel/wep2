@@ -5,6 +5,7 @@ import eu.metatools.f2d.math.*
 import org.locationtech.jts.algorithm.distance.DistanceToPoint
 import org.locationtech.jts.algorithm.distance.PointPairDistance
 import org.locationtech.jts.geom.*
+import java.util.*
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -21,6 +22,11 @@ interface PolyGroup {
      * Removes a polygon.
      */
     fun remove(poly: Poly): Boolean
+
+    /**
+     * Gets a copy of all polys.
+     */
+    fun toSet(): Set<Poly>
 }
 
 /**
@@ -51,28 +57,18 @@ data class Collision(val support: RealPt, val distance: Real, val inside: Boolea
 /**
  * Geometry based collision.
  */
-class Regions {
+class Regions : Comparable<Regions> {
     private val factory by lazy { GeometryFactory() }
 
     /**
      * Additives polygons.
      */
-    private val plusSet = hashSetOf<Poly>()
+    private val plusSet = TreeSet<Poly>()
 
     /**
      * Subtractive polygons.
      */
-    private val minusSet = hashSetOf<Poly>()
-
-    /**
-     * Gets a copy of the additive polygons.
-     */
-    val plus get() = plusSet.toSet()
-
-    /**
-     * Gets a copy of the subtractive polygons.
-     */
-    val minus get() = minusSet.toSet()
+    private val minusSet = TreeSet<Poly>()
 
     /**
      * The base geometry or null if not computed.
@@ -105,6 +101,9 @@ class Regions {
             buffers.clear()
             return true
         }
+
+        override fun toSet() =
+            plusSet.toSet()
     }
 
     /**
@@ -128,6 +127,9 @@ class Regions {
             buffers.clear()
             return true
         }
+
+        override fun toSet() =
+            minusSet.toSet()
     }
 
     /**
@@ -224,6 +226,26 @@ class Regions {
         // Return if point is contained.
         return geometry.contains(factory.createPoint(coordinate))
     }
+
+    override fun compareTo(other: Regions): Int {
+        // Compare constructive set.
+        val rps = plusSet.size.compareTo(other.plusSet.size)
+        if (rps != 0) return rps
+        for ((a, b) in plusSet zip other.plusSet) {
+            val rpp = a.compareTo(b)
+            if (rpp != 0) return rpp
+        }
+
+        // Compare destructive set.
+        val rms = minusSet.size.compareTo(other.minusSet.size)
+        if (rms != 0) return rms
+        for ((a, b) in minusSet zip other.minusSet) {
+            val rmp = a.compareTo(b)
+            if (rmp != 0) return rmp
+        }
+        // Both equal, return zero.
+        return 0
+    }
 }
 
 /**
@@ -234,7 +256,7 @@ fun polyRect(from: RealPt, to: RealPt): Poly {
     val maxX = max(from.x, to.x)
     val minY = min(from.y, to.y)
     val maxY = max(from.y, to.y)
-    return listOf(RealPt(minX, minY), RealPt(maxX, minY), RealPt(maxX, maxY), RealPt(minX, maxY))
+    return Poly(RealPt(minX, minY), RealPt(maxX, minY), RealPt(maxX, maxY), RealPt(minX, maxY))
 }
 
 /**
@@ -242,7 +264,7 @@ fun polyRect(from: RealPt, to: RealPt): Poly {
  */
 fun polyCircle(center: RealPt, radius: Real, segments: Int = 16): Poly {
     val ss = Math.PI * 2 / segments
-    return List(segments - 1) { i ->
+    return Poly(segments - 1) { i ->
         val x = cos(ss * i) * radius.toDouble()
         val y = sin(ss * i) * radius.toDouble()
         RealPt(center.x.toDouble() + x, center.y.toDouble() + y)
@@ -281,10 +303,10 @@ fun polyWedge(from: RealPt, to: RealPt, corner: Corner): Poly {
     val maxY = max(from.y, to.y)
 
     return when (corner) {
-        BottomLeft -> listOf(RealPt(minX, minY), RealPt(maxX, minY), RealPt(minX, maxY))
-        BottomRight -> listOf(RealPt(minX, minY), RealPt(maxX, minY), RealPt(maxX, maxY))
-        TopRight -> listOf(RealPt(maxX, minY), RealPt(maxX, maxY), RealPt(minX, maxY))
-        TopLeft -> listOf(RealPt(minX, minY), RealPt(maxX, maxY), RealPt(minX, maxY))
+        BottomLeft -> Poly(RealPt(minX, minY), RealPt(maxX, minY), RealPt(minX, maxY))
+        BottomRight -> Poly(RealPt(minX, minY), RealPt(maxX, minY), RealPt(maxX, maxY))
+        TopRight -> Poly(RealPt(maxX, minY), RealPt(maxX, maxY), RealPt(minX, maxY))
+        TopLeft -> Poly(RealPt(minX, minY), RealPt(maxX, maxY), RealPt(minX, maxY))
     }
 }
 

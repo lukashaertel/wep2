@@ -2,14 +2,44 @@ package eu.metatools.ex.ents
 
 import eu.metatools.f2d.context.Drawable
 import eu.metatools.ex.*
+import eu.metatools.ex.data.Orientation
 import eu.metatools.ex.math.*
 import eu.metatools.f2d.math.*
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.*
 import eu.metatools.up.dt.Lx
+import eu.metatools.up.lang.ObservedSet
 import eu.metatools.up.list
 import java.util.*
+
+
+data class Patch(
+    val level: Int,
+    val slopeX: Int,
+    val slopeY: Int,
+    val slopeLength: Int,
+    val slopeOrientation: Orientation,
+    val ascend: Int,
+    val walkable: Regions,
+    val solid: Regions
+) : Comparable<Patch> {
+    override fun compareTo(other: Patch): Int {
+        // Compare by component.
+        level.compareTo(other.level).let { if (it != 0) return it }
+        slopeX.compareTo(other.slopeX).let { if (it != 0) return it }
+        slopeY.compareTo(other.slopeY).let { if (it != 0) return it }
+        slopeLength.compareTo(other.slopeLength).let { if (it != 0) return it }
+        slopeOrientation.compareTo(other.slopeOrientation).let { if (it != 0) return it }
+        ascend.compareTo(other.ascend).let { if (it != 0) return it }
+        walkable.compareTo(other.walkable).let { if (it != 0) return it }
+        solid.compareTo(other.solid).let { if (it != 0) return it }
+
+        // All equal, return.
+        return 0
+    }
+}
+
 
 /**
  * The root world entity.
