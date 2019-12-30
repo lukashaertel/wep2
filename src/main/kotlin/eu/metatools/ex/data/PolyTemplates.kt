@@ -1,8 +1,8 @@
 package eu.metatools.ex.data
 
 import eu.metatools.ex.math.*
-import eu.metatools.f2d.math.RealPt
-import eu.metatools.f2d.math.toReal
+import eu.metatools.f2d.data.RealPt
+import eu.metatools.f2d.data.toReal
 
 object PolyTemplates {
     val Block = polyRect(

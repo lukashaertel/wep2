@@ -1,11 +1,11 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.f2d.context.refer
+import eu.metatools.f2d.resource.refer
 import eu.metatools.ex.*
-import eu.metatools.f2d.context.UI
-import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.RealPt
-import eu.metatools.f2d.math.toReal
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.RealPt
+import eu.metatools.f2d.data.toReal
+import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.Cube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
@@ -85,8 +85,8 @@ class Bullet(
             .scale(Constants.tileWidth * radius.toFloat() * 5f, Constants.tileHeight * radius.toFloat() * 2f)
 
         // Submit the solid.
-        ui.submit(solid, time, mat2)
-        ui.submit(Cube, this, time, mat2)
+        ui.world.submit(solid, time, mat2)
+        ui.world.submit(Cube, this, time, mat2)
     }
 
 

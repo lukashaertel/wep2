@@ -3,9 +3,9 @@ package eu.metatools.f2d.tools
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.audio.Sound
 import com.badlogic.gdx.files.FileHandle
-import eu.metatools.f2d.context.LifecycleResource
-import eu.metatools.f2d.context.Playable
-import eu.metatools.f2d.math.Mat
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.playable.Playable
+import eu.metatools.f2d.resource.LifecycleResource
 import eu.metatools.f2d.util.bufferId
 import eu.metatools.f2d.util.sourceFromID
 import org.lwjgl.openal.AL10

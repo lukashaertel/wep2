@@ -1,7 +1,7 @@
 package eu.metatools.ex.math
 
 import eu.metatools.ex.math.Corner.*
-import eu.metatools.f2d.math.*
+import eu.metatools.f2d.data.*
 import org.locationtech.jts.algorithm.distance.DistanceToPoint
 import org.locationtech.jts.algorithm.distance.PointPairDistance
 import org.locationtech.jts.geom.*

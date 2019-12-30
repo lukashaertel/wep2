@@ -3,17 +3,25 @@ package eu.metatools.f2d
 import com.badlogic.gdx.ApplicationListener
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
-import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import eu.metatools.f2d.context.*
-import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.context.StandardContext
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.Vec
+import eu.metatools.f2d.immediate.*
+import eu.metatools.f2d.queued.*
+import eu.metatools.f2d.resource.Lifecycle
 import eu.metatools.f2d.util.uniformX
 import eu.metatools.f2d.util.uniformY
 
+interface InOut : Capture, Draw, Play, QueuedCapture, QueuedDraw, QueuedPlay
+
 /**
- * Basic application listener dispatching rendering and providing [UI] functionality via [Once] and [Continuous].
+ * Basic application listener dispatching rendering and providing capture/output functionality.
  */
-abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : ApplicationListener, UI {
+abstract class F2DListener(
+    val near: Float = 0f,
+    val far: Float = 1f,
+    val trimExcess: Float = 0.5f
+) : ApplicationListener {
     companion object {
         /**
          * The time to use for the first delta.
@@ -54,61 +62,68 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     }
 
     /**
-     * The sprite batch to use.
+     * The context to use.
      */
-    private lateinit var spriteBatch: SpriteBatch
+    private val context = StandardContext()
+
+    /**
+     * View matrix.
+     */
+    var view = Mat.ID
 
     /**
      * The projection matrix, set from rendering.
      */
-    var projection = Mat.NAN
-        private set
+    private var projection = Mat.NAN
 
-    /**
-     * The one-shot renderer.
-     */
-    private val once = StandardOnce()
+    private val standardCapture = StandardCapture(trimExcess)
 
-    override fun <T> enqueue(subject: Capturable<T>, args: T, result: Any, coordinates: (Double) -> Mat) =
-        once.enqueue(subject, args, result, coordinates)
+    private val standardDraw = StandardDraw(trimExcess)
 
-    override fun <T> enqueue(subject: Capturable<T?>, result: Any, coordinates: (Double) -> Mat) =
-        once.enqueue(subject, result, coordinates)
+    private val standardPlay = StandardPlay(trimExcess)
 
-    override fun <T> enqueue(subject: Drawable<T>, args: T, coordinates: (Double) -> Mat) =
-        once.enqueue(subject, args, coordinates)
+    private val standardQueuedCapture = StandardQueuedCapture(standardCapture)
 
-    override fun <T> enqueue(subject: Drawable<T?>, coordinates: (Double) -> Mat) =
-        once.enqueue(subject, coordinates)
+    private val standardQueuedDraw = StandardQueuedDraw(standardDraw)
 
-    override fun <T> enqueue(subject: Playable<T>, args: T, coordinates: (Double) -> Mat) =
-        once.enqueue(subject, args, coordinates)
+    private val standardQueuedPlay = StandardQueuedPlay(standardPlay)
 
-    override fun <T> enqueue(subject: Playable<T?>, coordinates: (Double) -> Mat) =
-        once.enqueue(subject, coordinates)
+    private val worldCapture = object : TransformedCapture(standardCapture) {
+        override val mat: Mat
+            get() = view
+    }
 
-    /**
-     * The continuous renderer.
-     */
-    private val continuous = StandardContinuous()
+    private val worldDraw = object : TransformedDraw(standardDraw) {
+        override val mat: Mat
+            get() = view
+    }
 
-    override fun <T> submit(subject: Capturable<T>, args: T, result: Any, time: Double, transform: Mat) =
-        continuous.submit(subject, args, result, time, transform)
+    private val worldPlay = object : TransformedPlay(standardPlay) {
+        override val mat: Mat
+            get() = view
+    }
 
-    override fun <T> submit(subject: Capturable<T?>, result: Any, time: Double, transform: Mat) =
-        continuous.submit(subject, result, time, transform)
+    private val worldQueuedCapture = StandardQueuedCapture(worldCapture)
 
-    override fun <T> submit(subject: Drawable<T>, args: T, time: Double, transform: Mat) =
-        continuous.submit(subject, args, time, transform)
+    private val worldQueuedDraw = StandardQueuedDraw(worldDraw)
 
-    override fun <T> submit(subject: Drawable<T?>, time: Double, transform: Mat) =
-        continuous.submit(subject, time, transform)
+    private val worldQueuedPlay = StandardQueuedPlay(worldPlay)
 
-    override fun <T> submit(subject: Playable<T>, args: T, handle: Any, time: Double, transform: Mat) =
-        continuous.submit(subject, args, handle, time, transform)
+    val ui: InOut = object : InOut,
+        Capture by standardCapture,
+        Draw by standardDraw,
+        Play by standardPlay,
+        QueuedCapture by standardQueuedCapture,
+        QueuedDraw by standardQueuedDraw,
+        QueuedPlay by standardQueuedPlay {}
 
-    override fun <T> submit(subject: Playable<T?>, handle: Any, time: Double, transform: Mat) =
-        continuous.submit(subject, handle, time, transform)
+    val world: InOut = object : InOut,
+        Capture by worldCapture,
+        Draw by worldDraw,
+        Play by worldPlay,
+        QueuedCapture by worldQueuedCapture,
+        QueuedDraw by worldQueuedDraw,
+        QueuedPlay by worldQueuedPlay {}
 
     /**
      * Gets the current time.
@@ -126,31 +141,42 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
 
         // Start drawing with the current matrices.
-        continuous.begin(projection)
+        standardCapture.begin(projection)
+        standardDraw.begin(projection)
+        standardPlay.begin(projection)
 
         // Bind the current time, generate delta and set new last time.
         val time = time
         val delta = timeOfLast?.minus(time)?.unaryMinus() ?: initialDelta
         timeOfLast = time
 
-        // Render to once and continuous.
+        // Handle all calls to immediate or queued outputs.
         render(time, delta)
 
-        // Dispatch generated calls from the once to continuous.
-        once.send(continuous, time)
+        // Submit all UI queue elements.
+        standardQueuedCapture.update(time)
+        standardQueuedDraw.update(time)
+        standardQueuedPlay.update(time)
 
-        // Render all continuous draws.
-        continuous.render(time, spriteBatch)
+        // Submit all world queue elements.
+        worldQueuedCapture.update(time)
+        worldQueuedDraw.update(time)
+        worldQueuedPlay.update(time)
 
-        // Send all sounds.
-        continuous.play(time)
+        // Commit calls to context.
+        standardDraw.render(time, context)
+
+        // Update sounds.
+        standardPlay.play(time)
 
         // Perform capture for primary pointer and handle.
-        val (result, intersection) = continuous.collect(time, Gdx.input.uniformX, Gdx.input.uniformY)
+        val (result, intersection) = standardCapture.collect(time, Gdx.input.uniformX, Gdx.input.uniformY)
         capture(result, intersection)
 
         // Finalize batch for this call.
-        continuous.end()
+        standardCapture.end()
+        standardDraw.end()
+        standardPlay.end()
     }
 
     /**
@@ -168,14 +194,8 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
     }
 
     override fun create() {
-        // Create main sprite batch.
-        spriteBatch = SpriteBatch()
-        spriteBatch.enableBlending()
-        spriteBatch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
-
         // Initialize proper projection matrix.
         projection = Mat.ortho2D(0f, 0f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), near, far)
-
 
         // Initialize all used resources.
         roots.forEach {
@@ -191,6 +211,9 @@ abstract class F2DListener(val near: Float = 0f, val far: Float = 1f) : Applicat
         roots.forEach {
             it.dispose()
         }
+
+        // Dispose of context.
+        context.dispose()
 
         // Set post-disposal flag.
         postDispose = true

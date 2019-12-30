@@ -4,8 +4,8 @@ import com.badlogic.gdx.math.Intersector.*
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.math.collision.BoundingBox
 import com.badlogic.gdx.math.collision.Ray
-import eu.metatools.f2d.context.Capturable
-import eu.metatools.f2d.math.Vec
+import eu.metatools.f2d.capturable.Capturable
+import eu.metatools.f2d.data.Vec
 
 /**
  * A dedicated [Capturable] that checks if a sphere with a diameter of one intersects.

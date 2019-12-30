@@ -6,7 +6,7 @@ import com.esotericsoftware.kryo.Serializer
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
 
-object ArraySerializer: Serializer<Array<*>>(false, false) {
+object ArraySerializer : Serializer<Array<*>>(false, false) {
     override fun write(kryo: Kryo, output: Output, item: Array<*>) {
         output.writeInt(item.size, true)
 

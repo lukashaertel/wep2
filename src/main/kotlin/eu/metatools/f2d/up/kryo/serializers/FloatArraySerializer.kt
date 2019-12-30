@@ -6,7 +6,7 @@ import com.esotericsoftware.kryo.Serializer
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
 
-object FloatArraySerializer: Serializer<FloatArray>(false, false) {
+object FloatArraySerializer : Serializer<FloatArray>(false, false) {
     override fun write(kryo: Kryo, output: Output, item: FloatArray) {
         output.writeInt(item.size, true)
         for (i in 0 until item.size)

@@ -13,9 +13,10 @@ import eu.metatools.f2d.F2DListener
 import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.input.KeyStick
-import eu.metatools.f2d.context.LifecycleDrawable
-import eu.metatools.f2d.context.UI
-import eu.metatools.f2d.math.*
+import eu.metatools.f2d.drawable.tint
+import eu.metatools.f2d.resource.LifecycleDrawable
+import eu.metatools.f2d.data.*
+import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.*
 import eu.metatools.up.*
 import eu.metatools.up.dt.*
@@ -83,7 +84,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     @Suppress("experimental_api_usage_error")
     private fun resolveGlobal(param: KParameter): Any {
-        if (param.type.isSubtypeOf(typeOf<UI>()) && param.type.isSupertypeOf(typeOf<Frontend>()))
+        if (param.type.isSubtypeOf(typeOf<F2DListener>()) && param.type.isSupertypeOf(typeOf<Frontend>()))
             return this
 
         throw NoSuchElementException(param.toString())
@@ -99,17 +100,15 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * Root world.
      */
-    lateinit var world: World
+    lateinit var root: World
 
     private var signOffValue: Long? = null
-
-    var model = Mat.ID
 
     override fun create() {
         super.create()
 
         // Set model scaling to display scaled up.
-        model = Mat.scaling(2f, 2f)
+        view = Mat.scaling(2f, 2f)
 
         // Set title.
         Gdx.graphics.setTitle("Joined, player: ${shell.player}")
@@ -128,7 +127,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
         shell.critical {
             // Assign world from loading or creating.
-            world = if (net.isCoordinating) {
+            root = if (net.isCoordinating) {
                 World(shell, lx / "root", this, stupidBox).also {
                     shell.engine.add(it)
                 }
@@ -141,7 +140,7 @@ class Frontend : F2DListener(-100f, 100f) {
             }
 
             shell.withTime(clock) {
-                world.createMover(shell.player)
+                root.createMover(shell.player)
             }
         }
     }
@@ -206,14 +205,14 @@ class Frontend : F2DListener(-100f, 100f) {
 
             // Check if mover is there.
             if (mover == null) {
-                model = Mat.ID
+                view = Mat.ID
 
                 // It is not, allow for recreation.
                 if (rand || Gdx.input.isKeyJustPressed(Keys.F1))
-                    world.createMover(shell.player)
+                    root.createMover(shell.player)
             } else {
                 val (x, y) = mover.posAt(time)
-                model = Mat.translation(
+                view = Mat.translation(
                     Gdx.graphics.width / 2f,
                     Gdx.graphics.height / 2f
                 ) * scaling * Mat.translation(
@@ -258,10 +257,10 @@ class Frontend : F2DListener(-100f, 100f) {
 
 
         // Dispatch global update.
-        world.worldUpdate(clock.time)
+        root.worldUpdate(clock.time)
 
         // Render everything.
-        shell.list<Rendered>().forEach { it.render(model, time) }
+        shell.list<Rendered>().forEach { it.render(Mat.ID, time) }
 
         // Check if sign off was set.
         signOffValue?.let {
@@ -286,10 +285,10 @@ class Frontend : F2DListener(-100f, 100f) {
 
         //TODO: Fix UI cooordinate system.
 
-        submit(segoe, "${world.res} shared resources", time, Mat.translation(60f, 10f, -50f).scale(24f))
+        ui.submit(segoe, "${root.res} shared resources", time, Mat.translation(60f, 10f, -50f).scale(24f))
 
         (capture?.first as? HasDescription)?.let {
-            submit(
+            ui.submit(
                 descriptionDrawable, it.describe, time, Mat.translation(
                     Gdx.graphics.width.toFloat() / 2f,
                     Gdx.graphics.height.toFloat() - 16f,
@@ -297,7 +296,7 @@ class Frontend : F2DListener(-100f, 100f) {
                 ).scale(32f)
             )
         }
-        submit(
+        ui.submit(
             pingDrawable, "Offset: ${clock.currentDeltaTime}ms", time, Mat.translation(
                 Gdx.graphics.width.toFloat() - 16f,
                 Gdx.graphics.height.toFloat() - 16f,
@@ -308,7 +307,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
         if (debug) {
             for ((i, h) in hashes.withIndex()) {
-                submit(h, time, Mat.translation(32f, 32f + (i * 64f), -40f).scale(48f))
+                ui.submit(h, time, Mat.translation(32f, 32f + (i * 64f), -40f).scale(48f))
             }
         }
 
@@ -340,10 +339,10 @@ class Frontend : F2DListener(-100f, 100f) {
         capture?.first == any
 
     override fun capture(result: Any?, intersection: Vec) {
-        val (x, y) = model.inv * intersection
+        val (x, y) = view.inv * intersection
 
         // Memorize result.
-        capture = (result ?: world) to RealPt(x / Constants.tileWidth, y / Constants.tileHeight)
+        capture = (result ?: root) to RealPt(x / Constants.tileWidth, y / Constants.tileHeight)
     }
 
     override fun pause() = Unit

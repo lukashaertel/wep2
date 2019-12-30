@@ -1,21 +1,28 @@
 package eu.metatools.ex.ents
 
 import com.badlogic.gdx.graphics.Color
-import eu.metatools.f2d.context.limit
-import eu.metatools.f2d.context.offset
-import eu.metatools.f2d.context.refer
-import eu.metatools.ex.*
-import eu.metatools.f2d.context.UI
-import eu.metatools.f2d.math.*
+import eu.metatools.ex.Frontend
+import eu.metatools.ex.Resources
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.Real
+import eu.metatools.f2d.data.RealPt
+import eu.metatools.f2d.data.toReal
+import eu.metatools.f2d.drawable.limit
+import eu.metatools.f2d.drawable.offset
+import eu.metatools.f2d.drawable.tint
+import eu.metatools.f2d.immediate.submit
+import eu.metatools.f2d.playable.offset
+import eu.metatools.f2d.resource.refer
 import eu.metatools.f2d.tools.Cube
 import eu.metatools.f2d.tools.Location
 import eu.metatools.f2d.tools.ReferText
-import eu.metatools.f2d.tools.tint
 import eu.metatools.f2d.up.enqueue
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.provideDelegate
-import eu.metatools.up.dt.*
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.dt.div
+import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.never
 import eu.metatools.up.lang.within
 
@@ -202,15 +209,15 @@ class Mover(
         val activeColor = if (ui.isSelected(this)) Color.WHITE else color
 
         // Submit the visual and the capture.
-        ui.submit(solid.tint(activeColor), time, mat * mat2)
-        ui.submit(Cube, this, time, mat * mat2)
+        ui.world.submit(solid.tint(activeColor), time, mat * mat2)
+        ui.world.submit(Cube, this, time, mat * mat2)
 
         val mat3 = Mat.translation(
             Constants.tileWidth * x.toFloat(),
             Constants.tileHeight * y.toFloat(),
             -level.toFloat()
         ).translate(0f, -8f).scale(12f)
-        ui.submit(captionText, "H: $health R: $ownResources", time, mat * mat3)
+        ui.world.submit(captionText, "H: $health R: $ownResources", time, mat * mat3)
     }
 
     override fun update(sec: Double, freq: Long) {
@@ -261,7 +268,7 @@ class Mover(
             )
         )
 
-        enqueue(ui, fire.offset(elapsed), null) { Mat.ID }
+        enqueue(ui.world, fire.offset(elapsed), null) { Mat.ID }
     }
 
     override fun takeDamage(amount: Int) {
@@ -274,8 +281,8 @@ class Mover(
         val level = level
 
         // Render damage floating up.
-        enqueue(ui, hitText.limit(3.0).offset(start), amount.toString()) {
-            ui.model * Mat.translation(
+        enqueue(ui.world, hitText.limit(3.0).offset(start), amount.toString()) {
+            Mat.translation(
                 Constants.tileWidth * x.toFloat(),
                 Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10,
                 -level.toFloat()
@@ -291,7 +298,7 @@ class Mover(
 
     override fun collectResource(amount: Int) {
         ownResources += amount
-        enqueue(ui, fire.offset(elapsed), null) { Mat.ID }
+        enqueue(ui.world, fire.offset(elapsed), null) { Mat.ID }
     }
 
     override val describe: String

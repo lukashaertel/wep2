@@ -4,7 +4,9 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import eu.metatools.f2d.context.*
+import eu.metatools.f2d.context.Context
+import eu.metatools.f2d.resource.LifecycleDrawable
+import eu.metatools.f2d.resource.NotifyingResource
 import java.util.*
 import kotlin.math.ceil
 import kotlin.math.sqrt
@@ -67,12 +69,12 @@ class DataResource : NotifyingResource<ReferData<*>, LifecycleDrawable<Unit?>>()
                 texture = null
             }
 
-            override fun draw(args: Unit?, time: Double, spriteBatch: SpriteBatch) {
+            override fun draw(args: Unit?, time: Double, context: Context) {
                 // Get texture or return if not assigned yet.
                 val texture = texture ?: return
 
                 // Draw to sprite batch.
-                spriteBatch.draw(texture, -0.5f, -0.5f, 1.0f, 1.0f)
+                context.sprites().draw(texture, -0.5f, -0.5f, 1.0f, 1.0f)
             }
         }
 }

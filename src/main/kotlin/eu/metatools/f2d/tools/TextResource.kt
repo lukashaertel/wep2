@@ -1,12 +1,12 @@
 package eu.metatools.f2d.tools
 
 import com.badlogic.gdx.files.FileHandle
-import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
-import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.utils.Align
-import eu.metatools.f2d.context.*
+import eu.metatools.f2d.context.Context
+import eu.metatools.f2d.drawable.Drawable
+import eu.metatools.f2d.resource.MemorizingResource
 import java.io.FilenameFilter
 import java.util.*
 import kotlin.math.roundToInt
@@ -153,7 +153,9 @@ class TextResource(
         val characteristic = Characteristic(name, activeArgsResource.bold, activeArgsResource.italic)
 
         // TODO: With updated model constraints on the continuous renderer, the size computations might change.
-        override fun draw(args: String, time: Double, spriteBatch: SpriteBatch) {
+        override fun draw(args: String, time: Double, context: Context) {
+            val spriteBatch = context.sprites()
+
             // Get source from parameter.
             val source = requireNotNull(fromParams[characteristic]) {
                 "No font in definition for $characteristic"

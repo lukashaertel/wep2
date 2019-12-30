@@ -2,10 +2,10 @@ package eu.metatools.f2d.tools
 
 import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
-import eu.metatools.f2d.context.LifecycleDrawable
-import eu.metatools.f2d.context.NotifyingResource
+import eu.metatools.f2d.context.Context
+import eu.metatools.f2d.resource.LifecycleDrawable
+import eu.metatools.f2d.resource.NotifyingResource
 
 /**
  * A region that can turn a [Texture] into a [TextureRegion].
@@ -91,12 +91,12 @@ class TextureResource(
             region = null
         }
 
-        override fun draw(args: Unit?, time: Double, spriteBatch: SpriteBatch) {
+        override fun draw(args: Unit?, time: Double, context: Context) {
             // Get region or return if not assigned yet.
             val region = region ?: return
 
             // Draw to sprite batch.
-            spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
+            context.sprites().draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
         }
     }
 }

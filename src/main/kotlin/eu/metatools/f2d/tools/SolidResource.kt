@@ -3,9 +3,9 @@ package eu.metatools.f2d.tools
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import eu.metatools.f2d.context.Drawable
-import eu.metatools.f2d.context.LifecycleResource
+import eu.metatools.f2d.context.Context
+import eu.metatools.f2d.drawable.Drawable
+import eu.metatools.f2d.resource.LifecycleResource
 
 /**
  * Generates drawable resources with a given color. The results have the length one and are centered.
@@ -30,12 +30,12 @@ class SolidResource : LifecycleResource<Unit, Drawable<Unit?>> {
 
     override fun get(argsResource: Unit) =
         object : Drawable<Unit?> {
-            override fun draw(args: Unit?, time: Double, spriteBatch: SpriteBatch) {
+            override fun draw(args: Unit?, time: Double, context: Context) {
                 // Get texture or return if not assigned yet.
                 val texture = texture ?: return
 
                 // Draw to sprite batch.
-                spriteBatch.draw(texture, -0.5f, -0.5f, 1.0f, 1.0f)
+                context.sprites().draw(texture, -0.5f, -0.5f, 1.0f, 1.0f)
             }
         }
 }

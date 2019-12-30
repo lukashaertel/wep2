@@ -4,9 +4,7 @@ import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.Serializer
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
-import eu.metatools.f2d.math.Pt
-import eu.metatools.f2d.math.Vec
-import eu.metatools.f2d.math.Vecs
+import eu.metatools.f2d.data.Vecs
 
 object VecsSerializer : Serializer<Vecs>(false, true) {
     override fun write(kryo: Kryo, output: Output, item: Vecs) {

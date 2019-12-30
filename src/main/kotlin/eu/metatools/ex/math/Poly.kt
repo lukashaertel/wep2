@@ -1,8 +1,8 @@
 package eu.metatools.ex.math
 
-import eu.metatools.f2d.math.Pts
-import eu.metatools.f2d.math.RealPt
-import eu.metatools.f2d.math.toPt
+import eu.metatools.f2d.data.Pts
+import eu.metatools.f2d.data.RealPt
+import eu.metatools.f2d.data.toPt
 
 /**
  * Polygon made of [RealPt].

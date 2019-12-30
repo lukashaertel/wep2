@@ -4,8 +4,7 @@ import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.Serializer
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
-import eu.metatools.f2d.math.Mat
-import eu.metatools.f2d.math.Pts
+import eu.metatools.f2d.data.Mat
 
 object MatSerializer : Serializer<Mat>(false, true) {
     override fun write(kryo: Kryo, output: Output, item: Mat) {

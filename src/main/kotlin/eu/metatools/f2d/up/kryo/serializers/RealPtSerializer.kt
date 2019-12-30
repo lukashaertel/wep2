@@ -4,8 +4,8 @@ import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.Serializer
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
-import eu.metatools.f2d.math.Real
-import eu.metatools.f2d.math.RealPt
+import eu.metatools.f2d.data.Real
+import eu.metatools.f2d.data.RealPt
 
 object RealPtSerializer : Serializer<RealPt>(false, true) {
     override fun write(kryo: Kryo, output: Output, item: RealPt) {

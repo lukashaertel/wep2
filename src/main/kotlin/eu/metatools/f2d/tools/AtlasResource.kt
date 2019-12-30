@@ -1,10 +1,10 @@
 package eu.metatools.f2d.tools
 
 import com.badlogic.gdx.files.FileHandle
-import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
-import eu.metatools.f2d.context.LifecycleDrawable
-import eu.metatools.f2d.context.NotifyingResource
+import eu.metatools.f2d.context.Context
+import eu.metatools.f2d.resource.LifecycleDrawable
+import eu.metatools.f2d.resource.NotifyingResource
 
 /**
  * Arguments to refer an [AtlasResource].
@@ -67,12 +67,12 @@ class AtlasResource(
                 region = null
             }
 
-            override fun draw(args: Unit?, time: Double, spriteBatch: SpriteBatch) {
+            override fun draw(args: Unit?, time: Double, context: Context) {
                 // Get region or return if not assigned yet.
                 val region = region ?: return
 
                 // Draw to sprite batch.
-                spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
+                context.sprites().draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
             }
 
             override val duration: Double
@@ -103,7 +103,7 @@ class AtlasResource(
                 regions = null
             }
 
-            override fun draw(args: Unit?, time: Double, spriteBatch: SpriteBatch) {
+            override fun draw(args: Unit?, time: Double, context: Context) {
                 // Get regions or return if not assigned yet.
                 val regions = regions ?: return
 
@@ -116,7 +116,7 @@ class AtlasResource(
                 }
 
                 // Draw to sprite batch.
-                spriteBatch.draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
+                context.sprites().draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
             }
 
             override val duration: Double

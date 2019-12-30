@@ -4,9 +4,7 @@ import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.Serializer
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
-import eu.metatools.f2d.math.Cell
-import eu.metatools.f2d.math.Pt
-import eu.metatools.f2d.math.Tri
+import eu.metatools.f2d.data.Tri
 
 object TriSerializer : Serializer<Tri>(false, true) {
     override fun write(kryo: Kryo, output: Output, item: Tri) {

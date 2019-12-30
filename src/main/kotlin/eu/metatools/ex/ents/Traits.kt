@@ -1,9 +1,9 @@
 package eu.metatools.ex.ents
 
 import eu.metatools.up.Ent
-import eu.metatools.f2d.math.Real
-import eu.metatools.f2d.math.RealPt
-import eu.metatools.f2d.math.toReal
+import eu.metatools.f2d.data.Real
+import eu.metatools.f2d.data.RealPt
+import eu.metatools.f2d.data.toReal
 import eu.metatools.up.list
 import java.util.*
 

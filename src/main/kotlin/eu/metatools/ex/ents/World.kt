@@ -1,15 +1,15 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.f2d.context.Drawable
+import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.ex.*
 import eu.metatools.ex.data.Orientation
 import eu.metatools.ex.math.*
-import eu.metatools.f2d.math.*
+import eu.metatools.f2d.data.*
+import eu.metatools.f2d.immediate.submit
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.*
 import eu.metatools.up.dt.Lx
-import eu.metatools.up.lang.ObservedSet
 import eu.metatools.up.list
 import java.util.*
 
@@ -122,7 +122,7 @@ class World(
     override fun render(mat: Mat, time: Double) {
         for ((at, drawables) in visuals)
             for (drawable in drawables)
-                ui.submit(
+                ui.world.submit(
                     drawable, time, mat * Mat
                         .translation(
                             Constants.tileWidth * at.x,

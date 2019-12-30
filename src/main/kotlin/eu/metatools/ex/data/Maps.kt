@@ -2,7 +2,7 @@ package eu.metatools.ex.data
 
 import eu.metatools.ex.ents.Template
 import eu.metatools.ex.ents.Tiles
-import eu.metatools.f2d.math.Tri
+import eu.metatools.f2d.data.Tri
 
 
 /**

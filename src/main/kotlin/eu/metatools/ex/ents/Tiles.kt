@@ -5,8 +5,8 @@ import eu.metatools.ex.add
 import eu.metatools.ex.data.PolyTemplates
 import eu.metatools.ex.math.Regions
 import eu.metatools.ex.remove
-import eu.metatools.f2d.context.shift
-import eu.metatools.f2d.math.Tri
+import eu.metatools.f2d.data.Tri
+import eu.metatools.f2d.drawable.shift
 import eu.metatools.f2d.tools.Static
 
 /*
