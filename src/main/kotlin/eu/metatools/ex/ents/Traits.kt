@@ -1,146 +1,172 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.up.Ent
-import eu.metatools.f2d.data.Real
-import eu.metatools.f2d.data.RealPt
-import eu.metatools.f2d.data.toReal
+import eu.metatools.f2d.data.Q
+import eu.metatools.f2d.data.QPt
+import eu.metatools.f2d.data.toQ
+import eu.metatools.up.isConnected
+import eu.metatools.up.lang.invoke
 import eu.metatools.up.list
-import java.util.*
-
-/**
- * Entity has a radius.
- */
-interface TraitRadius {
-    /**
-     * The radius of the entity.
-     */
-    val radius: Real
-}
-
-/**
- * Entity refers to the world.
- */
-interface TraitWorld {
-    /**
-     * The world.
-     */
-    val world: World
-}
 
 interface HasDescription {
     val describe: String
 }
 
-/**
- * Entity can take damage.
- */
-interface TraitDamageable {
-    /**
-     * Takes that damage.
-     * @param amount The amount of damage to take.
-     */
-    fun takeDamage(amount: Int)
+
+interface Solid : All {
+    val radius: Q
 }
 
-interface TraitCollects {
-    fun collectResource(amount: Int)
-}
+interface Moves : All {
+    var pos: QPt
 
-/**
- * Entity moves, must have a world and a radius reference as well.
- */
-interface TraitMove : TraitWorld, TraitRadius {
-    /**
-     * The base position.
-     */
-    var pos: RealPt
-
-    /**
-     * The movement time.
-     */
     var moveTime: Double
 
-    /**
-     * The velocity.
-     */
-    var vel: RealPt
+    var vel: QPt
 
-    val blocking: Boolean
+    var level: Q
+}
 
-    var level: Int
+fun Moves.positionAt(time: Double) =
+    if (vel.isEmpty()) pos else pos + vel * (time - moveTime).toQ()
 
-    /**
-     * If true, mover clips on both solid hull and clip hints.
-     */
-    val clips: Boolean get() = true
+interface Walking : Moves
 
-    /**
-     * Determines the actual position at the time.
-     */
-    fun posAt(time: Double): RealPt {
-        if (vel.isEmpty)
-            return pos
+interface Blocking : Moves
 
-        val dt = (time - moveTime).toReal()
-        return pos + vel * dt
-    }
+fun Moves.move(time: Double, input: QPt) {
+    // Explicit update.
+    pos = positionAt(time)
+    moveTime = time
+    vel = input
+}
 
-    /**
-     * Receives a new movement.
-     */
-    fun receiveMove(sec: Double, vel: RealPt) {
-        pos = posAt(sec)
-        moveTime = sec
-        this.vel = vel
-    }
+fun Any.radius() =
+    if (this is Solid) radius else Q.ZERO
 
-    /**
-     * Updats the movement, returning a list of touched entities.
-     */
-    fun updateMove(sec: Double, freq: Long): SortedSet<Ent> {
-        // Make result set.
-        val hit = TreeSet<Ent>()
+interface HandlesHit {
+    fun hitHull() = Unit
+    fun hitBoundary() = Unit
+    fun hitOther(other: Moves) = Unit
+}
 
-        // Get base parameters.
-        pos = posAt(sec)
-        moveTime = sec
+fun World.updateMovement(time: Double) {
+    val moves = shell.list<Moves>().toList()
 
-        // Set level to single entry key.
-        if (clips)
-            world.entries.entries.singleOrNull {
-                it.value.contains(radius, pos)
-            }?.let {
-                level = it.key
-            }
+    for ((i, a) in moves.withIndex()) {
+        // Skip if deleted from other.
+        if (!a.isConnected())
+            continue
 
-        // Get SDF for own radius, check if hitting. If so, un-clip and add world to result set.
-        val dt = world.evaluateCollision(clips, level, radius, pos)
-        if (dt.inside) {
-            pos = dt.support + (dt.support - pos) * radius
-            hit += world
+        // Base update.
+        a.pos = a.positionAt(time)
+        a.moveTime = time
 
-            // TODO: Update velocity maybe?
-        }
-
-        // Check all other movers, move away if clipping and add to result set.
-        for (other in world.shell.list<TraitMove>()) {
-            // Just as an example, not good code.
-            if (other === this)
+        for (b in moves.subList(i + 1, moves.size)) {
+            // Skip if deleted from other.
+            if (!a.isConnected())
                 continue
-            if (other.level != level)
+            if (!b.isConnected())
                 continue
 
-            val d = other.pos - pos
-            val rs = radius + other.radius
-            if (d.len <= rs) {
-                if (blocking && other.blocking && d.len != Real.ZERO) {
-                    val pen = rs - d.len
-                    pos -= d.nor * pen
-                }
-                hit += other as Ent
-            }
+            val aLevel = a.level.toInt()
+            val bLevel = b.level.toInt()
+            if (aLevel != bLevel)
+                continue
+
+            val aPos = a.positionAt(time)
+            val bPos = b.positionAt(time)
+            val aRadius = a.radius()
+            val bRadius = b.radius()
+
+            val rel = bPos - aPos
+            val penetration = aRadius + bRadius - rel.len
+            if (penetration <= Q.ZERO)
+                continue
+
+            // Mark hit.
+            if (a.isConnected() && b.isConnected() && a is HandlesHit) a.hitOther(b)
+            if (a.isConnected() && b.isConnected() && b is HandlesHit) b.hitOther(a)
+
+            if (rel.isEmpty())
+                continue
+            if (a !is Blocking)
+                continue
+            if (b !is Blocking)
+                continue
+
+            val resolve = rel.nor * penetration / Q.TWO
+            a.pos = aPos - resolve
+            b.pos = bPos + resolve
         }
 
-        return hit
+        // Skip if deleted after touch phase.
+        if (!a.isConnected())
+            continue
+
+        // Evaluate for hull collision.
+        val hullLevel = a.level.toInt()
+        val hullPos = a.positionAt(time)
+        val hullRadius = a.radius()
+
+        // Evaluate the intermediate state (if evaluating two levels instead of one).
+        val isIntermediate = map.intermediate(hullLevel, hullPos.x, hullPos.y)
+
+        // Bind in hull.
+        val hullBindFst = hull.bindOut(hullLevel, hullRadius, hullPos.x, hullPos.y)
+        val hullBindSnd = isIntermediate { hull.bindOut(hullLevel.inc(), hullRadius, hullPos.x, hullPos.y) }
+        val hullBind = hullBindFst ?: hullBindSnd
+        if (hullBind != null) {
+            a.pos = QPt(hullBind.first, hullBind.second)
+            (a as? HandlesHit)?.hitHull()
+        }
+
+        // Not walking, done here.
+        if (a !is Walking)
+            continue
+
+        // Skip if deleted after hit hull phase.
+        if (!a.isConnected())
+            continue
+
+        // Evaluate for boundary collision.
+        val boundsLevel = a.level.toInt()
+        val boundsPos = a.positionAt(time)
+        val boundsRadius = a.radius()
+
+        // Bind in boundary.
+        val boundsBindFst = bounds.bindIn(boundsLevel, boundsRadius, boundsPos.x, boundsPos.y)
+        val boundsBindSnd = isIntermediate { bounds.bindIn(boundsLevel.inc(), boundsRadius, boundsPos.x, boundsPos.y) }
+        val boundsBind = boundsBindFst ?: boundsBindSnd
+        if (boundsBind != null) {
+            a.pos = QPt(boundsBind.first, boundsBind.second)
+            (a as? HandlesHit)?.hitBoundary()
+        }
+
+        // Skip if deleted after hit bounds phase.
+        if (!a.isConnected())
+            continue
+
+        // Evaluate for lift detection.
+        val liftLevel = a.level.toInt()
+        val liftPos = a.positionAt(time)
+
+        // Lift if in lifting area.
+        val lift = map.lift(liftLevel, liftPos.x, liftPos.y)
+        if (lift != 0)
+            a.level = (a.level.floor() + lift).toQ()
     }
+}
+
+fun Moves.xyz(time: Double): Triple<Q, Q, Number> {
+    // Get position.
+    val (x, y) = positionAt(time)
+
+    // Get height, if walking, this is clipped to ground.
+    val z = if (this is Walking)
+        world.map.height(level.toInt(), x, y)
+    else
+        level
+
+    // Return the values.
+    return Triple(x, y, z)
 }

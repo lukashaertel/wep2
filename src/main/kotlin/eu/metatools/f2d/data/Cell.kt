@@ -14,5 +14,5 @@ data class Cell(val x: Int, val y: Int) : Comparable<Cell> {
     override fun toString() = "($x, $y)"
 }
 
-fun Cell.toReal() =
-    RealPt(x.toReal(), y.toReal())
+fun Cell.toQ() =
+    QPt(x.toQ(), y.toQ())

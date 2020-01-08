@@ -211,7 +211,7 @@ class Frontend : F2DListener(-100f, 100f) {
                 if (rand || Gdx.input.isKeyJustPressed(Keys.F1))
                     root.createMover(shell.player)
             } else {
-                val (x, y) = mover.posAt(time)
+                val (x, y) = mover.positionAt(time)
                 view = Mat.translation(
                     Gdx.graphics.width / 2f,
                     Gdx.graphics.height / 2f
@@ -225,7 +225,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
                 // Movement is present, pass to mover.
                 if (move != null)
-                    mover.moveInDirection(move.toReal())
+                    mover.moveInDirection(move.toQ())
 
                 // Space was pressed, shot in direction.
                 if (Gdx.input.isKeyJustPressed(Keys.SPACE))
@@ -246,9 +246,9 @@ class Frontend : F2DListener(-100f, 100f) {
 
                     // In some possibility, move.
                     if (generatorRandom.nextDouble() > 0.05) {
-                        val rmx = (generatorRandom.nextInt(3) - 1).toReal()
-                        val rmy = (generatorRandom.nextInt(3) - 1).toReal()
-                        mover.moveInDirection(RealPt(rmx, rmy))
+                        val rmx = (generatorRandom.nextInt(3) - 1).toQ()
+                        val rmy = (generatorRandom.nextInt(3) - 1).toQ()
+                        mover.moveInDirection(QPt(rmx, rmy))
                     }
 
                 }
@@ -333,7 +333,7 @@ class Frontend : F2DListener(-100f, 100f) {
         }
     }
 
-    private var capture: Pair<Any, RealPt>? = null
+    private var capture: Pair<Any, QPt>? = null
 
     fun isSelected(any: Any) =
         capture?.first == any
@@ -342,7 +342,7 @@ class Frontend : F2DListener(-100f, 100f) {
         val (x, y) = view.inv * intersection
 
         // Memorize result.
-        capture = (result ?: root) to RealPt(x / Constants.tileWidth, y / Constants.tileHeight)
+        capture = (result ?: root) to QPt(x / Constants.tileWidth, y / Constants.tileHeight)
     }
 
     override fun pause() = Unit

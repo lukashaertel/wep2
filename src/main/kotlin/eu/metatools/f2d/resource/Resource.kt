@@ -13,12 +13,12 @@ interface Resource<in A, out I> {
 /**
  * For a resource with a [Unit] argument, refers with argument [Unit] passed.
  */
-fun <I> Resource<Unit, I>.refer() =
+fun <I> Resource<Unit, I>.get() =
     get(Unit)
 
 /**
  * For a resource with a nullable argument, refers with argument `null` passed.
  */
 @JvmName("referNullArg")
-fun <T, I> Resource<T?, I>.refer() =
+fun <T, I> Resource<T?, I>.get() =
     get(null)

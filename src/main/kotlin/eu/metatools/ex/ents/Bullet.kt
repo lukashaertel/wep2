@@ -1,17 +1,22 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.f2d.resource.refer
-import eu.metatools.ex.*
+import eu.metatools.ex.Frontend
+import eu.metatools.ex.Resources
+import eu.metatools.ex.ents.Constants.tileHeight
+import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.RealPt
-import eu.metatools.f2d.data.toReal
+import eu.metatools.f2d.data.Q
+import eu.metatools.f2d.data.QPt
+import eu.metatools.f2d.data.toQ
 import eu.metatools.f2d.immediate.submit
-import eu.metatools.f2d.tools.Cube
+import eu.metatools.f2d.resource.get
+import eu.metatools.f2d.tools.CaptureCube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.provideDelegate
-import eu.metatools.up.dt.*
-import kotlin.math.atan2
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.dt.div
+import eu.metatools.up.dt.lx
 
 /**
  * A moving bullet.
@@ -24,14 +29,13 @@ import kotlin.math.atan2
  */
 class Bullet(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: RealPt, initVel: RealPt, initMoveTime: Double, initLevel: Int, val damage: Int
-) : Ent(shell, id), TraitMove,
-    Ticking, Rendered {
+    initPos: QPt, initVel: QPt, initMoveTime: Double, initLevel: Q, val damage: Int
+) : Ent(shell, id), Moves, Solid, HandlesHit, Ticking, Rendered {
     companion object {
         /**
          * The drawable for the bullet.
          */
-        private val solid by lazy { Resources.solid.refer() }
+        private val solid by lazy { Resources.solid.get() }
     }
 
     override val extraArgs = mapOf(
@@ -57,6 +61,8 @@ class Bullet(
      */
     override var moveTime by { initMoveTime }
 
+    val birth = initMoveTime
+
     /**
      * Current velocity.
      */
@@ -67,42 +73,37 @@ class Bullet(
     /**
      * Constant. Radius.
      */
-    override val radius = 0.025f.toReal()
+    override val radius = 0.025f.toQ()
 
-    override val blocking get() = true
-
-    override val clips = false
     override fun render(mat: Mat, time: Double) {
-        // Get time.
-        val (x, y) = posAt(time)
+        // Get position and height.
+        val (x, y, z) = xyz(time)
 
         // Transformation for displaying the bullet.
-        val mat2 = mat * Mat.translation(
-            Constants.tileWidth * x.toFloat(), Constants.tileHeight * y.toFloat(),
-            -level.toFloat()
-        )
-            .rotateZ(atan2(vel.y.toFloat(), vel.x.toFloat()))
-            .scale(Constants.tileWidth * radius.toFloat() * 5f, Constants.tileHeight * radius.toFloat() * 2f)
+        val local = mat
+            .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
+            .translate(y = tileHeight * z.toFloat())
+            .translate(z = toZ(level))
+            .rotateZ(vel.angle.toFloat())
+            .scale(tileWidth * radius.toFloat() * 5f, tileHeight * radius.toFloat() * 2f)
 
         // Submit the solid.
-        ui.world.submit(solid, time, mat2)
-        ui.world.submit(Cube, this, time, mat2)
+        ui.world.submit(solid, time, local)
+        ui.world.submit(CaptureCube, this, time, local)
     }
 
+    override fun hitHull() {
+        delete(this)
+    }
+
+    override fun hitOther(other: Moves) {
+        (other as? Damageable)?.takeDamage(damage)
+    }
 
     override fun update(sec: Double, freq: Long) {
-        // Update movement, capture all hit objects.
-        val hit = updateMove(sec, freq)
-
-        // Not empty, this bullet is invalid as of now.
-        if (hit.isNotEmpty())
+        // Delete if flying for too long.
+        if (birth + 5.0 < sec)
             delete(this)
-
-        // For all items that are hit, dispatch the damage.
-        hit.forEach {
-            if (it is TraitDamageable)
-                it.takeDamage(damage)
-        }
     }
 
 }

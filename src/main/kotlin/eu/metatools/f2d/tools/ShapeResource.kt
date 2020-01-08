@@ -5,65 +5,46 @@ import eu.metatools.f2d.context.Context
 import eu.metatools.f2d.data.Pt
 import eu.metatools.f2d.data.Pts
 import eu.metatools.f2d.drawable.Drawable
-import eu.metatools.f2d.resource.Resource
 
-sealed class ReferShape {
-    abstract val filled: Boolean
+object ShapeLine : Drawable<Pair<Pt, Pt>> {
+    override fun draw(args: Pair<Pt, Pt>, time: Double, context: Context) {
+        val shapes = context.shapes(ShapeRenderer.ShapeType.Line)
+        shapes.line(
+            args.first.x,
+            args.first.y,
+            args.second.x,
+            args.second.y
+        )
+    }
 }
 
-data class ReferLine(val from: Pt, val to: Pt) : ReferShape() {
-    override val filled: Boolean
-        get() = false
+object ShapeBox : Drawable<Pair<Pt, Pt>> {
+    override fun draw(args: Pair<Pt, Pt>, time: Double, context: Context) {
+        val shapes = context.shapes(ShapeRenderer.ShapeType.Line)
+        shapes.rect(
+            args.first.x,
+            args.first.y,
+            args.second.x,
+            args.second.y
+        )
+    }
 }
 
-data class ReferPoly(val points: Pts) : ReferShape() {
-    override val filled: Boolean
-        get() = false
+object ShapeBoxFilled : Drawable<Pair<Pt, Pt>> {
+    override fun draw(args: Pair<Pt, Pt>, time: Double, context: Context) {
+        val shapes = context.shapes(ShapeRenderer.ShapeType.Filled)
+        shapes.rect(
+            args.first.x,
+            args.first.y,
+            args.second.x,
+            args.second.y
+        )
+    }
 }
 
-data class ReferBox(override val filled: Boolean, val from: Pt, val to: Pt) : ReferShape()
-
-private val ReferShape.shapeType
-    get() = if (filled) ShapeRenderer.ShapeType.Filled
-    else
-        ShapeRenderer.ShapeType.Line
-
-/**
- * Generates drawable resources with a given color. The results have the length one and are centered.
- */
-object ShapeResource : Resource<ReferShape, Drawable<Unit?>> {
-    override fun get(argsResource: ReferShape) =
-        when (argsResource) {
-            is ReferLine -> object : Drawable<Unit?> {
-                override fun draw(args: Unit?, time: Double, context: Context) {
-                    val shapes = context.shapes(argsResource.shapeType)
-                    shapes.line(
-                        argsResource.from.x,
-                        argsResource.from.y,
-                        argsResource.to.x,
-                        argsResource.to.y
-                    )
-                }
-            }
-            is ReferPoly -> object : Drawable<Unit?> {
-                override fun draw(args: Unit?, time: Double, context: Context) {
-                    val shapes = context.shapes(argsResource.shapeType)
-                    shapes.polygon(argsResource.points.values)
-                }
-            }
-
-            is ReferBox -> object : Drawable<Unit?> {
-                override fun draw(args: Unit?, time: Double, context: Context) {
-                    val shapes = context.shapes(argsResource.shapeType)
-                    shapes.rect(
-                        argsResource.from.x,
-                        argsResource.from.y,
-                        argsResource.to.x,
-                        argsResource.to.y
-                    )
-                }
-            }
-        }
-
-
+object ShapePoly : Drawable<Pts> {
+    override fun draw(args: Pts, time: Double, context: Context) {
+        val shapes = context.shapes(ShapeRenderer.ShapeType.Line)
+        shapes.polygon(args.values)
+    }
 }

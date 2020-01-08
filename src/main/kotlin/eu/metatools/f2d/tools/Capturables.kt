@@ -10,7 +10,7 @@ import eu.metatools.f2d.data.Vec
 /**
  * A dedicated [Capturable] that checks if a sphere with a diameter of one intersects.
  */
-object Sphere : Capturable<Unit?> {
+object CaptureSphere : Capturable<Unit?> {
     override fun capture(args: Unit?, time: Double, origin: Vec, direction: Vec): Vec? {
         // Create  ray from vectors.
         val ray = Ray(origin.toVector(), direction.toVector())
@@ -29,7 +29,7 @@ object Sphere : Capturable<Unit?> {
 /**
  * A dedicated [Capturable] that checks if a cube with edges of length one intersects.
  */
-object Cube : Capturable<Unit?> {
+object CaptureCube : Capturable<Unit?> {
     /**
      * The static bounding box to use for intersections.
      */

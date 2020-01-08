@@ -1,45 +1,21 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.f2d.drawable.Drawable
-import eu.metatools.ex.*
-import eu.metatools.ex.data.Orientation
-import eu.metatools.ex.math.*
+import eu.metatools.ex.Frontend
+import eu.metatools.ex.ents.Constants.tileHeight
+import eu.metatools.ex.ents.Constants.tileWidth
+import eu.metatools.ex.sec
 import eu.metatools.f2d.data.*
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
-import eu.metatools.up.dsl.*
+import eu.metatools.up.dsl.mapObserved
+import eu.metatools.up.dsl.prop
+import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
-import java.util.*
 
-
-data class Patch(
-    val level: Int,
-    val slopeX: Int,
-    val slopeY: Int,
-    val slopeLength: Int,
-    val slopeOrientation: Orientation,
-    val ascend: Int,
-    val walkable: Regions,
-    val solid: Regions
-) : Comparable<Patch> {
-    override fun compareTo(other: Patch): Int {
-        // Compare by component.
-        level.compareTo(other.level).let { if (it != 0) return it }
-        slopeX.compareTo(other.slopeX).let { if (it != 0) return it }
-        slopeY.compareTo(other.slopeY).let { if (it != 0) return it }
-        slopeLength.compareTo(other.slopeLength).let { if (it != 0) return it }
-        slopeOrientation.compareTo(other.slopeOrientation).let { if (it != 0) return it }
-        ascend.compareTo(other.ascend).let { if (it != 0) return it }
-        walkable.compareTo(other.walkable).let { if (it != 0) return it }
-        solid.compareTo(other.solid).let { if (it != 0) return it }
-
-        // All equal, return.
-        return 0
-    }
-}
-
+fun toZ(level: Number) =
+    -level.toFloat()
 
 /**
  * The root world entity.
@@ -48,36 +24,23 @@ data class Patch(
  * @param map The map data.
  */
 class World(
-    shell: Shell, id: Lx, val ui: Frontend,
-    map: Map<Tri, Template>
-) : Ent(shell, id), Rendered, TraitDamageable {
+    shell: Shell, id: Lx, val ui: Frontend, map: Map<Tri, Block>
+) : Ent(shell, id), Rendered {
     override val extraArgs = mapOf("map" to map)
 
-    val hull = hashMapOf<Int, Regions>()
+    val hull = Hull()
 
-    val clip = hashMapOf<Int, Regions>()
-
-    val entries = hashMapOf<Int, Regions>()
-
-    val visuals = TreeMap<Tri, MutableList<Drawable<Unit?>>>()
-
-    val flags = hashMapOf<Pair<Tri, String>, Any?>()
+    val bounds = Hull()
 
     val map by mapObserved({ map }) { changed ->
-        changed.removed.forEach { (at, template) ->
-            template.unapply(this, at.x, at.y, at.z)
+        changed.removed.forEach { (at, block) ->
+            if (block.solid) hull.remove(at.z, at.x, at.y)
+            if (block.walkable) bounds.remove(at.z + 1, at.x, at.y)
         }
-        changed.added.forEach { (at, template) ->
-            template.apply(this, at.x, at.y, at.z)
+        changed.added.forEach { (at, block) ->
+            if (block.solid) hull.add(at.z, at.x, at.y)
+            if (block.walkable) bounds.add(at.z + 1, at.x, at.y)
         }
-    }
-
-    fun evaluateCollision(clips: Boolean, level: Int, radius: Real, pt: RealPt): Collision {
-        val fromCollision = hull[level]?.collision(radius, pt) ?: Collision.NONE
-        if (!clips)
-            return fromCollision
-        val fromClip = clip[level]?.collision(radius, pt) ?: Collision.NONE
-        return minOf(fromCollision, fromClip)
     }
 
 
@@ -87,8 +50,10 @@ class World(
      * Repeater generating updates in 50ms intervals.
      */
     val worldUpdate = repeating(Short.MAX_VALUE, 50, shell::initializedTime) {
+        val seconds = (time.global - shell.initializedTime).sec
+        updateMovement(seconds)
         shell.list<Ticking>().forEach {
-            it.update((time.global - shell.initializedTime).sec, 50)
+            it.update(seconds, 50)
         }
 
         if (res < 100)
@@ -96,20 +61,21 @@ class World(
 
         val random = rng()
         if (random.nextDouble() > 0.99 && shell.list<Respack>().count() < 10) {
-            val field = flags
-                .filterKeys { it.second == "RSP" }
-                .filterValues { it == true }
+            val field = map
+                .filterValues { it.extras["RSP"] == true }
                 .toList()
-                .let {
-                    it[random.nextInt(it.size)].first.first
+                .takeIf { it.isNotEmpty() }
+                ?.let {
+                    it[random.nextInt(it.size)].first
                 }
 
-            constructed(
-                Respack(
-                    shell, newId(), ui,
-                    RealPt(field.x, field.y), 0, 5 + random.nextInt(10)
+            if (field != null)
+                constructed(
+                    Respack(
+                        shell, newId(), ui,
+                        QPt(field.x, field.y), Q.ZERO, 5 + random.nextInt(10)
+                    )
                 )
-            )
         }
     }
 
@@ -120,19 +86,35 @@ class World(
     val movers by set<Mover>()
 
     override fun render(mat: Mat, time: Double) {
-        for ((at, drawables) in visuals)
-            for (drawable in drawables)
+        for ((at, block) in map) {
+            // Draw body of block.
+            block.body?.let {
+                val x = at.x
+                val y = at.y
+                val z = at.z
                 ui.world.submit(
-                    drawable, time, mat * Mat
-                        .translation(
-                            Constants.tileWidth * at.x,
-                            Constants.tileHeight * (at.y + at.z),
-                            -at.z.toFloat()
-                        ).scale(
-                            Constants.tileWidth,
-                            Constants.tileHeight
-                        )
+                    it, time, mat
+                        .translate(x = tileWidth * x, y = tileHeight * y)
+                        .translate(y = tileHeight * z)
+                        .translate(z = toZ(z))
+                        .scale(tileWidth, tileHeight)
                 )
+            }
+
+            // Draw cap of block.
+            block.cap?.let {
+                val x = at.x
+                val y = at.y
+                val z = at.z + 1
+                ui.world.submit(
+                    it, time, mat
+                        .translate(x = tileWidth * x, y = tileHeight * y)
+                        .translate(y = tileHeight * z)
+                        .translate(z = toZ(z))
+                        .scale(tileWidth, tileHeight)
+                )
+            }
+        }
     }
 
     /**
@@ -153,13 +135,9 @@ class World(
             constructed(
                 Mover(
                     shell, newId(), ui,
-                    RealPt(5f.toReal(), 5f.toReal()), 0, type, owner
+                    QPt(5f.toQ(), 5f.toQ()), Q.ZERO, type, owner
                 )
             )
         )
-    }
-
-    override fun takeDamage(amount: Int) {
-        // Nothing to do.
     }
 }

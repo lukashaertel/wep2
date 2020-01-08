@@ -30,8 +30,8 @@ fun registerF2DSerializers(kryo: Kryo) {
     kryo.register(Mat::class.java, MatSerializer)
     kryo.register(Pt::class.java, PtSerializer)
     kryo.register(Pts::class.java, PtsSerializer)
-    kryo.register(Real::class.java, RealSerializer)
-    kryo.register(RealPt::class.java, RealPtSerializer)
+    kryo.register(Q::class.java, QSerializer)
+    kryo.register(QPt::class.java, QPtSerializer)
     kryo.register(Vec::class.java, VecSerializer)
     kryo.register(Vecs::class.java, VecsSerializer)
 }

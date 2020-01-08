@@ -66,6 +66,12 @@ interface Shell {
 }
 
 /**
+ * True if the receiver is an entity and connected.
+ */
+fun Any.isConnected() =
+    this is Ent && driver.isConnected
+
+/**
  * Performs the [Shell.load] from a [map]. If [check] is given as `true`, this map is then used to check
  * consistency the output after [Shell.store] on the just restored receiver.
  */

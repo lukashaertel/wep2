@@ -129,3 +129,9 @@ class AtlasResource(
         }
     }
 }
+
+/**
+ * Shorthand operator for getting a static resource from the atlas resource.
+ */
+operator fun AtlasResource.get(static: String) =
+    get(Static(static))

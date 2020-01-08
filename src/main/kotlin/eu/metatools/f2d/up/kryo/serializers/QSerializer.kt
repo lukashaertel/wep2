@@ -4,15 +4,15 @@ import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.Serializer
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
-import eu.metatools.f2d.data.Real
+import eu.metatools.f2d.data.Q
 
-object RealSerializer : Serializer<Real>(false, true) {
-    override fun write(kryo: Kryo, output: Output, item: Real) {
+object QSerializer : Serializer<Q>(false, true) {
+    override fun write(kryo: Kryo, output: Output, item: Q) {
         output.writeInt(item.numerator)
     }
 
-    override fun read(kryo: Kryo, input: Input, type: Class<out Real>): Real {
+    override fun read(kryo: Kryo, input: Input, type: Class<out Q>): Q {
         val numerator = input.readInt()
-        return Real(numerator)
+        return Q.fromNumerator(numerator)
     }
 }
