@@ -70,13 +70,20 @@ fun World.updateMovement(time: Double) {
 
             val aLevel = a.level.toInt()
             val bLevel = b.level.toInt()
-            if (aLevel != bLevel)
-                continue
 
             val aPos = a.positionAt(time)
             val bPos = b.positionAt(time)
             val aRadius = a.radius()
             val bRadius = b.radius()
+
+            val aIntermediate = map.intermediate(aLevel, aPos.x, aPos.y)
+            val bIntermediate = map.intermediate(bLevel, bPos.x, bPos.y)
+
+            // Skip if they cannot touch.
+            if (aLevel != bLevel
+                && (!aIntermediate || aLevel.dec() != bLevel)
+                && (!bIntermediate || bLevel.dec() != aLevel)
+            ) continue
 
             val rel = bPos - aPos
             val penetration = aRadius + bRadius - rel.len
@@ -109,11 +116,11 @@ fun World.updateMovement(time: Double) {
         val hullRadius = a.radius()
 
         // Evaluate the intermediate state (if evaluating two levels instead of one).
-        val isIntermediate = map.intermediate(hullLevel, hullPos.x, hullPos.y)
+        val hullIntermediate = map.intermediate(hullLevel, hullPos.x, hullPos.y)
 
         // Bind in hull.
         val hullBindFst = hull.bindOut(hullLevel, hullRadius, hullPos.x, hullPos.y)
-        val hullBindSnd = isIntermediate { hull.bindOut(hullLevel.inc(), hullRadius, hullPos.x, hullPos.y) }
+        val hullBindSnd = hullIntermediate { hull.bindOut(hullLevel.inc(), hullRadius, hullPos.x, hullPos.y) }
         val hullBind = hullBindFst ?: hullBindSnd
         if (hullBind != null) {
             a.pos = QPt(hullBind.first, hullBind.second)
@@ -133,9 +140,13 @@ fun World.updateMovement(time: Double) {
         val boundsPos = a.positionAt(time)
         val boundsRadius = a.radius()
 
+        // Evaluate the intermediate state again.
+        val boundsIntermediate = map.intermediate(boundsLevel, boundsPos.x, boundsPos.y)
+
         // Bind in boundary.
         val boundsBindFst = bounds.bindIn(boundsLevel, boundsRadius, boundsPos.x, boundsPos.y)
-        val boundsBindSnd = isIntermediate { bounds.bindIn(boundsLevel.inc(), boundsRadius, boundsPos.x, boundsPos.y) }
+        val boundsBindSnd =
+            boundsIntermediate { bounds.bindIn(boundsLevel.inc(), boundsRadius, boundsPos.x, boundsPos.y) }
         val boundsBind = boundsBindFst ?: boundsBindSnd
         if (boundsBind != null) {
             a.pos = QPt(boundsBind.first, boundsBind.second)
