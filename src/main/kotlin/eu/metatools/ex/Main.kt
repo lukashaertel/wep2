@@ -9,18 +9,33 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.minlog.Log
 import com.google.common.hash.Hashing
-import eu.metatools.f2d.F2DListener
+import eu.metatools.ex.data.Dir
 import eu.metatools.ex.data.stupidBox
 import eu.metatools.ex.ents.*
+import eu.metatools.ex.ents.Constants.tileHeight
+import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.input.KeyStick
+import eu.metatools.f2d.F2DListener
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.QPt
+import eu.metatools.f2d.data.Vec
+import eu.metatools.f2d.data.toQ
 import eu.metatools.f2d.drawable.tint
-import eu.metatools.f2d.resource.LifecycleDrawable
-import eu.metatools.f2d.data.*
 import eu.metatools.f2d.immediate.submit
-import eu.metatools.f2d.tools.*
+import eu.metatools.f2d.resource.LifecycleDrawable
+import eu.metatools.f2d.resource.get
+import eu.metatools.f2d.tools.Location
+import eu.metatools.f2d.tools.ReferData
+import eu.metatools.f2d.tools.ReferText
+import eu.metatools.f2d.tools.hashImage
+import eu.metatools.f2d.util.uniformX
+import eu.metatools.f2d.util.uniformY
 import eu.metatools.up.*
-import eu.metatools.up.dt.*
-import eu.metatools.up.kryo.*
+import eu.metatools.up.dt.Instruction
+import eu.metatools.up.dt.Lx
+import eu.metatools.up.dt.div
+import eu.metatools.up.dt.lx
+import eu.metatools.up.kryo.hashTo
 import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.NetworkSignOff
@@ -195,7 +210,11 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private val hashes = mutableListOf<LifecycleDrawable<Unit?>>()
 
-    private var scaling = Mat.scaling(2f)
+    private var scaling = 2f
+
+    var wasDown = false
+
+    var lastDir = Dir.Right
 
     override fun render(time: Double, delta: Double) {
         // Bind current time.
@@ -211,14 +230,13 @@ class Frontend : F2DListener(-100f, 100f) {
                 if (rand || Gdx.input.isKeyJustPressed(Keys.F1))
                     root.createMover(shell.player)
             } else {
-                val (x, y) = mover.positionAt(time)
+                val (x, y, z) = mover.xyz(time)
                 view = Mat.translation(
                     Gdx.graphics.width / 2f,
                     Gdx.graphics.height / 2f
-                ) * scaling * Mat.translation(
-                    -x.toFloat() * Constants.tileWidth,
-                    -y.toFloat() * Constants.tileHeight
-                )
+                ).scale(scaling)
+                    .translate(x = -x.toFloat() * tileWidth, y = -y.toFloat() * tileHeight)
+                    .translate(y = -z.toFloat() * tileHeight)
 
                 // Get desired move direction.
                 val move = keyStick.fetch()
@@ -227,22 +245,25 @@ class Frontend : F2DListener(-100f, 100f) {
                 if (move != null)
                     mover.moveInDirection(move.toQ())
 
-                // Space was pressed, shot in direction.
-                if (Gdx.input.isKeyJustPressed(Keys.SPACE))
-                    mover.shoot(null)
 
-                // Mouse is pressed, shoot at target.
-                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-                    capture?.let { (result, pos) ->
-                        mover.shoot(pos - mover.pos)
-                    }
-                }
+                val dx = Gdx.input.uniformX
+                val dy = Gdx.input.uniformY
+                val newDir = Dir.from(dx, dy)
+                if (newDir != lastDir)
+                    mover.lookAt(newDir)
+                lastDir = newDir
+
+                val isDown = Gdx.input.isButtonPressed(Input.Buttons.LEFT)
+                if (!wasDown && isDown)
+                    mover.draw()
+
+                if (wasDown && !isDown)
+                    mover.release(QPt(dx, dy))
+
+                wasDown = isDown
 
                 // Check if randomly playing.
                 if (rand) {
-                    // In some possibility, shoot.
-                    if (generatorRandom.nextDouble() > 0.9)
-                        mover.shoot(null)
 
                     // In some possibility, move.
                     if (generatorRandom.nextDouble() > 0.05) {
@@ -252,7 +273,39 @@ class Frontend : F2DListener(-100f, 100f) {
                     }
 
                 }
+
+                // Health bar
+                ui.submit(
+                    Resources.solid.get().tint(Color.BLACK), time, Mat
+                        .translation(32f, 32f, -50f)
+                        .scale(100f, 20f)
+                        .translate(0.5f, 0.5f)
+                )
+
+                ui.submit(
+                    Resources.solid.get().tint(Color.RED), time, Mat
+                        .translation(32f, 32f, -50f)
+                        .scale(mover.health * 100f / mover.kind.initialHealth, 20f)
+                        .translate(0.5f, 0.5f)
+                )
+
+                // XP bar
+                ui.submit(
+                    Resources.solid.get().tint(Color.BLACK), time, Mat
+                        .translation(0f, 0f, -50f)
+                        .scale(Gdx.graphics.width.toFloat(), 10f)
+                        .translate(0.5f, 0.5f)
+                )
+
+                ui.submit(
+                    Resources.solid.get().tint(Color.YELLOW), time, Mat
+                        .translation(0f, 0f, -50f)
+                        .scale(XP.fractionFor(mover.xp).toFloat() * Gdx.graphics.width.toFloat(), 10f)
+                        .translate(0.5f, 0.5f)
+                )
             }
+
+
         }
 
 
@@ -283,19 +336,19 @@ class Frontend : F2DListener(-100f, 100f) {
             signOffValue = null
         }
 
-        //TODO: Fix UI cooordinate system.
-
-        ui.submit(segoe, "${root.res} shared resources", time, Mat.translation(60f, 10f, -50f).scale(24f))
-
+        // Render if description present.
         (capture?.first as? HasDescription)?.let {
-            ui.submit(
-                descriptionDrawable, it.describe, time, Mat.translation(
-                    Gdx.graphics.width.toFloat() / 2f,
-                    Gdx.graphics.height.toFloat() - 16f,
-                    -50f
-                ).scale(32f)
-            )
+            // Could at this point be disconnected.
+            if (it.isConnected())
+                ui.submit(
+                    descriptionDrawable, it.describe, time, Mat.translation(
+                        Gdx.graphics.width.toFloat() / 2f,
+                        Gdx.graphics.height.toFloat() - 16f,
+                        -50f
+                    ).scale(32f)
+                )
         }
+
         ui.submit(
             pingDrawable, "Offset: ${clock.currentDeltaTime}ms", time, Mat.translation(
                 Gdx.graphics.width.toFloat() - 16f,
@@ -313,13 +366,15 @@ class Frontend : F2DListener(-100f, 100f) {
 
         // Process non-game input.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
-            scaling = Mat.scaling(1f, 1f)
+            scaling = 1f
         if (Gdx.input.isKeyJustPressed(Keys.NUM_2))
-            scaling = Mat.scaling(2f, 2f)
+            scaling = 2f
         if (Gdx.input.isKeyJustPressed(Keys.NUM_3))
-            scaling = Mat.scaling(3f, 3f)
+            scaling = 3f
         if (Gdx.input.isKeyJustPressed(Keys.NUM_4))
-            scaling = Mat.scaling(4f, 4f)
+            scaling = 4f
+        if (Gdx.input.isKeyJustPressed(Keys.NUM_5))
+            scaling = 5f
 
         if (Gdx.input.isKeyJustPressed(Keys.R))
             rand = !rand

@@ -9,10 +9,10 @@ import eu.metatools.f2d.context.Context
 fun <T> Drawable<T>.color(color: Color) = object : Drawable<T> {
     override fun draw(args: T, time: Double, context: Context) {
         // Get original values.
-        val previous = context.color.cpy()
+        val previous = context.color
 
         // Set new values.
-        context.color = context.color.set(color)
+        context.color = color
 
         // Draw with updated context.
         this@color.draw(args, time, context)

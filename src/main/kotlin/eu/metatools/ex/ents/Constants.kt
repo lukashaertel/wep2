@@ -7,10 +7,10 @@ object Constants {
     /**
      * Width of the tile.
      */
-    val tileWidth = 32f
+    val tileWidth = 24f
 
     /**
      * Height of the tile.
      */
-    val tileHeight = 32f
+    val tileHeight = 24f
 }

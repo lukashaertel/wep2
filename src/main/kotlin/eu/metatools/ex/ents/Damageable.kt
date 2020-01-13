@@ -8,5 +8,5 @@ interface Damageable : All {
      * Takes that damage.
      * @param amount The amount of damage to take.
      */
-    fun takeDamage(amount: Int)
+    fun takeDamage(amount: Int): Int
 }

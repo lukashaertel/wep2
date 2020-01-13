@@ -149,17 +149,23 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
     /**
      * Returns the floor of the value.
      */
-    fun floor() =
-        numerator / precision
+    fun floor(): Int =
+        if (numerator < 0)
+            unaryMinus().ceiling().unaryMinus()
+        else
+            numerator / precision
 
     /**
      * Returns the ceiling of the value.
      */
-    fun ceiling() =
-        if (numerator.rem(precision) == 0)
-            numerator / precision
+    fun ceiling(): Int =
+        if (numerator < 0)
+            unaryMinus().floor().unaryMinus()
         else
-            numerator / precision + 1
+            if (numerator.rem(precision) == 0)
+                numerator / precision
+            else
+                numerator / precision + 1
 
     override fun hashCode() = numerator
 

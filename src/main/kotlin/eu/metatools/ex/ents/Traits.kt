@@ -94,7 +94,7 @@ fun World.updateMovement(time: Double) {
             if (a.isConnected() && b.isConnected() && a is HandlesHit) a.hitOther(b)
             if (a.isConnected() && b.isConnected() && b is HandlesHit) b.hitOther(a)
 
-            if (rel.isEmpty())
+            if (rel.len == Q.ZERO)
                 continue
             if (a !is Blocking)
                 continue

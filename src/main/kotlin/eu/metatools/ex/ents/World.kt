@@ -9,13 +9,13 @@ import eu.metatools.f2d.immediate.submit
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.mapObserved
-import eu.metatools.up.dsl.prop
 import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
+import kotlin.math.ceil
 
 fun toZ(level: Number) =
-    -level.toFloat()
+    -ceil(level.toFloat())
 
 /**
  * The root world entity.
@@ -43,9 +43,6 @@ class World(
         }
     }
 
-
-    var res by prop { 0 }
-
     /**
      * Repeater generating updates in 50ms intervals.
      */
@@ -56,13 +53,10 @@ class World(
             it.update(seconds, 50)
         }
 
-        if (res < 100)
-            res += 1
-
         val random = rng()
-        if (random.nextDouble() > 0.99 && shell.list<Respack>().count() < 10) {
+        if (random.nextDouble() > 0.98 && shell.list<Respack>().count() < 10) {
             val field = map
-                .filterValues { it.extras["RSP"] == true }
+                .filter { (k, v) -> v.extras["RSP"] == true && map[k.copy(z = k.z.inc())]?.solid != true }
                 .toList()
                 .takeIf { it.isNotEmpty() }
                 ?.let {
@@ -73,7 +67,7 @@ class World(
                 constructed(
                     Respack(
                         shell, newId(), ui,
-                        QPt(field.x, field.y), Q.ZERO, 5 + random.nextInt(10)
+                        QPt(field.x, field.y), field.z.inc().toQ(), 5 + random.nextInt(10)
                     )
                 )
         }
@@ -126,16 +120,12 @@ class World(
         if (movers.any { it.owner == owner })
             return
 
-        // Get RNG to determine what mover to spawn.
-        val rng = rng()
-        val type = if (rng.nextBoolean()) Movers.Small else Movers.Large
-
         // Add mover to set of movers.
         movers.add(
             constructed(
                 Mover(
                     shell, newId(), ui,
-                    QPt(5f.toQ(), 5f.toQ()), Q.ZERO, type, owner
+                    QPt(5f.toQ(), 5f.toQ()), Q.ZERO, Movers.Pazu, owner
                 )
             )
         )

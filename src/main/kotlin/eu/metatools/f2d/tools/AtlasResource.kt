@@ -26,6 +26,14 @@ data class Static(val name: String) : ReferAtlas()
 data class Animated(val name: String, val length: Double, val looping: Boolean = true) : ReferAtlas()
 
 /**
+ * An animated atlas referral.
+ * @property frames The names of the atlas regions.
+ * @property length The length of the animation.
+ * @property looping True if looping.
+ */
+data class Frames(val frames: List<String>, val length: Double, val looping: Boolean = true) : ReferAtlas()
+
+/**
  * An abstract texture atlas resource on a file location.
  * @property location The location function.
  */
@@ -96,6 +104,55 @@ class AtlasResource(
                 // Check that not empty as well.
                 check(regions?.size ?: 0 > 0) {
                     "Unable to load ${argsResource.name}, empty regions returned."
+                }
+            }
+
+            override fun dispose() {
+                regions = null
+            }
+
+            override fun draw(args: Unit?, time: Double, context: Context) {
+                // Get regions or return if not assigned yet.
+                val regions = regions ?: return
+
+                val region = (time / (argsResource.length / regions.size)).toInt().let {
+                    // If looping, wrap by modulo, otherwise stop at last index.
+                    if (argsResource.looping)
+                        regions[it % regions.size]
+                    else
+                        regions[minOf(it, regions.size - 1)]
+                }
+
+                // Draw to sprite batch.
+                context.sprites().draw(region, -0.5f, -0.5f, 1.0f, 1.0f)
+            }
+
+            override val duration: Double
+                get() =
+                    // Duration is infinite if looping, otherwise explicitly given.
+                    if (argsResource.looping)
+                        Double.POSITIVE_INFINITY
+                    else
+                        argsResource.length
+        }
+
+        // Frames drawable is requested.
+        is Frames -> object : LifecycleDrawable<Unit?> {
+            /**
+             * The regions to draw when initialized.
+             */
+            var regions: List<TextureAtlas.AtlasRegion>? = null
+
+            override fun initialize() {
+                // Find regions, see that they are not null.
+                regions = argsResource.frames.map {
+                    textureAtlas?.findRegion(it)
+                        ?: throw IllegalArgumentException("Unable to load ${it}")
+                }
+
+                // Check that not empty as well.
+                check(regions?.size ?: 0 > 0) {
+                    "Unable to load ${argsResource.frames}, empty regions returned."
                 }
             }
 

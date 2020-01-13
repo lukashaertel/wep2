@@ -108,16 +108,18 @@ class StandardContext(
 
     override var color: Color
         get() = when (mode) {
-            Mode.NONE -> colorValue
-            Mode.SPRITE_BATCH -> spriteBatch.color
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.color
-            Mode.SHAPE_RENDERER -> shapeRenderer.color
+            Mode.NONE -> colorValue.cpy()
+            Mode.SPRITE_BATCH -> spriteBatch.color.cpy()
+            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.color.cpy()
+            Mode.SHAPE_RENDERER -> shapeRenderer.color.cpy()
         }
-        set(value) = when (mode) {
-            Mode.NONE -> colorValue = value
-            Mode.SPRITE_BATCH -> spriteBatch.color = value
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.color = value
-            Mode.SHAPE_RENDERER -> shapeRenderer.color = value
+        set(value) {
+            when (mode) {
+                Mode.NONE -> colorValue.set(value)
+                Mode.SPRITE_BATCH -> spriteBatch.color = value
+                Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.color = value
+                Mode.SHAPE_RENDERER -> shapeRenderer.color = value
+            }
         }
 
     override var blend: Blend
@@ -181,7 +183,6 @@ class StandardContext(
             }
             Mode.POLYGON_SPRITE_BATCH -> {
                 polygonSpriteBatch.end()
-                spriteBatch.begin()
                 spriteBatch.color = activeColor
                 spriteBatch.blend = activeBlend
                 spriteBatch.transformMatrix = activeTransform
@@ -191,7 +192,6 @@ class StandardContext(
             }
             Mode.SHAPE_RENDERER -> {
                 shapeRenderer.end()
-                spriteBatch.begin()
                 spriteBatch.color = activeColor
                 spriteBatch.blend = activeBlend
                 spriteBatch.transformMatrix = activeTransform

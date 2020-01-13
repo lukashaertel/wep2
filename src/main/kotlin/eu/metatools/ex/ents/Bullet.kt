@@ -1,7 +1,6 @@
 package eu.metatools.ex.ents
 
 import eu.metatools.ex.Frontend
-import eu.metatools.ex.Resources
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.f2d.data.Mat
@@ -9,7 +8,6 @@ import eu.metatools.f2d.data.Q
 import eu.metatools.f2d.data.QPt
 import eu.metatools.f2d.data.toQ
 import eu.metatools.f2d.immediate.submit
-import eu.metatools.f2d.resource.get
 import eu.metatools.f2d.tools.CaptureCube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
@@ -29,16 +27,18 @@ import eu.metatools.up.dt.lx
  */
 class Bullet(
     shell: Shell, id: Lx, val ui: Frontend,
+    initOwner: Mover,
     initPos: QPt, initVel: QPt, initMoveTime: Double, initLevel: Q, val damage: Int
 ) : Ent(shell, id), Moves, Solid, HandlesHit, Ticking, Rendered {
     companion object {
         /**
          * The drawable for the bullet.
          */
-        private val solid by lazy { Resources.solid.get() }
+        private val drawable by atlas("arrow")
     }
 
     override val extraArgs = mapOf(
+        "initOwner" to initOwner,
         "initPos" to initPos,
         "initVel" to initVel,
         "initMoveTime" to initMoveTime,
@@ -51,6 +51,7 @@ class Bullet(
      */
     override val world get() = shell.resolve(lx / "root") as World
 
+    val owner by { initOwner }
     /**
      * Current position.
      */
@@ -73,7 +74,7 @@ class Bullet(
     /**
      * Constant. Radius.
      */
-    override val radius = 0.025f.toQ()
+    override val radius = 0.05f.toQ()
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
@@ -83,12 +84,13 @@ class Bullet(
         val local = mat
             .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
             .translate(y = tileHeight * z.toFloat())
-            .translate(z = toZ(level))
+            .translate(y = tileHeight * Mover.offset.toFloat())
+            .translate(z = toZ(z))
             .rotateZ(vel.angle.toFloat())
-            .scale(tileWidth * radius.toFloat() * 5f, tileHeight * radius.toFloat() * 2f)
+            .scale(tileWidth, tileHeight)
 
         // Submit the solid.
-        ui.world.submit(solid, time, local)
+        ui.world.submit(drawable, time, local)
         ui.world.submit(CaptureCube, this, time, local)
     }
 
@@ -97,7 +99,11 @@ class Bullet(
     }
 
     override fun hitOther(other: Moves) {
-        (other as? Damageable)?.takeDamage(damage)
+        (other as? Damageable)?.takeDamage(damage)?.let {
+            owner.xp += it
+        }
+
+        delete(this)
     }
 
     override fun update(sec: Double, freq: Long) {

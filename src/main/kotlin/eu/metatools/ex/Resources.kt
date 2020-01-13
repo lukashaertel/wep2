@@ -10,14 +10,14 @@ object Resources {
 
     val fire by lazy {
         frontend.use(SoundResource {
-            Gdx.files.internal("fire.wav")
+            Gdx.files.internal("shoot.ogg")
         })
     }
 
-    val terrain by lazy {
+    val atlas by lazy {
         frontend.use(AtlasResource {
             Gdx.files.internal(
-                "terrain.atlas"
+                "CTP.atlas"
             )
         })
     }

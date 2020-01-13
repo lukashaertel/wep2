@@ -3,9 +3,11 @@ package eu.metatools.ex.ents
 import com.badlogic.gdx.graphics.Color
 import eu.metatools.ex.Frontend
 import eu.metatools.ex.Resources
+import eu.metatools.ex.data.Dir
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.f2d.data.*
+import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.drawable.limit
 import eu.metatools.f2d.drawable.offset
 import eu.metatools.f2d.drawable.tint
@@ -22,8 +24,40 @@ import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
-import eu.metatools.up.lang.never
-import eu.metatools.up.lang.within
+import kotlin.math.log10
+import kotlin.math.pow
+
+interface SpriteSet {
+    fun idle(dir: Dir): Drawable<Unit?>
+    fun move(dir: Dir): Drawable<Unit?>
+    fun draw(dir: Dir): Drawable<Unit?>
+}
+
+enum class SpriteSets : SpriteSet {
+    Pa {
+        private val idleUp by atlas("pa_i_u")
+        private val idleRight: Drawable<Unit?> by atlas("pa_i_r")
+        private val idleDown: Drawable<Unit?> by atlas("pa_i_d")
+        private val idleLeft: Drawable<Unit?> by atlas("pa_i_l")
+        override fun idle(dir: Dir) =
+            dir.select(idleUp, idleRight, idleDown, idleLeft)
+
+        private val moveUp: Drawable<Unit?> by animation(0.8, "pa_w1_u", "pa_i_u", "pa_w2_u", "pa_i_u")
+        private val moveRight: Drawable<Unit?> by animation(0.8, "pa_w1_r", "pa_i_r", "pa_w2_r", "pa_i_r")
+        private val moveDown: Drawable<Unit?> by animation(0.8, "pa_w1_d", "pa_i_d", "pa_w2_d", "pa_i_d")
+        private val moveLeft: Drawable<Unit?> by animation(0.8, "pa_w1_l", "pa_i_l", "pa_w2_l", "pa_i_l")
+        override fun move(dir: Dir) =
+            dir.select(moveUp, moveRight, moveDown, moveLeft)
+
+        private val drawUp: Drawable<Unit?> by atlas("pa_d_u")
+        private val drawRight: Drawable<Unit?> by atlas("pa_d_r")
+        private val drawDown: Drawable<Unit?> by atlas("pa_d_d")
+        private val drawLeft: Drawable<Unit?> by atlas("pa_d_l")
+
+        override fun draw(dir: Dir) =
+            dir.select(drawUp, drawRight, drawDown, drawLeft)
+    }
+}
 
 /**
  * A mover kind.
@@ -33,39 +67,52 @@ interface MoverKind {
      * The radius.
      */
     val radius: Q
-
-    val shotCost: Int
+    val initialHealth: Int
 
     /**
      * The damage it does when shooting.
      */
-    val damage: Int
+    fun damageForLevel(level: Int): Int
+
+    val speed: Q
+    val spriteSet: SpriteSet
+    val hitXP: Int
+    val deathXP: Int
+    val label: String
+}
+
+object XP {
+    private fun rangeFor(value: Int): IntRange {
+        val level = levelFor(value)
+        val a = 10.0.pow(level).toInt()
+        val b = 10.0.pow(level.inc()).toInt()
+        return a until b
+    }
+
+    fun fractionFor(value: Int): Number {
+        val range = rangeFor(value)
+        return (value.toDouble() - range.first) / (range.last - range.first)
+
+    }
+
+    fun levelFor(value: Int) =
+        if (value <= 0) 0 else log10(value.toDouble()).toInt()
 }
 
 /**
  * Some instances of movers.
  */
 enum class Movers : MoverKind {
-    /**
-     * Small mover.
-     */
-    Small {
-        override val radius = 0.1f.toQ()
-        override val shotCost: Int
-            get() = 10
-        override val damage: Int
-            get() = 2
-    },
-    /**
-     * Large mover.
-     */
-    Large {
-        override val radius = 0.25f.toQ()
-        override val shotCost: Int
-            get() = 8
-        override val damage: Int
-            get() = 1
-    },
+    Pazu {
+        override val radius = 0.3f.toQ()
+        override val initialHealth = 10
+        override fun damageForLevel(level: Int) = minOf(5, 2 + level)
+        override val speed = 2.toQ()
+        override val spriteSet = SpriteSets.Pa
+        override val hitXP = 5
+        override val deathXP = 50
+        override val label = "Pazu"
+    }
 }
 
 /**
@@ -89,6 +136,8 @@ class Mover(
     )
 
     companion object {
+        val offset = 0.3.toQ()
+
         /**
          * Colors to use when creating a mover.
          */
@@ -102,11 +151,6 @@ class Mover(
             Color.CHARTREUSE,
             Color.DARK_GRAY
         )
-
-        /**
-         * The solid drawable.
-         */
-        private val solid by lazy { Resources.solid.get() }
 
         /**
          * The text drawable.
@@ -164,27 +208,27 @@ class Mover(
      */
     override var vel by { QPt() }
 
+    var lastVel by { QPt() }
+
+    var drawn by { false }
+
+    var xp by { 0 }
+
+    val skillLevel get() = XP.levelFor(xp)
+
+    val damage get() = kind.damageForLevel(skillLevel)
+
     /**
      * Constant. Radius.
      */
     override val radius get() = kind.radius
 
-    val shotCost get() = kind.shotCost
-
-    /**
-     * The color to render this mover with.
-     */
-    private val color get() = colors[owner.toInt().within(0, colors.size)] ?: never
-
-    /**
-     * The last moved direction (the look-direction).
-     */
-    private var look by { QPt.ZERO }
+    private var look by { Dir.Right }
 
     /**
      * The current health.
      */
-    private var health by { 10 }
+    var health by { kind.initialHealth }
 
     private var ownResources by { 0 }
 
@@ -196,26 +240,20 @@ class Mover(
         val local = mat
             .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
             .translate(y = tileHeight * z.toFloat())
-            .translate(z = toZ(level))
-            .scale(tileWidth * kind.radius.toFloat() * 2f, tileHeight * kind.radius.toFloat() * 2f)
+            .translate(y = tileHeight * offset.toFloat())
+            .translate(z = toZ(z))
+            .scale(tileWidth, tileHeight)
 
-        // Get color.
-        val activeColor = if (ui.isSelected(this)) Color.WHITE else color
+
+        val visual = when {
+            drawn -> kind.spriteSet.draw(look)
+            vel.isNotEmpty() -> kind.spriteSet.move(look)
+            else -> kind.spriteSet.idle(look)
+        }
 
         // Submit the visual and the capture.
-        ui.world.submit(solid.tint(activeColor), time, local)
+        ui.world.submit(visual, time, local)
         ui.world.submit(CaptureCube, this, time, local)
-
-        // Transformation for displaying the label.
-        val localLabel = mat
-            .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
-            .translate(y = tileHeight * z.toFloat())
-            .translate(z = toZ(level))
-            .translate(0f, -8f)
-            .scale(12f)
-
-        // Submit the label.
-        ui.world.submit(captionText, "H: $health R: $ownResources", time, localLabel)
     }
 
     /**
@@ -224,48 +262,52 @@ class Mover(
     val moveInDirection = exchange(::doMoveInDirection)
 
     private fun doMoveInDirection(direction: QPt) {
-        // Receive movement on trait.
-        move(elapsed, direction)
+        lastVel = direction.times(kind.speed)
+        if (!drawn)
+            move(elapsed, lastVel)
+    }
 
-        // If movement non-empty, update look.
-        if (direction.isNotEmpty())
-            look = direction
+    val lookAt = exchange(::doLookAt)
+
+    private fun doLookAt(direction: Dir) {
+        look = direction
+    }
+
+    val draw = exchange(::doDraw)
+
+    private fun doDraw() {
+        drawn = true
+        move(elapsed, QPt.ZERO)
     }
 
     /**
      * Shoots from the mover, optionally in a direction.
      */
-    val shoot = exchange(::doShoot)
+    val release = exchange(::doRelease)
 
-    private fun doShoot(d: QPt?) {
-        // Get the direction to shoot.
-        val dir = d ?: look
+    private fun doRelease(dir: QPt) {
+        if (!drawn)
+            return
 
         // Check if not empty, then construct the bullet.
         if (dir.isEmpty())
             return
 
-        if (world.res + ownResources < 10)
-            return
-
-        world.res -= shotCost
-        if (world.res < 0) {
-            ownResources += world.res
-            world.res = 0
-        }
-
         val level = world.map.height(level.toInt(), pos.x, pos.y).toQ()
         constructed(
             Bullet(
-                shell, newId(), ui,
-                pos + dir.nor * (radius + 0.1f.toQ()), dir.nor * 5f.toQ(), elapsed, level, kind.damage
+                shell, newId(), ui, this,
+                pos + dir.nor * (radius + 0.1f.toQ()), dir.nor * 10f.toQ(), elapsed, level, damage
             )
         )
 
         enqueue(ui.world, fire.offset(elapsed), null) { Mat.ID }
+
+        drawn = false
+        move(elapsed, lastVel)
     }
 
-    override fun takeDamage(amount: Int) {
+    override fun takeDamage(amount: Int): Int {
         // Decrease health for taking a hit.
         health -= amount
 
@@ -277,8 +319,8 @@ class Mover(
         // Render damage floating up.
         enqueue(ui.world, hitText.limit(3.0).offset(start), amount.toString()) {
             Mat.translation(
-                Constants.tileWidth * x.toFloat(),
-                Constants.tileHeight * y.toFloat() + (it - start).toFloat() * 10,
+                tileWidth * x.toFloat(),
+                tileHeight * y.toFloat() + (it - start).toFloat() * 10,
                 -level.toFloat()
             ).scale(16f)
         }
@@ -287,7 +329,10 @@ class Mover(
         if (health <= 0) {
             world.movers.remove(this)
             delete(this)
+            return kind.deathXP
         }
+
+        return kind.hitXP
     }
 
     override fun hitOther(other: Moves) {
@@ -299,6 +344,6 @@ class Mover(
 
 
     override val describe: String
-        get() = if (shell.player == owner) "You ($level)" else "Enemy"
+        get() = "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
 
 }
