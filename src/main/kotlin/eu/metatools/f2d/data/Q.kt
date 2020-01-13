@@ -28,6 +28,9 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
     )
 
     companion object {
+        /**
+         * Returns a [Q] with the specified [numerator].
+         */
         fun fromNumerator(numerator: Int) =
             Q(Unit, numerator)
 

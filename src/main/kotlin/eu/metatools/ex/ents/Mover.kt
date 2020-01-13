@@ -1,11 +1,13 @@
 package eu.metatools.ex.ents
 
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
-import eu.metatools.ex.Frontend
-import eu.metatools.ex.Resources
+import com.badlogic.gdx.math.MathUtils
+import eu.metatools.ex.*
 import eu.metatools.ex.data.Dir
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
+import eu.metatools.f2d.InOut
 import eu.metatools.f2d.data.*
 import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.drawable.limit
@@ -68,6 +70,7 @@ interface MoverKind {
      */
     val radius: Q
     val initialHealth: Int
+    val maxAmmo: Int
 
     /**
      * The damage it does when shooting.
@@ -82,7 +85,7 @@ interface MoverKind {
 }
 
 object XP {
-    private fun rangeFor(value: Int): IntRange {
+    fun rangeFor(value: Int): IntRange {
         val level = levelFor(value)
         val a = 10.0.pow(level).toInt()
         val b = 10.0.pow(level.inc()).toInt()
@@ -104,8 +107,9 @@ object XP {
  */
 enum class Movers : MoverKind {
     Pazu {
-        override val radius = 0.3f.toQ()
+        override val radius = Q.THIRD
         override val initialHealth = 10
+        override val maxAmmo = 20
         override fun damageForLevel(level: Int) = minOf(5, 2 + level)
         override val speed = 2.toQ()
         override val spriteSet = SpriteSets.Pa
@@ -136,7 +140,7 @@ class Mover(
     )
 
     companion object {
-        val offset = 0.3.toQ()
+        val offset = Q.THIRD
 
         /**
          * Colors to use when creating a mover.
@@ -155,32 +159,20 @@ class Mover(
         /**
          * The text drawable.
          */
-        private val text by lazy {
-            Resources.segoe[ReferText(
-                horizontal = Location.Center,
-                vertical = Location.Center
-            )].tint(Color.RED)
-        }
-
-        /**
-         * The text drawable.
-         */
-        private val captionText by lazy {
-            Resources.segoe[ReferText(
-                horizontal = Location.Center,
-                vertical = Location.Start
-            )]
-        }
-
-        /**
-         * The text drawable.
-         */
         private val hitText by lazy {
             Resources.segoe[ReferText(
                 horizontal = Location.Center,
                 vertical = Location.Center,
                 bold = true
             )].tint(Color.RED)
+        }
+
+        private val levelUp by lazy {
+            Resources.segoe[ReferText(
+                horizontal = Location.Center,
+                vertical = Location.Center,
+                italic = true
+            )].tint(Color.YELLOW)
         }
 
         private val fire by lazy { Resources.fire.get() }
@@ -212,11 +204,14 @@ class Mover(
 
     var drawn by { false }
 
-    var xp by { 0 }
+    var xp by { 1 }
 
-    val skillLevel get() = XP.levelFor(xp)
+    val xpRange get() = XP.rangeFor(xp)
 
-    val damage get() = kind.damageForLevel(skillLevel)
+    val xpLevel get() = XP.levelFor(xp)
+
+
+    val damage get() = kind.damageForLevel(xpLevel)
 
     /**
      * Constant. Radius.
@@ -230,7 +225,7 @@ class Mover(
      */
     var health by { kind.initialHealth }
 
-    private var ownResources by { 0 }
+    var ammo by { 10 }
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
@@ -290,19 +285,28 @@ class Mover(
             return
 
         // Check if not empty, then construct the bullet.
-        if (dir.isEmpty())
-            return
+        if (dir.isNotEmpty() && ammo > 0) {
+            ammo--
 
-        val level = world.map.height(level.toInt(), pos.x, pos.y).toQ()
-        constructed(
-            Bullet(
-                shell, newId(), ui, this,
-                pos + dir.nor * (radius + 0.1f.toQ()), dir.nor * 10f.toQ(), elapsed, level, damage
+            val level = world.map.height(level.toInt(), pos.x, pos.y).toQ()
+            constructed(
+                Bullet(
+                    shell, newId(), ui, this,
+                    pos + dir.nor * (radius + 0.1f.toQ()), dir.nor * 10f.toQ(), elapsed, level, damage
+                )
             )
-        )
 
-        enqueue(ui.world, fire.offset(elapsed), null) { Mat.ID }
+            enqueue(ui.world, fire.offset(elapsed), null) { Mat.ID }
 
+        }
+
+        drawn = false
+        move(elapsed, lastVel)
+    }
+
+    val cancelDraw = exchange(::doCancelDraw)
+
+    private fun doCancelDraw() {
         drawn = false
         move(elapsed, lastVel)
     }
@@ -335,9 +339,31 @@ class Mover(
         return kind.hitXP
     }
 
+    fun takeXP(amount: Int) {
+        val before = xpLevel
+        xp += amount
+        if (xpLevel == before)
+            return
+
+        // Get time to start animation and position.
+        val start = elapsed
+        val (x, y) = pos
+        val level = level
+
+        // TODO: XYZ computation here can probably be fixed.
+        // Render level up floating up.
+        enqueue(ui.world, levelUp.limit(5.0).offset(start), "Level up!") {
+            Mat.translation(
+                tileWidth * x.toFloat(),
+                tileHeight * y.toFloat() + (it - start).toFloat() * 10,
+                -level.toFloat()
+            ).scale(16f)
+        }
+    }
+
     override fun hitOther(other: Moves) {
         if (other is Respack) {
-            ownResources += other.content
+            ammo = minOf(kind.maxAmmo, ammo + other.content)
             delete(other)
         }
     }
@@ -346,4 +372,118 @@ class Mover(
     override val describe: String
         get() = "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
 
+}
+
+private val ammoCount by lazy {
+    Resources.segoe[ReferText(
+        horizontal = Location.End,
+        vertical = Location.Center
+    )]
+}
+private const val ammoInsetX = 100f
+private const val ammoInsetY = 48f
+private const val ammoLength = 600f
+private const val ammoDisplaySize = 64f
+private const val ammoCountInset = 16f
+private const val ammoCountSize = 32f
+
+fun InOut.submitAmmo(mover: Mover, time: Double) {
+    if (mover.kind.maxAmmo <= 0) return
+    val dx = ammoLength / (mover.kind.maxAmmo - 1)
+    val y = Gdx.graphics.height - ammoInsetY
+    var cx = ammoInsetX
+    for (i in 1..mover.ammo) {
+        submit(
+            Bullet.arrow, time, Mat
+                .translation(cx, y, uiZ)
+                .rotateZ(MathUtils.PI / 2f)
+                .scale(ammoDisplaySize)
+        )
+        cx += dx
+    }
+    shadowText(ammoCount, "${mover.ammo}/${mover.kind.maxAmmo}", time, ammoInsetX - ammoCountInset, y, ammoCountSize)
+}
+
+private const val xpBarHeight = 10f
+private const val xpBarInset = 2f
+private const val xpBarLevelSize = 32f
+private const val xpBarRangeSize = 24f
+private const val xpBarValueSize = 16f
+
+
+private val xpRangeStart by lazy {
+    Resources.segoe[ReferText(
+        horizontal = Location.Start,
+        vertical = Location.End
+    )]
+}
+private val xpLevelValue by lazy {
+    Resources.segoe[ReferText(
+        horizontal = Location.End,
+        vertical = Location.End,
+        bold = true
+    )]
+}
+private val xpValue by lazy {
+    Resources.segoe[ReferText(
+        horizontal = Location.Start,
+        vertical = Location.End,
+        bold = true
+    )]
+}
+private val xpRangeEnd by lazy {
+    Resources.segoe[ReferText(
+        horizontal = Location.End,
+        vertical = Location.End
+    )]
+}
+
+fun InOut.submitXP(mover: Mover, time: Double) {
+
+    val xpFraction = XP.fractionFor(mover.xp).toFloat()
+
+    // XP bar.
+    submit(
+        solidDrawable.tint(Color.BLACK), time, Mat
+            .translation(0f, 0f, uiZ)
+            .scale(Gdx.graphics.width.toFloat(), xpBarHeight)
+            .translate(0.5f, 0.5f)
+    )
+
+    submit(
+        solidDrawable.tint(Color.YELLOW), time, Mat
+            .translation(0f, 0f, uiZ)
+            .scale(xpFraction * Gdx.graphics.width, xpBarHeight)
+            .translate(0.5f, 0.5f)
+    )
+
+    // XP labels.
+    val xpRange = mover.xpRange
+    val xpLevelString = mover.xpLevel.toString()
+    val xpRangeStartString = xpRange.first.toString()
+    val xpRangeEndString = xpRange.last.inc().toString()
+    val xpValueString = "(${mover.xp})"
+
+    shadowText(
+        xpRangeStart, xpRangeStartString, time,
+        xpBarInset, xpBarHeight + xpBarInset,
+        xpBarRangeSize
+    )
+    shadowText(
+        xpLevelValue, xpLevelString, time,
+        Gdx.graphics.width / 2f - xpBarInset,
+        xpBarHeight + xpBarInset,
+        xpBarLevelSize
+    )
+    shadowText(
+        xpValue, xpValueString, time,
+        Gdx.graphics.width / 2f + xpBarInset, xpBarHeight + xpBarInset,
+        xpBarValueSize
+    )
+    shadowText(
+        xpRangeEnd, xpRangeEndString, time,
+        Gdx.graphics.width.toFloat() - xpBarInset,
+        xpBarInset,
+        xpBarRangeSize
+    )
 }

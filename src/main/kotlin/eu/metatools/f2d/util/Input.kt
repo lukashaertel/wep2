@@ -18,6 +18,21 @@ val Input.uniformY: Float
         1f - y.toFloat() * 2f / Gdx.graphics.height
 
 /**
+ * Touch x-coordinate from the screen center.
+ */
+val Input.centeredX: Float
+    get() =
+        x.toFloat() - Gdx.graphics.width / 2f
+
+/**
+ * Touch y-coordinate from the screen center.
+ */
+val Input.centeredY: Float
+    get() =
+        Gdx.graphics.height / 2f - y.toFloat()
+
+
+/**
  * True if the key is pressed.
  */
 operator fun Input.contains(key: Int) =

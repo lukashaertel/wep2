@@ -6,7 +6,6 @@ import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.f2d.data.Mat
 import eu.metatools.f2d.data.Q
 import eu.metatools.f2d.data.QPt
-import eu.metatools.f2d.data.toQ
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.CaptureCube
 import eu.metatools.up.Ent
@@ -52,7 +51,7 @@ class Respack(
     /**
      * Constant. Radius.
      */
-    override val radius = 0.15f.toQ()
+    override val radius = Q.THIRD
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
@@ -82,7 +81,7 @@ class Respack(
     }
 
     override val describe: String
-        get() = "$content resources"
+        get() = "$content arrows"
 
 
 }

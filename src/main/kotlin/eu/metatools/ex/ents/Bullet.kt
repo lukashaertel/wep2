@@ -34,7 +34,7 @@ class Bullet(
         /**
          * The drawable for the bullet.
          */
-        private val drawable by atlas("arrow")
+         val arrow by atlas("arrow")
     }
 
     override val extraArgs = mapOf(
@@ -52,6 +52,7 @@ class Bullet(
     override val world get() = shell.resolve(lx / "root") as World
 
     val owner by { initOwner }
+
     /**
      * Current position.
      */
@@ -90,7 +91,7 @@ class Bullet(
             .scale(tileWidth, tileHeight)
 
         // Submit the solid.
-        ui.world.submit(drawable, time, local)
+        ui.world.submit(arrow, time, local)
         ui.world.submit(CaptureCube, this, time, local)
     }
 
@@ -100,7 +101,7 @@ class Bullet(
 
     override fun hitOther(other: Moves) {
         (other as? Damageable)?.takeDamage(damage)?.let {
-            owner.xp += it
+            owner.takeXP(it)
         }
 
         delete(this)

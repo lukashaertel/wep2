@@ -16,10 +16,12 @@ import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.input.KeyStick
 import eu.metatools.f2d.F2DListener
+import eu.metatools.f2d.InOut
 import eu.metatools.f2d.data.Mat
 import eu.metatools.f2d.data.QPt
 import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.data.toQ
+import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.drawable.tint
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.resource.LifecycleDrawable
@@ -28,8 +30,8 @@ import eu.metatools.f2d.tools.Location
 import eu.metatools.f2d.tools.ReferData
 import eu.metatools.f2d.tools.ReferText
 import eu.metatools.f2d.tools.hashImage
-import eu.metatools.f2d.util.uniformX
-import eu.metatools.f2d.util.uniformY
+import eu.metatools.f2d.util.centeredX
+import eu.metatools.f2d.util.centeredY
 import eu.metatools.up.*
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
@@ -51,6 +53,26 @@ val Long.sec get() = this / 1000.0
 
 fun Long.toNextFullSecond() =
     1000L - (this % 1000L)
+
+const val uiZ = -50f
+
+val solidDrawable by lazy {
+    Resources.solid.get()
+}
+
+private val descriptionDrawable by lazy {
+    Resources.segoe[ReferText(
+        horizontal = Location.Center,
+        vertical = Location.Start,
+        bold = true
+    )].tint(Color.YELLOW)
+}
+
+
+fun InOut.shadowText(on: Drawable<String>, text: String, time: Double, x: Float, y: Float, size: Float, d: Float = 2f) {
+    submit(on.tint(Color.BLACK), text, time, Mat.translation(x + d, y - d, uiZ).scale(size))
+    submit(on, text, time, Mat.translation(x, y, uiZ).scale(size))
+}
 
 class Frontend : F2DListener(-100f, 100f) {
 
@@ -163,8 +185,6 @@ class Frontend : F2DListener(-100f, 100f) {
     var debug = false
     var debugNet = false
 
-    var rand = false
-
     private val keyStick = KeyStick()
 
     private fun ownMover(): Mover? =
@@ -179,24 +199,6 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private val generatorRandom = Random()
 
-    /**
-     * The text drawable.
-     */
-    private val segoe by lazy {
-        Resources.segoe[ReferText(
-            horizontal = Location.Start,
-            vertical = Location.End
-        )]
-    }
-
-    private val descriptionDrawable by lazy {
-        Resources.segoe[ReferText(
-            horizontal = Location.Center,
-            vertical = Location.Start,
-            bold = true
-        )].tint(Color.YELLOW)
-    }
-
 
     /**
      * The text drawable.
@@ -210,7 +212,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
     private val hashes = mutableListOf<LifecycleDrawable<Unit?>>()
 
-    private var scaling = 2f
+    private var scaling = 4f
 
     var wasDown = false
 
@@ -227,7 +229,7 @@ class Frontend : F2DListener(-100f, 100f) {
                 view = Mat.ID
 
                 // It is not, allow for recreation.
-                if (rand || Gdx.input.isKeyJustPressed(Keys.F1))
+                if (Gdx.input.isKeyJustPressed(Keys.F1))
                     root.createMover(shell.player)
             } else {
                 val (x, y, z) = mover.xyz(time)
@@ -246,63 +248,41 @@ class Frontend : F2DListener(-100f, 100f) {
                     mover.moveInDirection(move.toQ())
 
 
-                val dx = Gdx.input.uniformX
-                val dy = Gdx.input.uniformY
+                val dx = Gdx.input.centeredX
+                val dy = Gdx.input.centeredY
+
                 val newDir = Dir.from(dx, dy)
                 if (newDir != lastDir)
                     mover.lookAt(newDir)
                 lastDir = newDir
 
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT))
+                    mover.cancelDraw()
+
                 val isDown = Gdx.input.isButtonPressed(Input.Buttons.LEFT)
-                if (!wasDown && isDown)
-                    mover.draw()
-
-                if (wasDown && !isDown)
-                    mover.release(QPt(dx, dy))
-
+                if (!wasDown && isDown) mover.draw()
+                if (wasDown && !isDown) mover.release(QPt(dx, dy))
                 wasDown = isDown
 
-                // Check if randomly playing.
-                if (rand) {
-
-                    // In some possibility, move.
-                    if (generatorRandom.nextDouble() > 0.05) {
-                        val rmx = (generatorRandom.nextInt(3) - 1).toQ()
-                        val rmy = (generatorRandom.nextInt(3) - 1).toQ()
-                        mover.moveInDirection(QPt(rmx, rmy))
-                    }
-
-                }
 
                 // Health bar
                 ui.submit(
-                    Resources.solid.get().tint(Color.BLACK), time, Mat
+                    solidDrawable.tint(Color.BLACK), time, Mat
                         .translation(32f, 32f, -50f)
-                        .scale(100f, 20f)
+                        .scale(200f, 20f)
                         .translate(0.5f, 0.5f)
                 )
 
                 ui.submit(
-                    Resources.solid.get().tint(Color.RED), time, Mat
+                    solidDrawable.tint(Color.RED), time, Mat
                         .translation(32f, 32f, -50f)
-                        .scale(mover.health * 100f / mover.kind.initialHealth, 20f)
+                        .scale(mover.health * 200f / mover.kind.initialHealth, 20f)
                         .translate(0.5f, 0.5f)
                 )
 
-                // XP bar
-                ui.submit(
-                    Resources.solid.get().tint(Color.BLACK), time, Mat
-                        .translation(0f, 0f, -50f)
-                        .scale(Gdx.graphics.width.toFloat(), 10f)
-                        .translate(0.5f, 0.5f)
-                )
 
-                ui.submit(
-                    Resources.solid.get().tint(Color.YELLOW), time, Mat
-                        .translation(0f, 0f, -50f)
-                        .scale(XP.fractionFor(mover.xp).toFloat() * Gdx.graphics.width.toFloat(), 10f)
-                        .translate(0.5f, 0.5f)
-                )
+                ui.submitAmmo(mover, time)
+                ui.submitXP(mover, time)
             }
 
 
@@ -340,12 +320,9 @@ class Frontend : F2DListener(-100f, 100f) {
         (capture?.first as? HasDescription)?.let {
             // Could at this point be disconnected.
             if (it.isConnected())
-                ui.submit(
-                    descriptionDrawable, it.describe, time, Mat.translation(
-                        Gdx.graphics.width.toFloat() / 2f,
-                        Gdx.graphics.height.toFloat() - 16f,
-                        -50f
-                    ).scale(32f)
+                ui.shadowText(
+                    descriptionDrawable, it.describe, time,
+                    Gdx.graphics.width.toFloat() / 2f, Gdx.graphics.height - 16f, 32f
                 )
         }
 
@@ -375,9 +352,6 @@ class Frontend : F2DListener(-100f, 100f) {
             scaling = 4f
         if (Gdx.input.isKeyJustPressed(Keys.NUM_5))
             scaling = 5f
-
-        if (Gdx.input.isKeyJustPressed(Keys.R))
-            rand = !rand
 
         if (Gdx.input.isKeyJustPressed(Keys.F9))
             debug = !debug
