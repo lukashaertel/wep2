@@ -128,7 +128,7 @@ fun World.updateMovement(time: Double) {
             if (penetration <= Q.ZERO)
                 continue
 
-            // Mark hit.
+            // Mark hit. // TODO: Got a bug from here, should be connected tho. Generally to be fixed.
             if (a.isConnected() && b.isConnected() && a is HandlesHit) a.hitOther(b)
             if (a.isConnected() && b.isConnected() && b is HandlesHit) b.hitOther(a)
 

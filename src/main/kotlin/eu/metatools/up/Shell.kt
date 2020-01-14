@@ -65,11 +65,6 @@ interface Shell {
         throw UnsupportedOperationException("Shell does not support connection")
 }
 
-/**
- * True if the receiver is an entity and connected.
- */
-fun Any.isConnected() =
-    this is Ent && driver.isConnected
 
 /**
  * Performs the [Shell.load] from a [map]. If [check] is given as `true`, this map is then used to check

@@ -431,3 +431,11 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
                 "${this::class.simpleName}#$id $it"
         }
 }
+
+/**
+ * True if the receiver is an entity and connected.
+ *
+ * @since Entities might be deleted and still referred to in frontend. This will not be necessary in future revisions.
+ */
+fun Any.isConnected() =
+    this !is Ent || driver.isConnected

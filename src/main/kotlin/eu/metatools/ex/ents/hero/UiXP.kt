@@ -4,14 +4,21 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import eu.metatools.ex.Resources
 import eu.metatools.ex.shadowText
-import eu.metatools.ex.solidDrawable
 import eu.metatools.ex.uiZ
 import eu.metatools.f2d.InOut
 import eu.metatools.f2d.data.Mat
 import eu.metatools.f2d.drawable.tint
 import eu.metatools.f2d.immediate.submit
+import eu.metatools.f2d.resource.get
 import eu.metatools.f2d.tools.Location
 import eu.metatools.f2d.tools.ReferText
+
+/**
+ * Solid white.
+ */
+private val xpBarDrawable by lazy {
+    Resources.solid.get()
+}
 
 /**
  * Height of the XP bar.
@@ -38,7 +45,7 @@ private const val xpBarValueSize = 16f
 /**
  * Level start XP font.
  */
-private val xpRangeStart by lazy {
+private val xpRangeStartDrawable by lazy {
     Resources.segoe[ReferText(
         horizontal = Location.Start,
         vertical = Location.End
@@ -48,7 +55,7 @@ private val xpRangeStart by lazy {
 /**
  * Level font.
  */
-private val xpLevelValue by lazy {
+private val xpLevelValueDrawable by lazy {
     Resources.segoe[ReferText(
         horizontal = Location.End,
         vertical = Location.End,
@@ -59,7 +66,7 @@ private val xpLevelValue by lazy {
 /**
  * Current XP font.
  */
-private val xpValue by lazy {
+private val xpValueDrawable by lazy {
     Resources.segoe[ReferText(
         horizontal = Location.Start,
         vertical = Location.End,
@@ -70,7 +77,7 @@ private val xpValue by lazy {
 /**
  * Level end XP font.
  */
-private val xpRangeEnd by lazy {
+private val xpRangeEndDrawable by lazy {
     Resources.segoe[ReferText(
         horizontal = Location.End,
         vertical = Location.End
@@ -94,14 +101,14 @@ fun InOut.submitXP(hero: Hero, time: Double) {
 
     // Draw XP bar as fully filled black bar overlaid with partial yellow bar.
     submit(
-        solidDrawable.tint(Color.BLACK), time, Mat
+        xpBarDrawable.tint(Color.BLACK), time, Mat
             .translation(0f, 0f, uiZ)
             .scale(Gdx.graphics.width.toFloat(), xpBarHeight)
             .translate(0.5f, 0.5f)
     )
 
     submit(
-        solidDrawable.tint(Color.YELLOW), time, Mat
+        xpBarDrawable.tint(Color.YELLOW), time, Mat
             .translation(0f, 0f, uiZ)
             .scale(xpFraction * Gdx.graphics.width, xpBarHeight)
             .translate(0.5f, 0.5f)
@@ -109,23 +116,23 @@ fun InOut.submitXP(hero: Hero, time: Double) {
 
     // Draw XP values.
     shadowText(
-        xpRangeStart, xpRangeStartString, time,
+        xpRangeStartDrawable, xpRangeStartString, time,
         xpBarInset, xpBarHeight + xpBarInset,
         xpBarRangeSize
     )
     shadowText(
-        xpLevelValue, xpLevelString, time,
+        xpLevelValueDrawable, xpLevelString, time,
         Gdx.graphics.width / 2f - xpBarInset,
         xpBarHeight + xpBarInset,
         xpBarLevelSize
     )
     shadowText(
-        xpValue, xpValueString, time,
+        xpValueDrawable, xpValueString, time,
         Gdx.graphics.width / 2f + xpBarInset, xpBarHeight + xpBarInset,
         xpBarValueSize
     )
     shadowText(
-        xpRangeEnd, xpRangeEndString, time,
+        xpRangeEndDrawable, xpRangeEndString, time,
         Gdx.graphics.width.toFloat() - xpBarInset,
         xpBarInset,
         xpBarRangeSize

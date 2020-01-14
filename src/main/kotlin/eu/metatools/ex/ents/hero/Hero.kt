@@ -21,7 +21,6 @@ import eu.metatools.f2d.tools.ReferText
 import eu.metatools.f2d.up.enqueue
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
-import eu.metatools.up.dsl.propObserved
 import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
@@ -102,38 +101,28 @@ class Hero(
     /**
      * The level of the hero.
      */
-    var level = XP.levelFor(initXp)
-        private set
+    val level get() = XP.levelFor(xp)
 
     /**
      * The stats of the hero at their level.
      */
-    var stats: Stats = kind.stats(level)
-        private set
+    val stats: Stats get() = kind.stats(level)
 
     /**
      * The XP value.
      */
-    var xp by propObserved({ initXp }, 0) { (from, to) ->
-        val oldLevel = XP.levelFor(from)
-        val newLevel = XP.levelFor(to)
-        if (oldLevel != newLevel) {
-            level = newLevel
-            stats = kind.stats(newLevel)
-        }
-    }
-        private set
+    var xp by { initXp }
 
     /**
      * The current health.
      */
-    var health by { stats.health }
+    var health by { kind.stats(XP.levelFor(initXp)).health }
         private set
 
     /**
      * The amount of ammo.
      */
-    var ammo by { stats.ammo }
+    var ammo by { kind.stats(XP.levelFor(initXp)).ammo }
         private set
 
     /**
@@ -283,7 +272,6 @@ class Hero(
         // Get time to start animation and position.
         val start = elapsed
         val (x, y) = pos
-        val level = height
 
         // Render damage floating up.
         enqueue(ui.world, hitText.limit(3.0).offset(start), amount.toString()) {
@@ -291,7 +279,7 @@ class Hero(
                 tileWidth * x.toFloat(),
                 tileHeight * y.toFloat() + (it - start).toFloat() * 10,
                 subUiZ
-            ).scale(16f)
+            ).scale(16f, 16f)
         }
 
         // If dead now, remove the mover from the world and delete it.
@@ -335,7 +323,7 @@ class Hero(
                 tileWidth * x.toFloat(),
                 tileHeight * y.toFloat() + (it - start).toFloat() * 10,
                 subUiZ
-            ).scale(16f)
+            ).scale(16f, 16f)
         }
     }
 
@@ -352,7 +340,7 @@ class Hero(
         }
     }
 
-    override val describe: String
-        get() = "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
+    override fun describe(): String =
+        "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
 
 }

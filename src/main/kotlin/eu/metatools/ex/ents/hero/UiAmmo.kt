@@ -15,7 +15,7 @@ import eu.metatools.f2d.tools.ReferText
 /**
  * Ammo count text.
  */
-private val ammoCount by lazy {
+private val ammoCountDrawable by lazy {
     Resources.segoe[ReferText(
         horizontal = Location.End,
         vertical = Location.Center
@@ -72,12 +72,12 @@ fun InOut.submitAmmo(hero: Hero, time: Double) {
             Projectile.arrow, time, Mat
                 .translation(ammoInsetX + dx * i, y, uiZ)
                 .rotateZ(MathUtils.PI / 2f)
-                .scale(ammoDisplaySize)
+                .scale(ammoDisplaySize, ammoDisplaySize)
         )
 
     // Display a text for the amount of ammo.
     shadowText(
-        ammoCount, "${hero.ammo}/${hero.stats.ammo}", time, ammoInsetX - ammoCountSpacing, y,
+        ammoCountDrawable, "${hero.ammo}/${hero.stats.ammo}", time, ammoInsetX - ammoCountSpacing, y,
         ammoCountSize
     )
 }

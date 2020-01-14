@@ -38,11 +38,11 @@ enum class Dir {
         /**
          * Computes the direction from quadrants.
          */
-        fun from(x: Number, y: Number, default: Dir = Right): Dir {
+        fun from(x: Number, y: Number): Dir? {
             val xf = x.toFloat()
             val yf = y.toFloat()
             if (xf == 0.0f && yf == 0.0f)
-                return default
+                return null
             return when (MathUtils.radiansToDegrees * atan2(yf, xf)) {
                 in rightRange -> Right
                 in upRange -> Up

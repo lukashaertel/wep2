@@ -74,8 +74,5 @@ class AmmoContainer(
         return 1
     }
 
-    override val describe: String
-        get() = "$content arrows"
-
-
+    override fun describe(): String = "$content arrows"
 }

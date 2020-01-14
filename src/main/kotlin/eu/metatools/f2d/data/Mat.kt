@@ -415,7 +415,7 @@ class Mat(val values: FloatArray) {
     /**
      * Post-multiplies the matrix with the given scaling.
      */
-    fun scale(sx: Float = 1f, sy: Float, sz: Float = 1f) =
+    fun scale(sx: Float = 1f, sy: Float= 1f, sz: Float = 1f) =
         times(scaling(sx, sy, sz))
 
     /**

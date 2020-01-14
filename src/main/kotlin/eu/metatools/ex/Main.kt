@@ -3,22 +3,18 @@ package eu.metatools.ex
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.Input.Keys
-import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.minlog.Log
-import com.google.common.hash.Hashing
-import eu.metatools.ex.data.Dir
 import eu.metatools.ex.data.basicMap
+import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
-import eu.metatools.ex.ents.Described
-import eu.metatools.ex.ents.Rendered
-import eu.metatools.ex.ents.World
 import eu.metatools.ex.ents.hero.*
-import eu.metatools.ex.ents.xyz
 import eu.metatools.ex.input.KeyStick
+import eu.metatools.ex.input.Look
+import eu.metatools.ex.input.Mouse
 import eu.metatools.f2d.F2DListener
 import eu.metatools.f2d.InOut
 import eu.metatools.f2d.data.Mat
@@ -27,21 +23,11 @@ import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.data.toQ
 import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.drawable.tint
-import eu.metatools.f2d.immediate.submit
-import eu.metatools.f2d.resource.LifecycleDrawable
-import eu.metatools.f2d.resource.get
-import eu.metatools.f2d.tools.Location
-import eu.metatools.f2d.tools.ReferData
-import eu.metatools.f2d.tools.ReferText
-import eu.metatools.f2d.tools.hashImage
-import eu.metatools.f2d.util.centeredX
-import eu.metatools.f2d.util.centeredY
 import eu.metatools.up.*
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
-import eu.metatools.up.kryo.hashTo
 import eu.metatools.up.net.NetworkClaimer
 import eu.metatools.up.net.NetworkClock
 import eu.metatools.up.net.NetworkSignOff
@@ -52,6 +38,21 @@ import kotlin.reflect.KParameter
 import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.full.isSupertypeOf
 import kotlin.reflect.typeOf
+
+/**
+ * True if state hashes should be displayed.
+ */
+private var debug = false
+
+/**
+ * True if network should be debugged.
+ */
+private var debugNet = false
+
+/**
+ * Shell hash receiver.
+ */
+private val shellHashes = ShellHashes()
 
 /**
  * Seconds for a long millis time stamp.
@@ -74,29 +75,11 @@ const val subUiZ = -40f
 const val uiZ = -50f
 
 /**
- * Solid white.
- */
-val solidDrawable by lazy {
-    Resources.solid.get()
-}
-
-/**
- * Drawable for description.
- */
-private val descriptionDrawable by lazy {
-    Resources.segoe[ReferText(
-        horizontal = Location.Center,
-        vertical = Location.Start,
-        bold = true
-    )].tint(Color.YELLOW)
-}
-
-/**
  * Draws two texts so it looks like they have a shadow.
  */
 fun InOut.shadowText(on: Drawable<String>, text: String, time: Double, x: Float, y: Float, size: Float, d: Float = 2f) {
-    submit(on.tint(Color.BLACK), text, time, Mat.translation(x + d, y - d, uiZ).scale(size))
-    submit(on, text, time, Mat.translation(x, y, uiZ).scale(size))
+    submit(on.tint(Color.BLACK), text, time, Mat.translation(x + d, y - d, uiZ).scale(size, size))
+    submit(on, text, time, Mat.translation(x, y, uiZ).scale(size, size))
 }
 
 class Frontend : F2DListener(-100f, 100f) {
@@ -191,18 +174,6 @@ class Frontend : F2DListener(-100f, 100f) {
         // Set title.
         Gdx.graphics.setTitle("Joined, player: ${shell.player}")
 
-        // After creation, also connect the input processor.
-        Gdx.input.inputProcessor = object : InputAdapter() {
-            override fun keyUp(keycode: Int): Boolean {
-                when (keycode) {
-                    Keys.ESCAPE -> Gdx.app.exit()
-                    else -> return false
-                }
-
-                return true
-            }
-        }
-
         // Critically execute.
         shell.critical {
             // Assign world from loading or creating.
@@ -226,19 +197,19 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 
     /**
-     * True if state hashes should be displayed.
+     * Returns the look direction.
      */
-    private var debug = false
-
-    /**
-     * True if network should be debugged.
-     */
-    private var debugNet = false
+    private val centerLook = Look()
 
     /**
      * Turns key input into (x, y) coordinates.
      */
     private val keyStick = KeyStick()
+
+    /**
+     * Provides extended mouse functions.
+     */
+    private val mouse = Mouse()
 
     /**
      * Gets the own mover.
@@ -254,43 +225,18 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 
     /**
-     * The text drawable.
-     */
-    private val pingDrawable by lazy {
-        Resources.segoe[ReferText(
-            horizontal = Location.End,
-            vertical = Location.Start
-        )].tint(Color.LIGHT_GRAY)
-    }
-
-    /**
-     * Computed hashes for debug.
-     */
-    private val hashes = mutableListOf<LifecycleDrawable<Unit?>>()
-
-    /**
      * Current scaling factor.
      */
     private var scaling = 4f
-
-    /**
-     * True if left button was down.
-     */
-    private var wasDown = false
-
-    /**
-     * Last direction that was sent to the mover.
-     */
-    private var lastDir = Dir.Right
 
     override fun render(time: Double, delta: Double) {
         // Bind current time.
         shell.withTime(clock) {
             // Get own mover (might be non-existent).
-            val mover = ownMover()
+            val hero = ownMover()
 
             // Check if mover is there.
-            if (mover == null) {
+            if (hero == null) {
                 // Set to scaling.
                 view = Mat.scaling(scaling)
 
@@ -298,58 +244,49 @@ class Frontend : F2DListener(-100f, 100f) {
                 if (Gdx.input.isKeyJustPressed(Keys.F1))
                     root.createHero(shell.player)
             } else {
-                // Get the coorinate of the mover.
-                val (x, y, z) = mover.xyz(time)
+                // Get the coordinate of the mover.
+                val (x, y, z) = hero.xyz(time)
 
                 // Center on it.
                 view = Mat
                     .translation(Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
-                    .scale(scaling)
+                    .scale(scaling,scaling)
                     .translate(x = -x.toFloat() * tileWidth, y = -y.toFloat() * tileHeight)
                     .translate(y = -z.toFloat() * tileHeight)
 
                 // Get desired move direction.
                 keyStick.fetch()?.let {
                     // Send to mover if present.
-                    mover.move(it.toQ())
+                    hero.move(it.toQ())
                 }
 
-                // Get aim direction.
-                val dx = Gdx.input.centeredX
-                val dy = Gdx.input.centeredY
+                // If look at direction has changed, look at it.
+                centerLook.fetch()?.let {
+                    hero.lookAt(it)
+                }
 
-                // Compute dir from direction and compare against last. If not equal, send new look at.
-                val newDir = Dir.from(dx, dy)
-                if (newDir != lastDir)
-                    mover.lookAt(newDir)
+                // If mouse status has changed, handle input.
+                mouse.fetch()?.let {
+                    if (mouse.justPressed(Input.Buttons.RIGHT))
+                        hero.cancelDraw()
 
-                // Assign new last dir.
-                lastDir = newDir
+                    if (mouse.justPressed(Input.Buttons.LEFT))
+                        hero.draw()
 
-                // If right button just pressed, cancel draw.
-                if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT))
-                    mover.cancelDraw()
-
-                // Check if left button is down.
-                val isDown = Gdx.input.isButtonPressed(Input.Buttons.LEFT)
-
-                // If just pressed, begin draw.
-                if (!wasDown && isDown) mover.draw()
-
-                // If just released, end draw.
-                if (wasDown && !isDown) mover.release(QPt(dx, dy))
-
-                // Assign new was down.
-                wasDown = isDown
+                    if (mouse.justReleased(Input.Buttons.LEFT))
+                        hero.release(QPt(mouse.dx, mouse.dy))
+                }
 
                 // Render mover parameters.
-                ui.submitHealth(mover, time)
-                ui.submitDraw(mover, time)
-                ui.submitAmmo(mover, time)
-                ui.submitXP(mover, time)
+                ui.submitHealth(hero, time)
+                ui.submitDraw(hero, time)
+                ui.submitAmmo(hero, time)
+                ui.submitXP(hero, time)
             }
         }
 
+        // Submit described elements.
+        ui.submitDescribed(capture?.first as? Described, time)
 
         // Dispatch global update.
         root.worldUpdate(clock.time)
@@ -359,52 +296,28 @@ class Frontend : F2DListener(-100f, 100f) {
 
         // Check if sign off was set.
         signOffValue?.let {
-            // Invalidate to it.
+            // Invalidate to it and reset sign off.
             shell.engine.invalidate(it)
+            signOffValue = null
 
             // Update hash values if debugging.
-            if (debug) {
-                val target = Hashing.farmHashFingerprint64().newHasher()
-                shell.hashTo(target, ::configureKryo)
-                val bytes = target.hash().asBytes()
-                hashes.add(0, Resources.data[ReferData(bytes, ::hashImage)])
-                while (hashes.size > 5)
-                    hashes.asReversed().removeAt(0).dispose()
-            } else {
-                if (hashes.isNotEmpty())
-                    hashes.asReversed().removeAt(0).dispose()
-            }
-
-            // Reset sign off value.
-            signOffValue = null
+            if (debug) shellHashes.pushHash(shell) else shellHashes.clear()
         }
 
-        // Render if description present.
-        (capture?.first as? Described)?.let {
-            // Could at this point be disconnected.
-            if (it.isConnected())
-                ui.shadowText(
-                    descriptionDrawable, it.describe, time,
-                    Gdx.graphics.width.toFloat() / 2f, Gdx.graphics.height - 16f, 32f
-                )
-        }
+        // Draw ping.
+        ui.submitPing(clock, time)
 
-        // Render network offset (ping).
-        ui.submit(
-            pingDrawable, "Offset: ${clock.currentDeltaTime}ms", time, Mat.translation(
-                Gdx.graphics.width.toFloat() - 16f,
-                Gdx.graphics.height.toFloat() - 16f,
-                -50f
-            ).scale(24f)
-        )
+        // Display all hashes if debugging.
+        if (debug) ui.submitHashes(shellHashes, time)
 
-        // Dispalay all hashes if debugging.
-        if (debug) {
-            for ((i, h) in hashes.withIndex()) {
-                ui.submit(h, time, Mat.translation(32f, 32f + (i * 64f), -40f).scale(48f))
-            }
-        }
+        // Handle other inputs.
+        otherInputs()
+    }
 
+    /**
+     * Handles non-game stuff.
+     */
+    private fun otherInputs() {
         // Set zoom.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
             scaling = 1f
