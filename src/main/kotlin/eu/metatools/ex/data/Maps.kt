@@ -11,7 +11,7 @@ import java.util.*
 /**
  * A simple map.
  */
-val stupidBox = mutableMapOf<Tri, Block>().also {
+val basicMap = mutableMapOf<Tri, Block>().also {
 
     // Ground level.
     for (x in -5..15)

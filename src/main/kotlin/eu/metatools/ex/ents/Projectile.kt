@@ -3,6 +3,7 @@ package eu.metatools.ex.ents
 import eu.metatools.ex.Frontend
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
+import eu.metatools.ex.ents.hero.Hero
 import eu.metatools.f2d.data.Mat
 import eu.metatools.f2d.data.Q
 import eu.metatools.f2d.data.QPt
@@ -16,66 +17,69 @@ import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 
+
 /**
- * A moving bullet.
- * @param shell The shell for the [Ent].
- * @param id The ID for the [Ent].
- * @param initPos The initial position.
- * @param initVel The initial velocity.
- * @param initMoveTime The initial move time.
- * @property damage Constant. The damage done by the bullet.
+ * A moving projectile. [Moves], is [Solid], [HandlesHit]s, [Ticking] until it has reached the auto-destruct, [Rendered]
+ * as an arrow.
+ *
+ * @param shell The entity shell.
+ * @param id The entity ID.
+ * @property ui The displaying UI.
+ * @param initOwner The [Hero] that owns this projectile for XP tracking.
+ * @param initPos The starting position of the projectile.
+ * @param initHeight The height of the projectile.
+ * @param initMoveVel The velocity this projectile files with.
+ * @param initMoveTime The time the movement started (genesis of the projectile).
+ * @property damage The damage this projectile does.
  */
-class Bullet(
-    shell: Shell, id: Lx, val ui: Frontend,
-    initOwner: Mover,
-    initPos: QPt, initVel: QPt, initMoveTime: Double, initLevel: Q, val damage: Q
+class Projectile(
+    shell: Shell,
+    id: Lx,
+    val ui: Frontend,
+    initOwner: Hero,
+    initPos: QPt,
+    initHeight: Q,
+    initMoveVel: QPt,
+    initMoveTime: Double,
+    val damage: Q
 ) : Ent(shell, id), Moves, Solid, HandlesHit, Ticking, Rendered {
     companion object {
         /**
          * The drawable for the bullet.
          */
-         val arrow by atlas("arrow")
+        val arrow by eu.metatools.ex.atlas("arrow")
     }
 
     override val extraArgs = mapOf(
         "initOwner" to initOwner,
         "initPos" to initPos,
-        "initVel" to initVel,
+        "initMoveVel" to initMoveVel,
         "initMoveTime" to initMoveTime,
-        "initLevel" to initLevel,
+        "initHeight" to initHeight,
         "damage" to damage
     )
 
-    /**
-     * Reference to the world.
-     */
     override val world get() = shell.resolve(lx / "root") as World
 
-    val owner by { initOwner }
-
-    /**
-     * Current position.
-     */
     override var pos by { initPos }
 
-    /**
-     * Current move time.
-     */
+    override var height by { initHeight }
+
     override var moveTime by { initMoveTime }
 
-    val birth = initMoveTime
+    override var moveVel by { initMoveVel }
 
-    /**
-     * Current velocity.
-     */
-    override var vel by { initVel }
-
-    override var level by { initLevel }
-
-    /**
-     * Constant. Radius.
-     */
     override val radius = 0.05f.toQ()
+
+    /**
+     * The genesis of the projectile.
+     */
+    val genesis = initMoveTime
+
+    /**
+     * The owner.
+     */
+    val owner by { initOwner }
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
@@ -85,9 +89,9 @@ class Bullet(
         val local = mat
             .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
             .translate(y = tileHeight * z.toFloat())
-            .translate(y = tileHeight * Mover.offset.toFloat())
+            .translate(y = tileHeight * Hero.offset.toFloat())
             .translate(z = toZ(z))
-            .rotateZ(vel.angle.toFloat())
+            .rotateZ(moveVel.angle.toFloat())
             .scale(tileWidth, tileHeight)
 
         // Submit the solid.
@@ -96,20 +100,24 @@ class Bullet(
     }
 
     override fun hitHull() {
+        // Hit the hull, just delete.
         delete(this)
     }
 
     override fun hitOther(other: Moves) {
+        // Hit other, other is damageable.
         (other as? Damageable)?.takeDamage(damage)?.let {
+            // If XP was returned, have owner receive it.
             owner.takeXP(it)
         }
 
+        // Delete.
         delete(this)
     }
 
     override fun update(sec: Double, freq: Long) {
         // Delete if flying for too long.
-        if (birth + 5.0 < sec)
+        if (genesis + 5.0 < sec)
             delete(this)
     }
 

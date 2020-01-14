@@ -7,48 +7,108 @@ import eu.metatools.up.isConnected
 import eu.metatools.up.lang.invoke
 import eu.metatools.up.list
 
-interface HasDescription {
+/**
+ * Entity has a description.
+ */
+interface Described : All {
+    /**
+     * The description for an entity.
+     */
     val describe: String
 }
 
 
+/**
+ * Entity has a solid, circular hull.
+ */
 interface Solid : All {
+    /**
+     * The radius of the entity.
+     */
     val radius: Q
 }
 
+/**
+ * Entity moves.
+ */
 interface Moves : All {
+    /**
+     * Base position of the current movement.
+     */
     var pos: QPt
 
+    /**
+     * Height of the current movement for evaluation of map layer.
+     */
+    var height: Q
+
+    /**
+     * Time at which movement began.
+     */
     var moveTime: Double
 
-    var vel: QPt
+    /**
+     * Movement velocity.
+     */
+    var moveVel: QPt
 
-    var level: Q
 }
 
+/**
+ * Evaluates the position without map layer.
+ */
 fun Moves.positionAt(time: Double) =
-    if (vel.isEmpty()) pos else pos + vel * (time - moveTime).toQ()
+    if (moveVel.isEmpty()) pos else pos + moveVel * (time - moveTime).toQ()
 
+/**
+ * Entity moves and is clipped to the ground and the walkable patch.
+ */
 interface Walking : Moves
 
+/**
+ * Entity will block movement.
+ */
 interface Blocking : Moves
 
-fun Moves.move(time: Double, input: QPt) {
+/**
+ * Updates the desired movement velocity to [vel] at the current [positionAt] [time].
+ */
+fun Moves.takeMovement(time: Double, vel: QPt) {
     // Explicit update.
     pos = positionAt(time)
     moveTime = time
-    vel = input
+    moveVel = vel
 }
 
+/**
+ * Gets the radius or zero if receiver does not have a radius.
+ */
 fun Any.radius() =
     if (this is Solid) radius else Q.ZERO
 
+/**
+ * [Moves] that handles hits.
+ */
 interface HandlesHit {
+    /**
+     * Entity hit the world hull.
+     */
     fun hitHull() = Unit
+
+    /**
+     * Entity hit the walkable hull.
+     */
     fun hitBoundary() = Unit
+
+    /**
+     * Entity hit [other] [Moves].
+     */
     fun hitOther(other: Moves) = Unit
 }
 
+/**
+ * Updates all [Moves] in the world.
+ */
 fun World.updateMovement(time: Double) {
     val moves = shell.list<Moves>().toList()
 
@@ -68,8 +128,8 @@ fun World.updateMovement(time: Double) {
             if (!b.isConnected())
                 continue
 
-            val aLevel = a.level.toInt()
-            val bLevel = b.level.toInt()
+            val aLevel = a.height.toInt()
+            val bLevel = b.height.toInt()
 
             val aPos = a.positionAt(time)
             val bPos = b.positionAt(time)
@@ -111,7 +171,7 @@ fun World.updateMovement(time: Double) {
             continue
 
         // Evaluate for hull collision.
-        val hullLevel = a.level.toInt()
+        val hullLevel = a.height.toInt()
         val hullPos = a.positionAt(time)
         val hullRadius = a.radius()
 
@@ -136,7 +196,7 @@ fun World.updateMovement(time: Double) {
             continue
 
         // Evaluate for boundary collision.
-        val boundsLevel = a.level.toInt()
+        val boundsLevel = a.height.toInt()
         val boundsPos = a.positionAt(time)
         val boundsRadius = a.radius()
 
@@ -158,25 +218,29 @@ fun World.updateMovement(time: Double) {
             continue
 
         // Evaluate for lift detection.
-        val liftLevel = a.level.toInt()
+        val liftLevel = a.height.toInt()
         val liftPos = a.positionAt(time)
 
         // Lift if in lifting area.
         val lift = map.lift(liftLevel, liftPos.x, liftPos.y)
         if (lift != 0)
-            a.level = (a.level.floor() + lift).toQ()
+            a.height = (a.height.floor() + lift).toQ()
     }
 }
 
+/**
+ * Computes the horizontal and vertical coordinats. For [Walking], the height is clipped to the walkable hull, otherwise
+ * the [height] is returned as is.
+ */
 fun Moves.xyz(time: Double): Triple<Q, Q, Number> {
     // Get position.
     val (x, y) = positionAt(time)
 
     // Get height, if walking, this is clipped to ground.
     val z = if (this is Walking)
-        world.map.height(level.toInt(), x, y)
+        world.map.height(height.toInt(), x, y)
     else
-        level
+        height
 
     // Return the values.
     return Triple(x, y, z)

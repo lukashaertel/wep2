@@ -16,42 +16,36 @@ import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.never
 
-class Respack(
+/**
+ * Ammo container.
+ *
+ * @param shell The entity shell.
+ * @param id The entity ID.
+ * @property ui The displaying UI.
+ * @param initPos The starting position of the container.
+ * @param initHeight The height of the container.
+ */
+class AmmoContainer(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: QPt, initLevel: Q, val content: Int
-) : Ent(shell, id), Moves, Solid, Rendered, Damageable, HasDescription {
+    initPos: QPt, initHeight: Q, val content: Int
+) : Ent(shell, id), Moves, Solid, Rendered, Damageable, Described {
     override val extraArgs = mapOf(
         "initPos" to initPos,
-        "initLevel" to initLevel,
+        "initHeight" to initHeight,
         "content" to content
     )
 
-    /**
-     * Reference to the world.
-     */
     override val world get() = shell.resolve(lx / "root") as World
 
-    /**
-     * Current position.
-     */
+    override val radius = Q.THIRD
+
     override var pos by { initPos }
 
-    /**
-     * Current move time.
-     */
+    override var height by { initHeight }
+
     override var moveTime by { 0.0 }
 
-    /**
-     * Current velocity.
-     */
-    override var vel by { QPt.ZERO }
-
-    override var level by { initLevel }
-
-    /**
-     * Constant. Radius.
-     */
-    override val radius = Q.THIRD
+    override var moveVel by { QPt.ZERO }
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.

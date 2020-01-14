@@ -8,9 +8,19 @@ import org.locationtech.jts.geom.Geometry
 import org.locationtech.jts.geom.GeometryFactory
 import org.locationtech.jts.geom.PrecisionModel
 
+/**
+ * World geometry.
+ */
 class Hull {
     companion object {
+        /**
+         * Precision of the JTS geometry.
+         */
         private const val precision = 1000.0
+
+        /**
+         * Epsilon value of the JTS geometry.
+         */
         private const val epsilon = 2.0 / precision
     }
 
@@ -43,18 +53,27 @@ class Hull {
             )
         )
 
+    /**
+     * Adds a square on [level] at ([x], [y]).
+     */
     fun add(level: Int, x: Number, y: Number) {
         val square = square(x, y)
         levels.compute(level) { _, p -> p?.union(square) ?: square }
         buffers.remove(level)
     }
 
+    /**
+     * Removes a square from [level] at ([x], [y]).
+     */
     fun remove(level: Int, x: Number, y: Number) {
         val square = square(x, y)
         levels.computeIfPresent(level) { _, p -> p.difference(square) }
         buffers.remove(level)
     }
 
+    /**
+     * Computes or gets the buffer (base geometry extended by the [distance]) at the level.
+     */
     private fun buffer(level: Int, distance: Double): Geometry? {
         return buffers.getOrPut(level, ::mutableMapOf).getOrPut(distance) {
             levels[level]?.buffer(distance)
@@ -62,9 +81,8 @@ class Hull {
     }
 
     /**
-     * Returns for the given coordinate, [level] and [radius] the point that needs to be reset to to maintain
-     * [inside]ness of the coordinate. E.g., if [inside] is given as true, the circles not contained in the geometry are
-     * clipped so they are. If given false, circles inside are moved to the border.
+     * Returns the position that an object on the [level] at ([x], [y]) of the given [radius] has to be set to be
+     * inside the hull. `null` if no action needs to be taken.
      */
     fun bindIn(level: Int, radius: Number, x: Number, y: Number): Pair<Number, Number>? {
         // Get distance from radius and inversion.
@@ -92,6 +110,10 @@ class Hull {
         }
     }
 
+    /**
+     * Returns the position that an object on the [level] at ([x], [y]) of the given [radius] has to be set to remain
+     * outside the hull. `null` if no action needs to be taken.
+     */
     fun bindOut(level: Int, radius: Number, x: Number, y: Number): Pair<Number, Number>? {
         // Get distance from radius and inversion.
         val distance = radius.toDouble()
@@ -118,7 +140,10 @@ class Hull {
         }
     }
 
-    fun integrate(level: Int, radius: Number, x: Number, y: Number, inside: Boolean = false): Pair<Number, Number> {
+    /**
+     * Computes the surface normal of the hit an object on the [level] at ([x], [y]) of the given [radius] has received.
+     */
+    fun normal(level: Int, radius: Number, x: Number, y: Number, inside: Boolean = false): Pair<Number, Number> {
         // Get distance from radius and inversion.
         val distance = if (inside) -radius.toDouble() else radius.toDouble()
 

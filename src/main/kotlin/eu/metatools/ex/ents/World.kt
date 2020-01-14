@@ -3,6 +3,8 @@ package eu.metatools.ex.ents
 import eu.metatools.ex.Frontend
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
+import eu.metatools.ex.ents.hero.Hero
+import eu.metatools.ex.ents.hero.Heroes
 import eu.metatools.ex.sec
 import eu.metatools.f2d.data.*
 import eu.metatools.f2d.immediate.submit
@@ -54,7 +56,7 @@ class World(
         }
 
         val random = rng()
-        val respacks = shell.list<Respack>()
+        val respacks = shell.list<AmmoContainer>()
         if (random.nextInt(100) < 5 && respacks.count() < 10) {
             val field = map
                 .filter { (k, v) ->
@@ -71,7 +73,7 @@ class World(
 
             if (field != null)
                 constructed(
-                    Respack(
+                    AmmoContainer(
                         shell, newId(), ui,
                         QPt(field.x, field.y), field.z.inc().toQ(), 5 + random.nextInt(10)
                     )
@@ -83,7 +85,7 @@ class World(
     /**
      * Set of all movers in the game.
      */
-    val movers by set<Mover>()
+    val movers by set<Hero>()
 
     override fun render(mat: Mat, time: Double) {
         for ((at, block) in map) {
@@ -129,9 +131,9 @@ class World(
         // Add mover to set of movers.
         movers.add(
             constructed(
-                Mover(
+                Hero(
                     shell, newId(), ui,
-                    1, QPt(5f.toQ(), 5f.toQ()), Q.ZERO, Movers.Pazu, owner
+                    1, QPt(5f.toQ(), 5f.toQ()), Q.ZERO, Heroes.Pazu, owner
                 )
             )
         )

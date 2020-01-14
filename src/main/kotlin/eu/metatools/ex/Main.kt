@@ -10,10 +10,14 @@ import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.minlog.Log
 import com.google.common.hash.Hashing
 import eu.metatools.ex.data.Dir
-import eu.metatools.ex.data.stupidBox
-import eu.metatools.ex.ents.*
+import eu.metatools.ex.data.basicMap
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
+import eu.metatools.ex.ents.Described
+import eu.metatools.ex.ents.Rendered
+import eu.metatools.ex.ents.World
+import eu.metatools.ex.ents.hero.*
+import eu.metatools.ex.ents.xyz
 import eu.metatools.ex.input.KeyStick
 import eu.metatools.f2d.F2DListener
 import eu.metatools.f2d.InOut
@@ -54,6 +58,7 @@ val Long.sec get() = this / 1000.0
 fun Long.toNextFullSecond() =
     1000L - (this % 1000L)
 
+const val subUiZ = -40f
 const val uiZ = -50f
 
 val solidDrawable by lazy {
@@ -75,18 +80,26 @@ fun InOut.shadowText(on: Drawable<String>, text: String, time: Double, x: Float,
 }
 
 class Frontend : F2DListener(-100f, 100f) {
-
+    /**
+     * Handle bundling the engine.
+     */
     private fun handleBundle(): Map<Lx, Any?> {
         val result = hashMapOf<Lx, Any?>()
         shell.store(result::set)
         return result
     }
 
+    /**
+     * Handle receiving the instruction.
+     */
     private fun handleReceive(instruction: Instruction) {
         shell.receive(instruction)
     }
 
-    val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
+    /**
+     * Network connection.
+     */
+    private val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
         configureKryo = ::configureKryo
     )
 
@@ -119,11 +132,16 @@ class Frontend : F2DListener(-100f, 100f) {
         it.send = net::instruction
     }
 
+    /**
+     * Resolves global parameter for entities. Used to provide the UI references.
+     */
     @Suppress("experimental_api_usage_error")
     private fun resolveGlobal(param: KParameter): Any {
+        // If F2DListener <= type <= Frontend, return this.
         if (param.type.isSubtypeOf(typeOf<F2DListener>()) && param.type.isSupertypeOf(typeOf<Frontend>()))
             return this
 
+        // Unknown.
         throw NoSuchElementException(param.toString())
     }
 
@@ -139,13 +157,16 @@ class Frontend : F2DListener(-100f, 100f) {
      */
     lateinit var root: World
 
+    /**
+     * Sign off value, received by the sign off coordinator.
+     */
     private var signOffValue: Long? = null
 
     override fun create() {
         super.create()
 
         // Set model scaling to display scaled up.
-        view = Mat.scaling(2f, 2f)
+        view = Mat.scaling(scaling)
 
         // Set title.
         Gdx.graphics.setTitle("Joined, player: ${shell.player}")
@@ -162,33 +183,48 @@ class Frontend : F2DListener(-100f, 100f) {
             }
         }
 
+        // Critically execute.
         shell.critical {
             // Assign world from loading or creating.
             root = if (net.isCoordinating) {
-                World(shell, lx / "root", this, stupidBox).also {
+                // This instance is coordinating, create the world.
+                World(shell, lx / "root", this, basicMap).also {
                     shell.engine.add(it)
                 }
             } else {
-                // Restore, resolve root.
+                // Joined, restore and resolve root.
                 val bundle = net.bundle()
-
                 shell.loadFromMap(bundle, ::resolveGlobal, check = true)
                 shell.resolve(lx / "root") as World
             }
 
+            // On joining, create a mover.
             shell.withTime(clock) {
                 root.createMover(shell.player)
             }
         }
     }
 
-    var debug = false
-    var debugNet = false
+    /**
+     * True if state hashes should be displayed.
+     */
+    private var debug = false
 
+    /**
+     * True if network should be debugged.
+     */
+    private var debugNet = false
+
+    /**
+     * Turns key input into (x, y) coordinates.
+     */
     private val keyStick = KeyStick()
 
-    private fun ownMover(): Mover? =
-        shell.list<Mover>().find { it.owner == shell.player }
+    /**
+     * Gets the own mover.
+     */
+    private fun ownMover(): Hero? =
+        shell.list<Hero>().find { it.owner == shell.player }
 
     override fun render() {
         // Block network on all rendering, including sending via Once.
@@ -207,13 +243,25 @@ class Frontend : F2DListener(-100f, 100f) {
         )].tint(Color.LIGHT_GRAY)
     }
 
+    /**
+     * Computed hashes for debug.
+     */
     private val hashes = mutableListOf<LifecycleDrawable<Unit?>>()
 
+    /**
+     * Current scaling factor.
+     */
     private var scaling = 4f
 
-    var wasDown = false
+    /**
+     * True if left button was down.
+     */
+    private var wasDown = false
 
-    var lastDir = Dir.Right
+    /**
+     * Last direction that was sent to the mover.
+     */
+    private var lastDir = Dir.Right
 
     override fun render(time: Double, delta: Double) {
         // Bind current time.
@@ -223,65 +271,63 @@ class Frontend : F2DListener(-100f, 100f) {
 
             // Check if mover is there.
             if (mover == null) {
-                view = Mat.ID
+                // Set to scaling.
+                view = Mat.scaling(scaling)
 
-                // It is not, allow for recreation.
+                // If key just pressed, create a new mover.
                 if (Gdx.input.isKeyJustPressed(Keys.F1))
                     root.createMover(shell.player)
             } else {
+                // Get the coorinate of the mover.
                 val (x, y, z) = mover.xyz(time)
-                view = Mat.translation(
-                    Gdx.graphics.width / 2f,
-                    Gdx.graphics.height / 2f
-                ).scale(scaling)
+
+                // Center on it.
+                view = Mat
+                    .translation(Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
+                    .scale(scaling)
                     .translate(x = -x.toFloat() * tileWidth, y = -y.toFloat() * tileHeight)
                     .translate(y = -z.toFloat() * tileHeight)
 
                 // Get desired move direction.
-                val move = keyStick.fetch()
+                keyStick.fetch()?.let {
+                    // Send to mover if present.
+                    mover.move(it.toQ())
+                }
 
-                // Movement is present, pass to mover.
-                if (move != null)
-                    mover.moveInDirection(move.toQ())
-
+                // Get aim direction.
                 val dx = Gdx.input.centeredX
                 val dy = Gdx.input.centeredY
 
+                // Compute dir from direction and compare against last. If not equal, send new look at.
                 val newDir = Dir.from(dx, dy)
                 if (newDir != lastDir)
                     mover.lookAt(newDir)
+
+                // Assign new last dir.
                 lastDir = newDir
 
+                // If right button just pressed, cancel draw.
                 if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT))
                     mover.cancelDraw()
 
+                // Check if left button is down.
                 val isDown = Gdx.input.isButtonPressed(Input.Buttons.LEFT)
+
+                // If just pressed, begin draw.
                 if (!wasDown && isDown) mover.draw()
+
+                // If just released, end draw.
                 if (wasDown && !isDown) mover.release(QPt(dx, dy))
+
+                // Assign new was down.
                 wasDown = isDown
 
-
-                // Health bar
-                ui.submit(
-                    solidDrawable.tint(Color.BLACK), time, Mat
-                        .translation(32f, 32f, -50f)
-                        .scale(200f, 20f)
-                        .translate(0.5f, 0.5f)
-                )
-
-                ui.submit(
-                    solidDrawable.tint(Color.RED), time, Mat
-                        .translation(32f, 32f, -50f)
-                        .scale(mover.health.toFloat() * 200f / mover.xpStats.health.toFloat(), 20f)
-                        .translate(0.5f, 0.5f)
-                )
-
+                // Render mover parameters.
+                ui.submitHealth(mover, time)
                 ui.submitDraw(mover, time)
                 ui.submitAmmo(mover, time)
                 ui.submitXP(mover, time)
             }
-
-
         }
 
 
@@ -296,6 +342,7 @@ class Frontend : F2DListener(-100f, 100f) {
             // Invalidate to it.
             shell.engine.invalidate(it)
 
+            // Update hash values if debugging.
             if (debug) {
                 val target = Hashing.farmHashFingerprint64().newHasher()
                 shell.hashTo(target, ::configureKryo)
@@ -308,12 +355,12 @@ class Frontend : F2DListener(-100f, 100f) {
                     hashes.asReversed().removeAt(0).dispose()
             }
 
-            // Reset.
+            // Reset sign off value.
             signOffValue = null
         }
 
         // Render if description present.
-        (capture?.first as? HasDescription)?.let {
+        (capture?.first as? Described)?.let {
             // Could at this point be disconnected.
             if (it.isConnected())
                 ui.shadowText(
@@ -322,6 +369,7 @@ class Frontend : F2DListener(-100f, 100f) {
                 )
         }
 
+        // Render network offset (ping).
         ui.submit(
             pingDrawable, "Offset: ${clock.currentDeltaTime}ms", time, Mat.translation(
                 Gdx.graphics.width.toFloat() - 16f,
@@ -330,14 +378,14 @@ class Frontend : F2DListener(-100f, 100f) {
             ).scale(24f)
         )
 
-
+        // Dispalay all hashes if debugging.
         if (debug) {
             for ((i, h) in hashes.withIndex()) {
                 ui.submit(h, time, Mat.translation(32f, 32f + (i * 64f), -40f).scale(48f))
             }
         }
 
-        // Process non-game input.
+        // Set zoom.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
             scaling = 1f
         if (Gdx.input.isKeyJustPressed(Keys.NUM_2))
@@ -349,25 +397,35 @@ class Frontend : F2DListener(-100f, 100f) {
         if (Gdx.input.isKeyJustPressed(Keys.NUM_5))
             scaling = 5f
 
+        // Toggle debug.
         if (Gdx.input.isKeyJustPressed(Keys.F9))
             debug = !debug
 
+        // Toggle network debug.
         if (Gdx.input.isKeyJustPressed(Keys.F10)) {
             debugNet = !debugNet
             Log.set(if (debugNet) Log.LEVEL_DEBUG else Log.LEVEL_INFO)
         }
     }
 
-    private var capture: Pair<Any, QPt>? = null
+    /**
+     * Current captured element and position.
+     */
+    var capture: Pair<Any, QPt>? = null
+        private set
 
+    /**
+     * True if [any] is the first entry of [capture].
+     */
     fun isSelected(any: Any) =
         capture?.first == any
 
     override fun capture(result: Any?, intersection: Vec) {
+        // Get actual coordinates.
         val (x, y) = view.inv * intersection
 
-        // Memorize result.
-        capture = (result ?: root) to QPt(x / Constants.tileWidth, y / Constants.tileHeight)
+        // Memorize result, convert to world space.
+        capture = (result ?: root) to QPt(x / tileWidth, y / tileHeight)
     }
 
     override fun pause() = Unit
@@ -384,11 +442,19 @@ class Frontend : F2DListener(-100f, 100f) {
     }
 }
 
+/**
+ * Frontend instance.
+ */
 lateinit var frontend: Frontend
 
 fun main() {
+    // Create the frontend.
     frontend = Frontend()
+
+    // Set config values.
     val config = LwjglApplicationConfiguration()
     config.height = config.width
+
+    // Start application.
     LwjglApplication(frontend, config)
 }

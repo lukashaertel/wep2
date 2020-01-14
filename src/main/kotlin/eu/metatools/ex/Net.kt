@@ -2,7 +2,7 @@ package eu.metatools.ex
 
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.serializers.DefaultSerializers
-import eu.metatools.ex.ents.Movers
+import eu.metatools.ex.ents.hero.Heroes
 import eu.metatools.ex.ents.Blocks
 import eu.metatools.f2d.up.kryo.registerF2DSerializers
 import eu.metatools.f2d.up.kryo.registerGDXSerializers
@@ -22,9 +22,9 @@ fun configureKryo(kryo: Kryo) {
 
    // Register data objects.
    kryo.register(
-       Movers::class.java,
+       Heroes::class.java,
        DefaultSerializers.EnumSerializer(
-           Movers::class.java
+           Heroes::class.java
        )
    )
    kryo.register(
