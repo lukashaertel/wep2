@@ -21,6 +21,15 @@ val stupidBox = mutableMapOf<Tri, Block>().also {
         for (y in 0..10)
             it[Tri(x, y, -1)] = Blocks.Brick
 
+    it[Tri(3, 7, -1)] = Blocks.Slab
+    it[Tri(8, 9, -1)] = Blocks.Slab
+    it[Tri(-2, 2, -1)] = Blocks.Slab
+    it[Tri(12, 2, -1)] = Blocks.Slab
+
+
+    for (x in 11..15)
+        it[Tri(x, 8, 0)] = Blocks.BridgeH
+
     for (i in -5..15) {
         it[Tri(i, -5, 0)] = Blocks.Tree
         it[Tri(i, 15, 0)] = Blocks.Tree
@@ -45,6 +54,8 @@ val stupidBox = mutableMapOf<Tri, Block>().also {
         it[Tri(0, i, 0)] = Blocks.Stone
         it[Tri(10, i, 0)] = Blocks.Stone
     }
+
+    it[Tri(4, 10, 0)] = Blocks.StoneDoor
 
     it.remove(Tri(5, 0, 0))
 

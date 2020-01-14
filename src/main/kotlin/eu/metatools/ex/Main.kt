@@ -197,9 +197,6 @@ class Frontend : F2DListener(-100f, 100f) {
         }
     }
 
-    private val generatorRandom = Random()
-
-
     /**
      * The text drawable.
      */
@@ -247,7 +244,6 @@ class Frontend : F2DListener(-100f, 100f) {
                 if (move != null)
                     mover.moveInDirection(move.toQ())
 
-
                 val dx = Gdx.input.centeredX
                 val dy = Gdx.input.centeredY
 
@@ -276,11 +272,11 @@ class Frontend : F2DListener(-100f, 100f) {
                 ui.submit(
                     solidDrawable.tint(Color.RED), time, Mat
                         .translation(32f, 32f, -50f)
-                        .scale(mover.health * 200f / mover.kind.initialHealth, 20f)
+                        .scale(mover.health.toFloat() * 200f / mover.xpStats.health.toFloat(), 20f)
                         .translate(0.5f, 0.5f)
                 )
 
-
+                ui.submitDraw(mover, time)
                 ui.submitAmmo(mover, time)
                 ui.submitXP(mover, time)
             }

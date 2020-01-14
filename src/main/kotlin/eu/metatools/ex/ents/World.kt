@@ -54,9 +54,15 @@ class World(
         }
 
         val random = rng()
-        if (random.nextDouble() > 0.98 && shell.list<Respack>().count() < 10) {
+        val respacks = shell.list<Respack>()
+        if (random.nextInt(100) < 5 && respacks.count() < 10) {
             val field = map
-                .filter { (k, v) -> v.extras["RSP"] == true && map[k.copy(z = k.z.inc())]?.solid != true }
+                .filter { (k, v) ->
+                    v.extras["RSP"] == true
+                            && map[k.copy(z = k.z.inc())]?.solid != true
+                            && respacks.none { it.pos == QPt(k.x, k.y) }
+                }
+
                 .toList()
                 .takeIf { it.isNotEmpty() }
                 ?.let {
@@ -125,7 +131,7 @@ class World(
             constructed(
                 Mover(
                     shell, newId(), ui,
-                    QPt(5f.toQ(), 5f.toQ()), Q.ZERO, Movers.Pazu, owner
+                    1, QPt(5f.toQ(), 5f.toQ()), Q.ZERO, Movers.Pazu, owner
                 )
             )
         )

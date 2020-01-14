@@ -28,7 +28,7 @@ import eu.metatools.up.dt.lx
 class Bullet(
     shell: Shell, id: Lx, val ui: Frontend,
     initOwner: Mover,
-    initPos: QPt, initVel: QPt, initMoveTime: Double, initLevel: Q, val damage: Int
+    initPos: QPt, initVel: QPt, initMoveTime: Double, initLevel: Q, val damage: Q
 ) : Ent(shell, id), Moves, Solid, HandlesHit, Ticking, Rendered {
     companion object {
         /**

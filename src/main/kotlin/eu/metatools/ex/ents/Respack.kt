@@ -75,7 +75,7 @@ class Respack(
         ui.world.submit(CaptureCube, this, time, local)
     }
 
-    override fun takeDamage(amount: Int): Int {
+    override fun takeDamage(amount: Q): Int {
         delete(this)
         return 1
     }

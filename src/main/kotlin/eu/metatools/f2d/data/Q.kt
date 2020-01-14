@@ -34,6 +34,9 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
         fun fromNumerator(numerator: Int) =
             Q(Unit, numerator)
 
+        fun fromFraction(numerator: Int, denominator: Int) =
+            fromNumerator(numerator * precision / denominator)
+
         /**
          * The denominator value.
          */
@@ -60,14 +63,19 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
         val TWO = fromNumerator(2 * precision)
 
         /**
+         * A quarter.
+         */
+        val QUARTER = fromFraction(1, 4)
+
+        /**
          * A third.
          */
-        val THIRD = fromNumerator(precision / 3)
+        val THIRD = fromFraction(1, 3)
 
         /**
          * A half.
          */
-        val HALF = fromNumerator(precision / 2)
+        val HALF = fromFraction(1, 2)
 
         /**
          * Smallest non-zero positive number.
@@ -178,6 +186,9 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
     override fun toString() =
         roundForPrint(toFloat()).toString()
 }
+
+infix fun Int.over(denominator: Int) =
+    Q.fromFraction(this, denominator)
 
 /**
  * Converts the value to a [Q].

@@ -22,12 +22,12 @@ import eu.metatools.f2d.tools.ReferText
 import eu.metatools.f2d.up.enqueue
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
+import eu.metatools.up.dsl.propObserved
 import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
-import kotlin.math.log10
-import kotlin.math.pow
+import eu.metatools.up.lang.never
 
 interface SpriteSet {
     fun idle(dir: Dir): Drawable<Unit?>
@@ -61,45 +61,27 @@ enum class SpriteSets : SpriteSet {
     }
 }
 
+data class Stats(
+    val health: Q,
+    val ammo: Int,
+    val baseDamage: Int,
+    val bowInit: Q,
+    val bowHold: Q,
+    val bowDegrade: Q,
+    val bowMin: Q,
+    val speed: Q,
+    val hitXP: Int,
+    val deathXP: Int
+)
+
 /**
  * A mover kind.
  */
 interface MoverKind {
-    /**
-     * The radius.
-     */
-    val radius: Q
-    val initialHealth: Int
-    val maxAmmo: Int
-
-    /**
-     * The damage it does when shooting.
-     */
-    fun damageForLevel(level: Int): Int
-
-    val speed: Q
-    val spriteSet: SpriteSet
-    val hitXP: Int
-    val deathXP: Int
     val label: String
-}
-
-object XP {
-    fun rangeFor(value: Int): IntRange {
-        val level = levelFor(value)
-        val a = 10.0.pow(level).toInt()
-        val b = 10.0.pow(level.inc()).toInt()
-        return a until b
-    }
-
-    fun fractionFor(value: Int): Number {
-        val range = rangeFor(value)
-        return (value.toDouble() - range.first) / (range.last - range.first)
-
-    }
-
-    fun levelFor(value: Int) =
-        if (value <= 0) 0 else log10(value.toDouble()).toInt()
+    val radius: Q
+    val spriteSet: SpriteSet
+    fun stats(level: Int): Stats
 }
 
 /**
@@ -107,15 +89,22 @@ object XP {
  */
 enum class Movers : MoverKind {
     Pazu {
-        override val radius = Q.THIRD
-        override val initialHealth = 10
-        override val maxAmmo = 20
-        override fun damageForLevel(level: Int) = minOf(5, 2 + level)
-        override val speed = 2.toQ()
-        override val spriteSet = SpriteSets.Pa
-        override val hitXP = 5
-        override val deathXP = 50
         override val label = "Pazu"
+        override val radius = Q.THIRD
+        override val spriteSet = SpriteSets.Pa
+
+        override fun stats(level: Int) = Stats(
+            health = 25.toQ() + level * 5,
+            ammo = 10 + level * 2,
+            baseDamage = 2 + level,
+            bowInit = maxOf(Q.QUARTER, Q.ONE - (level over 5)),
+            bowHold = (1 over 2) + (level over 5),
+            bowDegrade = 1 over (2 + level),
+            bowMin = 1 over 5,
+            speed = 2 + (level over 5),
+            hitXP = 5 + 2 * level,
+            deathXP = 15 + 5 * level
+        )
     }
 }
 
@@ -129,10 +118,11 @@ enum class Movers : MoverKind {
  */
 class Mover(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: QPt, initLevel: Q, val kind: MoverKind, val owner: Short
+    initXp: Int, initPos: QPt, initLevel: Q, val kind: MoverKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Walking, Solid, Blocking, HandlesHit, Damageable, HasDescription {
     override val extraArgs = mapOf(
+        "initXp" to initXp,
         "initPos" to initPos,
         "initLevel" to initLevel,
         "kind" to kind,
@@ -141,20 +131,6 @@ class Mover(
 
     companion object {
         val offset = Q.THIRD
-
-        /**
-         * Colors to use when creating a mover.
-         */
-        private val colors = listOf(
-            Color.RED,
-            Color.GREEN,
-            Color.BLUE,
-            Color.YELLOW,
-            Color.PINK,
-            Color.PURPLE,
-            Color.CHARTREUSE,
-            Color.DARK_GRAY
-        )
 
         /**
          * The text drawable.
@@ -200,19 +176,6 @@ class Mover(
      */
     override var vel by { QPt() }
 
-    var lastVel by { QPt() }
-
-    var drawn by { false }
-
-    var xp by { 1 }
-
-    val xpRange get() = XP.rangeFor(xp)
-
-    val xpLevel get() = XP.levelFor(xp)
-
-
-    val damage get() = kind.damageForLevel(xpLevel)
-
     /**
      * Constant. Radius.
      */
@@ -220,12 +183,33 @@ class Mover(
 
     private var look by { Dir.Right }
 
-    /**
-     * The current health.
-     */
-    var health by { kind.initialHealth }
 
-    var ammo by { 10 }
+    private var lastVel by { QPt() }
+
+    var drawn by { null as Double? }
+        private set
+
+    var xpLevel = XP.levelFor(initXp)
+        private set
+
+    var xpStats: Stats = kind.stats(xpLevel)
+        private set
+
+    var xp by propObserved({ initXp }, 0) { (from, to) ->
+        val oldLevel = XP.levelFor(from)
+        val newLevel = XP.levelFor(to)
+        if (oldLevel != newLevel) {
+            xpLevel = newLevel
+            xpStats = kind.stats(newLevel)
+        }
+    }
+        private set
+
+    var health by { xpStats.health }
+        private set
+
+    var ammo by { xpStats.ammo }
+        private set
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
@@ -241,7 +225,7 @@ class Mover(
 
 
         val visual = when {
-            drawn -> kind.spriteSet.draw(look)
+            drawn != null -> kind.spriteSet.draw(look)
             vel.isNotEmpty() -> kind.spriteSet.move(look)
             else -> kind.spriteSet.idle(look)
         }
@@ -257,8 +241,10 @@ class Mover(
     val moveInDirection = exchange(::doMoveInDirection)
 
     private fun doMoveInDirection(direction: QPt) {
-        lastVel = direction.times(kind.speed)
-        if (!drawn)
+        lastVel = direction.times(xpStats.speed)
+
+        // Don't move if drawn.
+        if (drawn == null)
             move(elapsed, lastVel)
     }
 
@@ -271,23 +257,34 @@ class Mover(
     val draw = exchange(::doDraw)
 
     private fun doDraw() {
-        drawn = true
+        drawn = elapsed
         move(elapsed, QPt.ZERO)
     }
 
-    /**
-     * Shoots from the mover, optionally in a direction.
-     */
     val release = exchange(::doRelease)
 
+    fun bowDrawFactor(time: Number) =
+        drawn?.let {
+            minOf(Q.ONE, ((time.toQ() - it) / xpStats.bowInit))
+        }
+
+    fun bowDamageFactor(time: Number) =
+        drawn?.let {
+            maxOf(xpStats.bowMin, Q.ONE - maxOf(Q.ZERO, ((time.toQ() - it) - xpStats.bowInit) * xpStats.bowDegrade))
+        }
+
     private fun doRelease(dir: QPt) {
-        if (!drawn)
+        if (drawn == null)
             return
 
-        // Check if not empty, then construct the bullet.
-        if (dir.isNotEmpty() && ammo > 0) {
+        val drawFactor = bowDrawFactor(elapsed)
+        // If direction is given, ammo is present and bow has been drawn enough.
+        if (dir.isNotEmpty() && ammo > 0 && drawFactor == Q.ONE) {
             ammo--
 
+            // Get factor and compute damage.
+            val factor = bowDamageFactor(elapsed) ?: never
+            val damage = factor * xpStats.baseDamage
             val level = world.map.height(level.toInt(), pos.x, pos.y).toQ()
             constructed(
                 Bullet(
@@ -300,18 +297,18 @@ class Mover(
 
         }
 
-        drawn = false
+        drawn = null
         move(elapsed, lastVel)
     }
 
     val cancelDraw = exchange(::doCancelDraw)
 
     private fun doCancelDraw() {
-        drawn = false
+        drawn = null
         move(elapsed, lastVel)
     }
 
-    override fun takeDamage(amount: Int): Int {
+    override fun takeDamage(amount: Q): Int {
         // Decrease health for taking a hit.
         health -= amount
 
@@ -330,13 +327,13 @@ class Mover(
         }
 
         // If dead now, remove the mover from the world and delete it.
-        if (health <= 0) {
+        if (health <= Q.ZERO) {
             world.movers.remove(this)
             delete(this)
-            return kind.deathXP
+            return xpStats.deathXP
         }
 
-        return kind.hitXP
+        return xpStats.hitXP
     }
 
     fun takeXP(amount: Int) {
@@ -344,6 +341,8 @@ class Mover(
         xp += amount
         if (xpLevel == before)
             return
+
+        health = health * kind.stats(xpLevel).health / kind.stats(before).health
 
         // Get time to start animation and position.
         val start = elapsed
@@ -363,7 +362,8 @@ class Mover(
 
     override fun hitOther(other: Moves) {
         if (other is Respack) {
-            ammo = minOf(kind.maxAmmo, ammo + other.content)
+            // TODO: Item logic somewhere else
+            ammo = minOf(xpStats.ammo, ammo + other.content)
             delete(other)
         }
     }
@@ -373,6 +373,65 @@ class Mover(
         get() = "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
 
 }
+
+private const val drawInsetV = 100f
+private const val drawWidth = 48f
+
+fun InOut.submitDraw(mover: Mover, time: Double) {
+    val drawFactor = mover.bowDrawFactor(time)
+    val damageFactor = mover.bowDamageFactor(time)
+
+    if (drawFactor != null && drawFactor < Q.ONE) {
+        val color = if (mover.ammo == 0) Color.RED else Color.WHITE
+
+        val size = (Gdx.graphics.height - 2f * drawInsetV) / 2.0f * drawFactor.toFloat()
+
+        submit(
+            solidDrawable.tint(color), time, Mat
+                .translation(0f, drawInsetV, uiZ)
+                .scale(drawWidth, size)
+                .translate(0.5f, 0.5f)
+        )
+
+        submit(
+            solidDrawable.tint(color), time, Mat
+                .translation(Gdx.graphics.width - drawWidth, drawInsetV, uiZ)
+                .scale(drawWidth, size)
+                .translate(0.5f, 0.5f)
+        )
+
+        submit(
+            solidDrawable.tint(color), time, Mat
+                .translation(0f, Gdx.graphics.height - drawInsetV, uiZ)
+                .scale(drawWidth, size)
+                .translate(0.5f, -0.5f)
+        )
+
+        submit(
+            solidDrawable.tint(color), time, Mat
+                .translation(Gdx.graphics.width - drawWidth, Gdx.graphics.height - drawInsetV, uiZ)
+                .scale(drawWidth, size)
+                .translate(0.5f, -0.5f)
+        )
+    } else if (damageFactor != null) {
+        val color = if (mover.ammo == 0) Color.RED else Color.RED.cpy().lerp(Color.GREEN, damageFactor.toFloat())
+
+        submit(
+            solidDrawable.tint(color), time, Mat
+                .translation(0f, drawInsetV, uiZ)
+                .scale(drawWidth, Gdx.graphics.height - 2 * drawInsetV)
+                .translate(0.5f, 0.5f)
+        )
+
+        submit(
+            solidDrawable.tint(color), time, Mat
+                .translation(Gdx.graphics.width - drawWidth, drawInsetV, uiZ)
+                .scale(drawWidth, Gdx.graphics.height - 2 * drawInsetV)
+                .translate(0.5f, 0.5f)
+        )
+    }
+}
+
 
 private val ammoCount by lazy {
     Resources.segoe[ReferText(
@@ -388,8 +447,8 @@ private const val ammoCountInset = 16f
 private const val ammoCountSize = 32f
 
 fun InOut.submitAmmo(mover: Mover, time: Double) {
-    if (mover.kind.maxAmmo <= 0) return
-    val dx = ammoLength / (mover.kind.maxAmmo - 1)
+    if (mover.xpStats.ammo <= 0) return
+    val dx = ammoLength / (mover.xpStats.ammo - 1)
     val y = Gdx.graphics.height - ammoInsetY
     var cx = ammoInsetX
     for (i in 1..mover.ammo) {
@@ -401,7 +460,7 @@ fun InOut.submitAmmo(mover: Mover, time: Double) {
         )
         cx += dx
     }
-    shadowText(ammoCount, "${mover.ammo}/${mover.kind.maxAmmo}", time, ammoInsetX - ammoCountInset, y, ammoCountSize)
+    shadowText(ammoCount, "${mover.ammo}/${mover.xpStats.ammo}", time, ammoInsetX - ammoCountInset, y, ammoCountSize)
 }
 
 private const val xpBarHeight = 10f
@@ -439,8 +498,16 @@ private val xpRangeEnd by lazy {
 }
 
 fun InOut.submitXP(mover: Mover, time: Double) {
+    val xpRange = XP.rangeFor(mover.xpLevel)
+    val xpFraction = (mover.xp - xpRange.first).toFloat() / (xpRange.last + 1 - xpRange.first)
 
-    val xpFraction = XP.fractionFor(mover.xp).toFloat()
+
+    // XP labels.
+    val xpLevelString = mover.xpLevel.toString()
+    val xpRangeStartString = xpRange.first.toString()
+    val xpRangeEndString = xpRange.last.inc().toString()
+    val xpValueString = "(${mover.xp})"
+
 
     // XP bar.
     submit(
@@ -456,13 +523,6 @@ fun InOut.submitXP(mover: Mover, time: Double) {
             .scale(xpFraction * Gdx.graphics.width, xpBarHeight)
             .translate(0.5f, 0.5f)
     )
-
-    // XP labels.
-    val xpRange = mover.xpRange
-    val xpLevelString = mover.xpLevel.toString()
-    val xpRangeStartString = xpRange.first.toString()
-    val xpRangeEndString = xpRange.last.inc().toString()
-    val xpValueString = "(${mover.xp})"
 
     shadowText(
         xpRangeStart, xpRangeStartString, time,

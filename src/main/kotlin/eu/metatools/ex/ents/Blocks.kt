@@ -84,7 +84,16 @@ fun atlas(name: String) =
 /**
  * Refers to the terrain atlas lazily.
  */
-fun atlas(upper: String, lower: String) =
+fun atlas(first: String, overlay: String) =
+    lazy {
+        Resources.atlas[Static(overlay)] over
+                Resources.atlas[Static(first)]
+    }
+
+/**
+ * Refers to the terrain atlas lazily.
+ */
+fun atlasStack(lower: String, upper: String) =
     lazy {
         Resources.atlas[Static(upper)].shift(0f, 1f) over
                 Resources.atlas[Static(lower)]
@@ -111,8 +120,6 @@ enum class Blocks : Block {
     Brick {
         override val body by atlas("brick")
         override val cap by atlas("brick_cap")
-
-        override val extras = mapOf("RSP" to true)
     },
     Slab {
         override val cap by atlas("slab")
@@ -123,13 +130,17 @@ enum class Blocks : Block {
         override val body by atlas("stone")
         override val cap by atlas("stone_cap")
     },
+    StoneDoor {
+        override val body by atlas("stone", "door")
+        override val cap by atlas("stone_cap")
+    },
     Dirt {
         override val body by atlas("dirt")
         override val cap by atlas("dirt_cap")
     },
     Grass {
         override val body by atlas("dirt")
-        override val cap by atlas("grass_upper", "grass_lower")
+        override val cap by atlasStack("grass_lower", "grass_upper")
     },
     Tree {
         override val body by atlas("tree")
@@ -146,7 +157,7 @@ enum class Blocks : Block {
         override val walkable = false
     },
     BigCrate {
-        override val body by atlas("big_crate_upper", "big_crate_lower")
+        override val body by atlasStack("big_crate_lower", "big_crate_upper")
         override val extras = mapOf("container" to true)
         override val walkable = false
     },
