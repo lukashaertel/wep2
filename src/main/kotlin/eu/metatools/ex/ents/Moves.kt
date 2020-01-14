@@ -8,27 +8,6 @@ import eu.metatools.up.lang.invoke
 import eu.metatools.up.list
 
 /**
- * Entity has a description.
- */
-interface Described : All {
-    /**
-     * The description for an entity.
-     */
-    val describe: String
-}
-
-
-/**
- * Entity has a solid, circular hull.
- */
-interface Solid : All {
-    /**
-     * The radius of the entity.
-     */
-    val radius: Q
-}
-
-/**
  * Entity moves.
  */
 interface Moves : All {
@@ -51,7 +30,6 @@ interface Moves : All {
      * Movement velocity.
      */
     var moveVel: QPt
-
 }
 
 /**

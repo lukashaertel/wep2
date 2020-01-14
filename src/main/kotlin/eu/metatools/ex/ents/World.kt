@@ -29,11 +29,19 @@ class World(
     shell: Shell, id: Lx, val ui: Frontend, map: Map<Tri, Block>
 ) : Ent(shell, id), Rendered {
     override val extraArgs = mapOf("map" to map)
-
+    /**
+     * World geometry hull.
+     */
     val hull = Hull()
 
+    /**
+     * World geometry walkable hull.
+     */
     val bounds = Hull()
 
+    /**
+     * The map. On updates, the [hull] and [bounds] are updated.
+     */
     val map by mapObserved({ map }) { changed ->
         changed.removed.forEach { (at, block) ->
             if (block.solid) hull.remove(at.z, at.x, at.y)
@@ -83,9 +91,9 @@ class World(
 
 
     /**
-     * Set of all movers in the game.
+     * Set of all heroes in the game.
      */
-    val movers by set<Hero>()
+    val heroes by set<Hero>()
 
     override fun render(mat: Mat, time: Double) {
         for ((at, block) in map) {
@@ -120,16 +128,17 @@ class World(
     }
 
     /**
-     * Creates a mover at a predefine location for the owner.
+     * Creates a hero at a predefine location for the owner.
      */
-    val createMover = exchange(::onCreateMover)
+    val createHero = exchange(::onCreateHero)
 
-    private fun onCreateMover(owner: Short) {
-        if (movers.any { it.owner == owner })
+    private fun onCreateHero(owner: Short) {
+        // Player already has hero, return.
+        if (heroes.any { it.owner == owner })
             return
 
-        // Add mover to set of movers.
-        movers.add(
+        // Construct and add hero.
+        heroes.add(
             constructed(
                 Hero(
                     shell, newId(), ui,

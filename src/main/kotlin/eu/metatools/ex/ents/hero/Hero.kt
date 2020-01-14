@@ -8,7 +8,6 @@ import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.subUiZ
-import eu.metatools.ex.uiZ
 import eu.metatools.f2d.data.*
 import eu.metatools.f2d.drawable.limit
 import eu.metatools.f2d.drawable.offset
@@ -297,7 +296,7 @@ class Hero(
 
         // If dead now, remove the mover from the world and delete it.
         if (health <= Q.ZERO) {
-            world.movers.remove(this)
+            world.heroes.remove(this)
             delete(this)
 
             // Return XP for killing this hero.

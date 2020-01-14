@@ -53,18 +53,36 @@ import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.full.isSupertypeOf
 import kotlin.reflect.typeOf
 
+/**
+ * Seconds for a long millis time stamp.
+ */
 val Long.sec get() = this / 1000.0
 
+/**
+ * Gets the next full second.
+ */
 fun Long.toNextFullSecond() =
     1000L - (this % 1000L)
 
+/**
+ * Z-value for sub-UI.
+ */
 const val subUiZ = -40f
+/**
+ * Z-value for UI.
+ */
 const val uiZ = -50f
 
+/**
+ * Solid white.
+ */
 val solidDrawable by lazy {
     Resources.solid.get()
 }
 
+/**
+ * Drawable for description.
+ */
 private val descriptionDrawable by lazy {
     Resources.segoe[ReferText(
         horizontal = Location.Center,
@@ -73,7 +91,9 @@ private val descriptionDrawable by lazy {
     )].tint(Color.YELLOW)
 }
 
-
+/**
+ * Draws two texts so it looks like they have a shadow.
+ */
 fun InOut.shadowText(on: Drawable<String>, text: String, time: Double, x: Float, y: Float, size: Float, d: Float = 2f) {
     submit(on.tint(Color.BLACK), text, time, Mat.translation(x + d, y - d, uiZ).scale(size))
     submit(on, text, time, Mat.translation(x, y, uiZ).scale(size))
@@ -200,7 +220,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
             // On joining, create a mover.
             shell.withTime(clock) {
-                root.createMover(shell.player)
+                root.createHero(shell.player)
             }
         }
     }
@@ -276,7 +296,7 @@ class Frontend : F2DListener(-100f, 100f) {
 
                 // If key just pressed, create a new mover.
                 if (Gdx.input.isKeyJustPressed(Keys.F1))
-                    root.createMover(shell.player)
+                    root.createHero(shell.player)
             } else {
                 // Get the coorinate of the mover.
                 val (x, y, z) = mover.xyz(time)
