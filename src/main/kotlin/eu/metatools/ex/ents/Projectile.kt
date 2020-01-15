@@ -1,6 +1,7 @@
 package eu.metatools.ex.ents
 
 import eu.metatools.ex.Frontend
+import eu.metatools.ex.atlas
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
@@ -36,7 +37,6 @@ class Projectile(
     shell: Shell,
     id: Lx,
     val ui: Frontend,
-    initOwner: Hero,
     initPos: QPt,
     initHeight: Q,
     initMoveVel: QPt,
@@ -47,11 +47,10 @@ class Projectile(
         /**
          * The drawable for the bullet.
          */
-        val arrow by eu.metatools.ex.atlas("arrow")
+        val arrow by atlas("arrow")
     }
 
     override val extraArgs = mapOf(
-        "initOwner" to initOwner,
         "initPos" to initPos,
         "initMoveVel" to initMoveVel,
         "initMoveTime" to initMoveTime,
@@ -79,7 +78,7 @@ class Projectile(
     /**
      * The owner.
      */
-    val owner by { initOwner }
+    var owner by { null as Hero? }
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
@@ -108,7 +107,7 @@ class Projectile(
         // Hit other, other is damageable.
         (other as? Damageable)?.takeDamage(damage)?.let {
             // If XP was returned, have owner receive it.
-            owner.takeXP(it)
+            owner?.takeXP(it)
         }
 
         // Delete.

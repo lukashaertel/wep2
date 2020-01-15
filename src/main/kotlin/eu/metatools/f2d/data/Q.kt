@@ -1,6 +1,7 @@
 package eu.metatools.f2d.data
 
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -9,6 +10,12 @@ import kotlin.math.sqrt
  */
 private fun Long.coerceToInt() =
     coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+
+/**
+ * Coerces the value of the receiver in the range of valid [Int] values.
+ */
+private fun Double.coerceToInt() =
+    coerceIn(Int.MIN_VALUE.toDouble(), Int.MAX_VALUE.toDouble()).toInt()
 
 /**
  * A fixed precision decimal number.
@@ -29,13 +36,22 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
 
     companion object {
         /**
-         * Returns a [Q] with the specified [numerator].
+         * Returns a [Q] with the specified [numerator]. The fixed [precision] is used as the denominator.
          */
         fun fromNumerator(numerator: Int) =
             Q(Unit, numerator)
 
-        fun fromFraction(numerator: Int, denominator: Int) =
-            fromNumerator(numerator * precision / denominator)
+        /**
+         * Returns a [Q] for the given integer number, shorthand for [from]`(numerator, 1)`
+         */
+        fun from(numerator: Int) =
+            Q(Unit, numerator * precision)
+
+        /**
+         * Returns a [Q] for the given fraction.
+         */
+        fun from(numerator: Int, denominator: Int) =
+            Q(Unit, numerator * precision / denominator)
 
         /**
          * The denominator value.
@@ -50,84 +66,87 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
         /**
          * Zero.
          */
-        val ZERO = fromNumerator(0)
+        val ZERO = Q(Unit, 0)
 
         /**
          * One.
          */
-        val ONE = fromNumerator(precision)
+        val ONE = from(1)
 
         /**
          * Two.
          */
-        val TWO = fromNumerator(2 * precision)
+        val TWO = from(2)
 
         /**
          * A quarter.
          */
-        val QUARTER = fromFraction(1, 4)
+        val QUARTER = from(1, 4)
 
         /**
          * A third.
          */
-        val THIRD = fromFraction(1, 3)
+        val THIRD = from(1, 3)
 
         /**
          * A half.
          */
-        val HALF = fromFraction(1, 2)
+        val HALF = from(1, 2)
 
         /**
          * Smallest non-zero positive number.
          */
-        val E = fromNumerator(1)
+        val E = Q(Unit, 1)
 
         /**
          * The minimum value.
          */
-        val MIN_VALUE = Q(Int.MIN_VALUE)
+        val MIN_VALUE = Q(Unit, Int.MIN_VALUE)
 
         /**
          * The maximum value.
          */
-        val MAX_VALUE = Q(Int.MAX_VALUE)
+        val MAX_VALUE = Q(Unit, Int.MAX_VALUE)
 
+        /**
+         * Computes the hypotenuse of [x] and [y].
+         */
         fun hypot(x: Q, y: Q) =
             (x * x + y + y).sqrt()
     }
 
     operator fun dec() =
-        fromNumerator(numerator - precision)
+        Q(Unit, numerator - precision)
 
     operator fun inc() =
-        fromNumerator(numerator + precision)
+        Q(Unit, numerator + precision)
 
     override operator fun compareTo(other: Q) =
         numerator.compareTo(other.numerator)
 
     operator fun div(other: Q): Q {
         val outNumerator = precision.toLong() * numerator.toLong() / other.numerator.toLong()
-        return fromNumerator(outNumerator.coerceToInt())
+        return Q(Unit, outNumerator.coerceToInt())
     }
 
     operator fun minus(other: Q): Q {
         val outNumerator = numerator.toLong() - other.numerator.toLong()
-        return fromNumerator(outNumerator.coerceToInt())
+        return Q(Unit, outNumerator.coerceToInt())
     }
 
     operator fun plus(other: Q): Q {
         val outNumerator = numerator.toLong() + other.numerator.toLong()
-        return fromNumerator(outNumerator.coerceToInt())
+        return Q(Unit, outNumerator.coerceToInt())
     }
 
     operator fun times(other: Q): Q {
         val outNumerator = (numerator.toLong() * other.numerator.toLong()) / precision.toLong()
-        return fromNumerator(outNumerator.coerceToInt())
+        return Q(Unit, outNumerator.coerceToInt())
     }
 
-    operator fun unaryMinus() = fromNumerator(-numerator)
+    operator fun unaryMinus() = Q(Unit, -numerator)
 
-    operator fun unaryPlus() = fromNumerator(numerator)
+    operator fun unaryPlus() = Q(Unit, numerator)
 
     override fun toInt() = numerator / precision
 
@@ -143,40 +162,51 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
 
     override fun toDouble() = numerator / precision.toDouble()
 
-    fun roundToInt() = toDouble().roundToInt()
+    /**
+     * Rounds the value. The round-half-up method is applied, compatible to JVM internal rounding.
+     */
+    fun roundToInt() =
+        plus(HALF).floor()
 
     /**
      * Determines the square root.
      */
     fun sqrt() =
-        fromNumerator(sqrtPrecision * sqrt(numerator.toDouble()).roundToInt())
+        Q(Unit, sqrtPrecision * sqrt(numerator.toDouble()).roundToInt())
+
+    /**
+     * Raises this value to the [e]th power.
+     */
+    fun pow(e: Int): Q {
+        val outNumerator = precision.toDouble() * numerator.toDouble().pow(e) / precision.toDouble().pow(e)
+        return Q(Unit, outNumerator.coerceToInt())
+    }
+
+    /**
+     * Returns the reciprocal of the value.
+     */
+    fun rcp(): Q {
+        val outNumerator = precision.toLong() * precision.toLong() / numerator.toLong()
+        return Q(Unit, outNumerator.coerceToInt())
+    }
 
     /**
      * Determines the absolute value.
      */
     fun abs() =
-        fromNumerator(abs(numerator))
+        Q(Unit, abs(numerator))
 
     /**
      * Returns the floor of the value.
      */
     fun floor(): Int =
-        if (numerator < 0)
-            unaryMinus().ceiling().unaryMinus()
-        else
-            numerator / precision
+        numerator / precision + numerator.rem(precision).coerceIn(-1, 0)
 
     /**
      * Returns the ceiling of the value.
      */
     fun ceiling(): Int =
-        if (numerator < 0)
-            unaryMinus().floor().unaryMinus()
-        else
-            if (numerator.rem(precision) == 0)
-                numerator / precision
-            else
-                numerator / precision + 1
+        numerator / precision + numerator.rem(precision).coerceIn(0, 1)
 
     override fun hashCode() = numerator
 
@@ -188,7 +218,7 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
 }
 
 infix fun Int.over(denominator: Int) =
-    Q.fromFraction(this, denominator)
+    Q.from(this, denominator)
 
 /**
  * Converts the value to a [Q].

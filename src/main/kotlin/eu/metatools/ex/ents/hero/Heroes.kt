@@ -23,12 +23,12 @@ enum class Heroes : HeroKind {
             baseDamage = 2 + level,
             bowInit = maxOf(
                 Q.QUARTER,
-                Q.ONE - (level over 5)
+                Q.ONE - level.over(5)
             ),
-            bowHold = (1 over 2) + (level over 5),
-            bowDegrade = 1 over (2 + level),
+            bowHold = 1.over(2) + level.over(5),
+            bowDegrade = 1.over(2 + level),
             bowMin = 1 over 5,
-            speed = 2 + (level over 5),
+            speed = 2 + level.over(5),
             hitXP = 5 + 2 * level,
             deathXP = 15 + 5 * level
         )

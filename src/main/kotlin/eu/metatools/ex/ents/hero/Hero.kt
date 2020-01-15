@@ -37,13 +37,12 @@ import eu.metatools.up.lang.never
  */
 class Hero(
     shell: Shell, id: Lx, val ui: Frontend,
-    initXp: Int, initPos: QPt, initHeight: Q, val kind: HeroKind, val owner: Short
+    initPos: QPt, initHeight: Q, val kind: HeroKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Walking, Solid,
     Blocking, HandlesHit,
     Damageable, Described {
     override val extraArgs = mapOf(
-        "initXp" to initXp,
         "initPos" to initPos,
         "initHeight" to initHeight,
         "kind" to kind,
@@ -111,18 +110,18 @@ class Hero(
     /**
      * The XP value.
      */
-    var xp by { initXp }
+    var xp by { 1 }
 
     /**
      * The current health.
      */
-    var health by { kind.stats(XP.levelFor(initXp)).health }
+    var health by { kind.stats(1).health }
         private set
 
     /**
      * The amount of ammo.
      */
-    var ammo by { kind.stats(XP.levelFor(initXp)).ammo }
+    var ammo by { kind.stats(1).ammo }
         private set
 
     /**
@@ -234,12 +233,15 @@ class Hero(
             val level = world.map.height(height.toInt(), pos.x, pos.y).toQ()
 
             // Construct the projectile.
-            constructed(
+            val projectile = constructed(
                 Projectile(
-                    shell, newId(), ui, this,
+                    shell, newId(), ui,
                     pos + dir.nor * (radius + 0.1f.toQ()), level, dir.nor * 10f.toQ(), elapsed, damage
                 )
             )
+
+            // Assign back reference.
+            projectile.owner = this
 
             // Play firing sound.
             enqueue(ui.world, fire.offset(elapsed), null) { Mat.ID }
@@ -282,14 +284,13 @@ class Hero(
             ).scale(16f, 16f)
         }
 
-        // If dead now, remove the mover from the world and delete it.
-        if (health <= Q.ZERO) {
-            world.heroes.remove(this)
-            delete(this)
-
-            // Return XP for killing this hero.
-            return stats.deathXP
-        }
+        // Check if dead now, return XP for killing if true.
+        if (health <= Q.ZERO)
+            return stats.deathXP.also {
+                // Also, remove hero and delete this.
+                world.heroes.remove(this)
+                delete(this)
+            }
 
         // Otherwise, return XP for hitting this hero.
         return stats.hitXP

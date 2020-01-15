@@ -142,7 +142,7 @@ class World(
             constructed(
                 Hero(
                     shell, newId(), ui,
-                    1, QPt(5f.toQ(), 5f.toQ()), Q.ZERO, Heroes.Pazu, owner
+                    QPt(5f.toQ(), 5f.toQ()), Q.ZERO, Heroes.Pazu, owner
                 )
             )
         )
