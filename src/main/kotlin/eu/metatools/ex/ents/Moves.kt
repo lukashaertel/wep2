@@ -2,6 +2,7 @@ package eu.metatools.ex.ents
 
 import eu.metatools.f2d.data.Q
 import eu.metatools.f2d.data.QPt
+import eu.metatools.f2d.data.QVec
 import eu.metatools.f2d.data.toQ
 import eu.metatools.up.isConnected
 import eu.metatools.up.lang.invoke
@@ -14,34 +15,90 @@ interface Moves : All {
     /**
      * Base position of the current movement.
      */
-    var pos: QPt
-
-    /**
-     * Height of the current movement for evaluation of map layer.
-     */
-    var height: Q
+    var xy: QPt
 
     /**
      * Time at which movement began.
      */
-    var moveTime: Double
+    var t0: Double
 
     /**
-     * Movement velocity.
+     * Movement velocity in the plane.
      */
-    var moveVel: QPt
-}
+    var dXY: QPt
 
-/**
- * Evaluates the position without map layer.
- */
-fun Moves.positionAt(time: Double) =
-    if (moveVel.isEmpty()) pos else pos + moveVel * (time - moveTime).toQ()
+    /**
+     * True if this mover ignores collision with [other].
+     */
+    fun ignores(other: Moves) = false
+}
 
 /**
  * Entity moves and is clipped to the ground and the walkable patch.
  */
-interface Walking : Moves
+interface Walking : Moves {
+    /**
+     * Map layer to evaluate.
+     */
+    var layer: Int
+
+    val elevation: Q get() = Q.HALF
+}
+
+interface Flying : Moves {
+    /**
+     * Height of the object.
+     */
+    var z: Q
+
+    /**
+     * Height change rate.
+     */
+    var dZ: Q
+}
+
+/**
+ * Evaluates the planar coordinates of [Moves] ([Walking] or [Flying]).
+ */
+fun Moves.xyAt(time: Double) =
+    if (dXY.isEmpty()) xy else xy + dXY * (time - t0).toQ()
+
+/**
+ * Evaluates the vertical coordinates of a [Walking].
+ */
+fun Walking.zAt(x: Q, y: Q) =
+    world.map.height(layer, x, y) + elevation
+
+/**
+ * Evaluates the vertical coordinates of a [Flying].
+ */
+fun Flying.zAt(time: Double) =
+    if (dZ == Q.ZERO) z else z + dZ * (time - t0).toQ()
+
+/**
+ * Evaluates the vertical coordinates of a [Walking].
+ */
+fun Walking.xyzAt(time: Double): QVec {
+    val xy = xyAt(time)
+    return QVec(xy.x, xy.y, zAt(xy.x, xy.y))
+}
+
+/**
+ * Evaluates the vertical coordinates of a [Flying].
+ */
+fun Flying.xyzAt(time: Double): QVec {
+    val xy = xyAt(time)
+    return QVec(xy.x, xy.y, zAt(time))
+}
+
+/**
+ * Evaluates the vertical coordinates of a [Moves] by type disambiguation.
+ */
+fun Moves.xyzAt(time: Double) = when (this) {
+    is Walking -> xyzAt(time)
+    is Flying -> xyzAt(time)
+    else -> throw IllegalArgumentException("Unknown type: $this")
+}
 
 /**
  * Entity will block movement.
@@ -49,13 +106,34 @@ interface Walking : Moves
 interface Blocking : Moves
 
 /**
- * Updates the desired movement velocity to [vel] at the current [positionAt] [time].
+ * Updates the velocity and sets the base values to evaluation at the given [time].
  */
-fun Moves.takeMovement(time: Double, vel: QPt) {
+fun Walking.takeMovement(time: Double, dXY: QPt) {
     // Explicit update.
-    pos = positionAt(time)
-    moveTime = time
-    moveVel = vel
+    xy = xyAt(time)
+    t0 = time
+    this.dXY = dXY
+}
+
+/**
+ * Updates the velocity and sets the base values to evaluation at the given [time].
+ */
+fun Flying.takeMovement(time: Double, dXY: QPt, dZ: Q) {
+    // Explicit update.
+    xy = xyAt(time)
+    z = zAt(time)
+    t0 = time
+    this.dXY = dXY
+    this.dZ = dZ
+}
+
+/**
+ * Updates the velocity and sets the base values to evaluation at the given [time].
+ */
+fun Moves.takeMovement(time: Double, dXY: QPt, dZ: Q) = when (this) {
+    is Walking -> takeMovement(time, dXY)
+    is Flying -> takeMovement(time, dXY, dZ)
+    else -> throw IllegalArgumentException("Unknown type: $this")
 }
 
 /**
@@ -85,9 +163,26 @@ interface HandlesHit {
 }
 
 /**
+ * Applies collision resolution.
+ */
+private fun resolve(on: Moves, resolution: QVec) {
+    when (on) {
+        is Walking -> {
+            on.xy = QPt(resolution.x, resolution.y)
+            on.layer = (resolution.z - on.elevation).floor()
+        }
+        is Flying -> {
+            on.xy = QPt(resolution.x, resolution.y)
+            on.z = resolution.z
+        }
+    }
+}
+
+/**
  * Updates all [Moves] in the world.
  */
 fun World.updateMovement(time: Double) {
+
     val moves = shell.list<Moves>().toList()
 
     for ((i, a) in moves.withIndex()) {
@@ -95,9 +190,23 @@ fun World.updateMovement(time: Double) {
         if (!a.isConnected())
             continue
 
-        // Base update.
-        a.pos = a.positionAt(time)
-        a.moveTime = time
+        // Perform base movement update.
+        when (a) {
+            is Walking -> {
+                // Transfer intermediate coordinates.
+                val (x, y, z) = a.xyzAt(time)
+                a.xy = QPt(x, y)
+                a.layer = (z - a.elevation).floor()
+                a.t0 = time
+            }
+            is Flying -> {
+                // Transfer intermediate coordinates.
+                val (x, y, z) = a.xyzAt(time)
+                a.xy = QPt(x, y)
+                a.z = z
+                a.t0 = time
+            }
+        }
 
         for (b in moves.subList(i + 1, moves.size)) {
             // Skip if deleted from other.
@@ -106,42 +215,33 @@ fun World.updateMovement(time: Double) {
             if (!b.isConnected())
                 continue
 
-            val aLevel = a.height.toInt()
-            val bLevel = b.height.toInt()
+            // Don't collide if ignored.
+            if (a.ignores(b) || b.ignores(a))
+                continue
 
-            val aPos = a.positionAt(time)
-            val bPos = b.positionAt(time)
+            val aPos = a.xyzAt(time)
+            val bPos = b.xyzAt(time)
             val aRadius = a.radius()
             val bRadius = b.radius()
-
-            val aIntermediate = map.intermediate(aLevel, aPos.x, aPos.y)
-            val bIntermediate = map.intermediate(bLevel, bPos.x, bPos.y)
-
-            // Skip if they cannot touch.
-            if (aLevel != bLevel
-                && (!aIntermediate || aLevel.dec() != bLevel)
-                && (!bIntermediate || bLevel.dec() != aLevel)
-            ) continue
 
             val rel = bPos - aPos
             val penetration = aRadius + bRadius - rel.len
             if (penetration <= Q.ZERO)
                 continue
 
-            // Mark hit. // TODO: Got a bug from here, should be connected tho. Generally to be fixed.
+            // Mark hit.
             if (a.isConnected() && b.isConnected() && a is HandlesHit) a.hitOther(b)
             if (a.isConnected() && b.isConnected() && b is HandlesHit) b.hitOther(a)
 
             if (rel.len == Q.ZERO)
                 continue
-            if (a !is Blocking)
-                continue
-            if (b !is Blocking)
+            if (a !is Blocking || b !is Blocking)
                 continue
 
             val resolve = rel.nor * penetration / Q.TWO
-            a.pos = aPos - resolve
-            b.pos = bPos + resolve
+
+            resolve(a, aPos - resolve)
+            resolve(b, bPos + resolve)
         }
 
         // Skip if deleted after touch phase.
@@ -149,8 +249,8 @@ fun World.updateMovement(time: Double) {
             continue
 
         // Evaluate for hull collision.
-        val hullLevel = a.height.toInt()
-        val hullPos = a.positionAt(time)
+        val hullPos = a.xyzAt(time)
+        val hullLevel = hullPos.z.floor()
         val hullRadius = a.radius()
 
         // Evaluate the intermediate state (if evaluating two levels instead of one).
@@ -161,7 +261,8 @@ fun World.updateMovement(time: Double) {
         val hullBindSnd = hullIntermediate { hull.bindOut(hullLevel.inc(), hullRadius, hullPos.x, hullPos.y) }
         val hullBind = hullBindFst ?: hullBindSnd
         if (hullBind != null) {
-            a.pos = QPt(hullBind.first, hullBind.second)
+            // TODO: Other ways to bind (this is not really that thought through TBH).
+            a.xy = QPt(hullBind.first, hullBind.second)
             (a as? HandlesHit)?.hitHull()
         }
 
@@ -174,8 +275,8 @@ fun World.updateMovement(time: Double) {
             continue
 
         // Evaluate for boundary collision.
-        val boundsLevel = a.height.toInt()
-        val boundsPos = a.positionAt(time)
+        val boundsPos = a.xyzAt(time)
+        val boundsLevel = boundsPos.z.floor()
         val boundsRadius = a.radius()
 
         // Evaluate the intermediate state again.
@@ -187,7 +288,7 @@ fun World.updateMovement(time: Double) {
             boundsIntermediate { bounds.bindIn(boundsLevel.inc(), boundsRadius, boundsPos.x, boundsPos.y) }
         val boundsBind = boundsBindFst ?: boundsBindSnd
         if (boundsBind != null) {
-            a.pos = QPt(boundsBind.first, boundsBind.second)
+            a.xy = QPt(boundsBind.first, boundsBind.second)
             (a as? HandlesHit)?.hitBoundary()
         }
 
@@ -196,30 +297,12 @@ fun World.updateMovement(time: Double) {
             continue
 
         // Evaluate for lift detection.
-        val liftLevel = a.height.toInt()
-        val liftPos = a.positionAt(time)
+        val liftLevel = a.layer
+        val liftPos = a.xyAt(time)
 
         // Lift if in lifting area.
         val lift = map.lift(liftLevel, liftPos.x, liftPos.y)
         if (lift != 0)
-            a.height = (a.height.floor() + lift).toQ()
+            a.layer += lift
     }
-}
-
-/**
- * Computes the horizontal and vertical coordinats. For [Walking], the height is clipped to the walkable hull, otherwise
- * the [height] is returned as is.
- */
-fun Moves.xyz(time: Double): Triple<Q, Q, Number> {
-    // Get position.
-    val (x, y) = positionAt(time)
-
-    // Get height, if walking, this is clipped to ground.
-    val z = if (this is Walking)
-        world.map.height(height.toInt(), x, y)
-    else
-        height
-
-    // Return the values.
-    return Triple(x, y, z)
 }

@@ -7,6 +7,7 @@ import eu.metatools.ex.data.Dir
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
+import eu.metatools.ex.ents.items.Container
 import eu.metatools.ex.subUiZ
 import eu.metatools.f2d.data.*
 import eu.metatools.f2d.drawable.limit
@@ -31,27 +32,25 @@ import eu.metatools.up.lang.never
  * A moving shooting entity, controlled by an [owner].
  * @param shell The shell for the [Ent].
  * @param id The ID for the [Ent].
- * @param initPos The initial position.
+ * @param initXY The initial position.
  * @property kind Constant. The kind of this mover.
  * @property owner Constant. the owner of this mover.
  */
 class Hero(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: QPt, initHeight: Q, val kind: HeroKind, val owner: Short
+    initXY: QPt, initLayer: Int, val kind: HeroKind, val owner: Short
 ) : Ent(shell, id), Rendered,
     Walking, Solid,
     Blocking, HandlesHit,
     Damageable, Described {
     override val extraArgs = mapOf(
-        "initPos" to initPos,
-        "initHeight" to initHeight,
+        "initXY" to initXY,
+        "initLayer" to initLayer,
         "kind" to kind,
         "owner" to owner
     )
 
     companion object {
-        val offset = Q.THIRD
-
         /**
          * The text drawable.
          */
@@ -78,13 +77,13 @@ class Hero(
 
     override val radius get() = kind.radius
 
-    override var pos by { initPos }
+    override var xy by { initXY }
 
-    override var moveTime by { 0.0 }
+    override var t0 by { 0.0 }
 
-    override var moveVel by { QPt() }
+    override var dXY by { QPt() }
 
-    override var height by { initHeight }
+    override var layer by { initLayer }
 
     /**
      * Direction the hero is facing, defaults to [Dir.Right].
@@ -115,13 +114,13 @@ class Hero(
     /**
      * The current health.
      */
-    var health by { kind.stats(1).health }
+    var health by { kind.stats(0).health }
         private set
 
     /**
      * The amount of ammo.
      */
-    var ammo by { kind.stats(1).ammo }
+    var ammo by { kind.stats(0).ammo }
         private set
 
     /**
@@ -132,20 +131,18 @@ class Hero(
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
-        val (x, y, z) = xyz(time)
+        val (x, y, z) = xyzAt(time)
 
         // Transformation for displaying the mover.
         val local = mat
             .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
             .translate(y = tileHeight * z.toFloat())
-            .translate(y = tileHeight * offset.toFloat())
             .translate(z = toZ(z))
             .scale(tileWidth, tileHeight)
 
-
         val visual = when {
             drawn != null -> kind.spriteSet.draw(look)
-            moveVel.isNotEmpty() -> kind.spriteSet.move(look)
+            dXY.isNotEmpty() -> kind.spriteSet.move(look)
             else -> kind.spriteSet.idle(look)
         }
 
@@ -196,6 +193,20 @@ class Hero(
      */
     val release = exchange(::doRelease)
 
+    fun targetOf(any: Any?, time: Double) =
+        when (any) {
+            is Hero ->
+                any.xyzAt(time)
+            is BlockCapture -> {
+                val x =any.tri.x.toQ()
+                val y =any.tri.y.toQ()
+                val z = world.map.height(any.tri.z, x, y) +
+                        if (any.cap) Q.ONE else Q.HALF
+                QVec(x, y, z)
+            }
+            else -> null
+        }
+
     /**
      * Factor of drawing the bow between zero for not ready to one for ready. `null` if not drawing.
      */
@@ -212,10 +223,14 @@ class Hero(
             maxOf(stats.bowMin, Q.ONE - maxOf(Q.ZERO, ((time.toQ() - it) - stats.bowInit) * stats.bowDegrade))
         }
 
-    private fun doRelease(dir: QPt) {
+    private fun doRelease(target: QVec) {
         // Not drawing return.
         if (drawn == null)
             return
+
+        // Get position and direction.
+        val pos = xyzAt(elapsed)
+        val dir = target - pos
 
         // Get draw factor.
         val drawFactor = bowDrawFactor(elapsed)
@@ -225,18 +240,20 @@ class Hero(
             // Reduce the ammo.
             ammo--
 
+            // Compute velocity from stats and action.
+            val vel = dir.nor * stats.projectileSpeed
+
             // Get factor and compute damage.
             val factor = bowDamageFactor(elapsed) ?: never
             val damage = factor * stats.baseDamage
-
-            // Compute the actual height at which to fire.
-            val level = world.map.height(height.toInt(), pos.x, pos.y).toQ()
 
             // Construct the projectile.
             val projectile = constructed(
                 Projectile(
                     shell, newId(), ui,
-                    pos + dir.nor * (radius + 0.1f.toQ()), level, dir.nor * 10f.toQ(), elapsed, damage
+                    QPt(pos.x, pos.y), pos.z,
+                    QPt(vel.x, vel.y), vel.z,
+                    elapsed, damage
                 )
             )
 
@@ -273,7 +290,7 @@ class Hero(
 
         // Get time to start animation and position.
         val start = elapsed
-        val (x, y) = pos
+        val (x, y, z) = xyzAt(elapsed)
 
         // Render damage floating up.
         enqueue(ui.world, hitText.limit(3.0).offset(start), amount.toString()) {
@@ -313,8 +330,7 @@ class Hero(
 
         // Get time to start animation and position.
         val start = elapsed
-        val (x, y) = pos
-        val level = height
+        val (x, y, z) = xyzAt(elapsed)
 
         // TODO: XYZ computation here can probably be fixed.
 
@@ -328,13 +344,19 @@ class Hero(
         }
     }
 
+    fun takeAmmo(amount: Int) {
+        ammo = minOf(stats.ammo, ammo + amount)
+    }
+
+    fun takeHealth(amount: Q) {
+        health = minOf(stats.health, health + amount)
+    }
+
     override fun hitOther(other: Moves) {
         // If other entity is an ammo container, receive the ammo.
-        if (other is AmmoContainer) {
-            // TODO: Item logic somewhere else
-
-            // Update ammo.
-            ammo = minOf(stats.ammo, ammo + other.content)
+        if (other is Container) {
+            // Apply effect of item.
+            other.apply(this)
 
             // Remove the other entity.
             delete(other)

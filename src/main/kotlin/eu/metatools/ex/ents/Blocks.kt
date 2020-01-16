@@ -87,6 +87,14 @@ enum class Blocks : Block {
         override val walkable = false
     },
     /**
+     * Barrel.
+     */
+    Barrel {
+        override val body by atlas("barrel")
+        override val extras = mapOf("container" to true)
+        override val walkable = false
+    },
+    /**
      * Animated fire pit.
      */
     Fire {

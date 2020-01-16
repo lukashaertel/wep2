@@ -28,6 +28,7 @@ enum class Heroes : HeroKind {
             bowHold = 1.over(2) + level.over(5),
             bowDegrade = 1.over(2 + level),
             bowMin = 1 over 5,
+            projectileSpeed =  10f + level.over(2),
             speed = 2 + level.over(5),
             hitXP = 5 + 2 * level,
             deathXP = 15 + 5 * level

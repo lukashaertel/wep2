@@ -18,9 +18,9 @@ import eu.metatools.ex.input.Mouse
 import eu.metatools.f2d.F2DListener
 import eu.metatools.f2d.InOut
 import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.QPt
+import eu.metatools.f2d.data.QVec
 import eu.metatools.f2d.data.Vec
-import eu.metatools.f2d.data.toQ
+import eu.metatools.f2d.data.toQPt
 import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.drawable.tint
 import eu.metatools.up.*
@@ -245,19 +245,20 @@ class Frontend : F2DListener(-100f, 100f) {
                     root.createHero(shell.player)
             } else {
                 // Get the coordinate of the mover.
-                val (x, y, z) = hero.xyz(time)
+                val pos = hero.xyzAt(time)
+                val (x, y, z) = pos
 
                 // Center on it.
                 view = Mat
                     .translation(Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
-                    .scale(scaling,scaling)
+                    .scale(scaling, scaling)
                     .translate(x = -x.toFloat() * tileWidth, y = -y.toFloat() * tileHeight)
                     .translate(y = -z.toFloat() * tileHeight)
 
                 // Get desired move direction.
                 keyStick.fetch()?.let {
                     // Send to mover if present.
-                    hero.move(it.toQ())
+                    hero.move(it.toQPt())
                 }
 
                 // If look at direction has changed, look at it.
@@ -274,7 +275,9 @@ class Frontend : F2DListener(-100f, 100f) {
                         hero.draw()
 
                     if (mouse.justReleased(Input.Buttons.LEFT))
-                        hero.release(QPt(mouse.dx, mouse.dy))
+                        hero.targetOf(capture?.first, time)?.let { target ->
+                            hero.release(target)
+                        }
                 }
 
                 // Render mover parameters.
@@ -344,7 +347,7 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * Current captured element and position.
      */
-    var capture: Pair<Any, QPt>? = null
+    var capture: Pair<Any, QVec>? = null
         private set
 
     /**
@@ -355,10 +358,10 @@ class Frontend : F2DListener(-100f, 100f) {
 
     override fun capture(result: Any?, intersection: Vec) {
         // Get actual coordinates.
-        val (x, y) = view.inv * intersection
+        val (x, y, z) = view.inv * intersection
 
         // Memorize result, convert to world space.
-        capture = (result ?: root) to QPt(x / tileWidth, y / tileHeight)
+        capture = (result ?: root) to QVec(x / tileWidth, y / tileHeight, -z)
     }
 
     override fun pause() = Unit

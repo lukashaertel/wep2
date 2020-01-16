@@ -45,7 +45,7 @@ data class QPt(val x: Q, val y: Q) : Comparable<QPt> {
     constructor() : this(Q.ZERO, Q.ZERO)
 
     /**
-     * Constructs a new [QPt] with the arguments converted via [toQ].
+     * Constructs a new [QPt] with the arguments converted via [toQPt].
      */
     constructor(x: Number, y: Number) : this(x.toQ(), y.toQ())
 
@@ -142,7 +142,7 @@ data class QPt(val x: Q, val y: Q) : Comparable<QPt> {
     /**
      * The normalized point.
      */
-    val nor by lazy { div(len) }
+    val nor by lazy { if (isEmpty()) QVec.ZERO else div(len) }
 
     /**
      * The angel, computed via [atan2].
@@ -231,10 +231,16 @@ fun abs(pt: QPt) =
         abs(pt.y)
     )
 
+/**
+ * Converts the [QPt] to a [Pt].
+ */
 fun QPt.toPt() =
     Pt(x.toFloat(), y.toFloat())
 
-fun Pt.toQ() =
+/**
+ * Converts the [Pt] to a [QPt].
+ */
+fun Pt.toQPt() =
     QPt(x.toQ(), y.toQ())
 
 /**

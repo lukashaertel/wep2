@@ -11,6 +11,7 @@ import eu.metatools.f2d.data.Q
  * @param bowHold The time how long the bow retains the maximum factor.
  * @param bowDegrade The factor degradation per second.
  * @param bowMin The minimum factor.
+ * @param projectileSpeed The speed of the projectile.
  * @param speed The movement speed in fields per second.
  * @param hitXP The XP yield when this hero is hit.
  * @param deathXP The XP for killing the hero.
@@ -23,6 +24,7 @@ data class Stats(
     val bowHold: Q,
     val bowDegrade: Q,
     val bowMin: Q,
+    val projectileSpeed:Q,
     val speed: Q,
     val hitXP: Int,
     val deathXP: Int

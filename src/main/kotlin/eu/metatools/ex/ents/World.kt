@@ -5,9 +5,13 @@ import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
 import eu.metatools.ex.ents.hero.Heroes
+import eu.metatools.ex.ents.items.AmmoContainer
+import eu.metatools.ex.ents.items.Container
+import eu.metatools.ex.ents.items.HealthContainer
 import eu.metatools.ex.sec
 import eu.metatools.f2d.data.*
 import eu.metatools.f2d.immediate.submit
+import eu.metatools.f2d.tools.CaptureCube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.mapObserved
@@ -64,13 +68,13 @@ class World(
         }
 
         val random = rng()
-        val respacks = shell.list<AmmoContainer>()
-        if (random.nextInt(100) < 5 && respacks.count() < 10) {
+        val containers = shell.list<Container>()
+        if (random.nextInt(100) < 5 && containers.count() < 10) {
             val field = map
                 .filter { (k, v) ->
                     v.extras["RSP"] == true
                             && map[k.copy(z = k.z.inc())]?.solid != true
-                            && respacks.none { it.pos == QPt(k.x, k.y) }
+                            && containers.none { it.xy == QPt(k.x, k.y) && it.z == Q(k.z) }
                 }
 
                 .toList()
@@ -79,13 +83,22 @@ class World(
                     it[random.nextInt(it.size)].first
                 }
 
-            if (field != null)
-                constructed(
-                    AmmoContainer(
-                        shell, newId(), ui,
-                        QPt(field.x, field.y), field.z.inc().toQ(), 5 + random.nextInt(10)
+            if (field != null) {
+                if (random.nextBoolean())
+                    constructed(
+                        AmmoContainer(
+                            shell, newId(), ui,
+                            QPt(field.x, field.y), field.z.inc().toQ(), 5 + random.nextInt(10)
+                        )
                     )
-                )
+                else
+                    constructed(
+                        HealthContainer(
+                            shell, newId(), ui,
+                            QPt(field.x, field.y), field.z.inc().toQ(), 5.toQ() + random.nextInt(10)
+                        )
+                    )
+            }
         }
     }
 
@@ -102,13 +115,17 @@ class World(
                 val x = at.x
                 val y = at.y
                 val z = at.z
-                ui.world.submit(
-                    it, time, mat
-                        .translate(x = tileWidth * x, y = tileHeight * y)
-                        .translate(y = tileHeight * z)
-                        .translate(z = toZ(z))
-                        .scale(tileWidth, tileHeight)
-                )
+                val local = mat
+                    .translate(x = tileWidth * x, y = tileHeight * y)
+                    .translate(y = tileHeight * z)
+                    .translate(z = toZ(z))
+                    .scale(tileWidth, tileHeight)
+
+                if (block.solid) {
+                    val result = BlockCapture(at, block, true)
+                    ui.world.submit(CaptureCube, result, time, local)
+                }
+                ui.world.submit(it, time, local)
             }
 
             // Draw cap of block.
@@ -116,13 +133,18 @@ class World(
                 val x = at.x
                 val y = at.y
                 val z = at.z + 1
-                ui.world.submit(
-                    it, time, mat
-                        .translate(x = tileWidth * x, y = tileHeight * y)
-                        .translate(y = tileHeight * z)
-                        .translate(z = toZ(z))
-                        .scale(tileWidth, tileHeight)
-                )
+                val local = mat
+                    .translate(x = tileWidth * x, y = tileHeight * y)
+                    .translate(y = tileHeight * z)
+                    .translate(z = toZ(z))
+                    .scale(tileWidth, tileHeight)
+
+
+                if (block.walkable) {
+                    val result = BlockCapture(at, block, true)
+                    ui.world.submit(CaptureCube, result, time, local.scale(sz = 1f / tileHeight))
+                }
+                ui.world.submit(it, time, local)
             }
         }
     }
@@ -142,9 +164,11 @@ class World(
             constructed(
                 Hero(
                     shell, newId(), ui,
-                    QPt(5f.toQ(), 5f.toQ()), Q.ZERO, Heroes.Pazu, owner
+                    QPt(5f.toQ(), 5f.toQ()), 0, Heroes.Pazu, owner
                 )
             )
         )
     }
 }
+
+data class BlockCapture(val tri: Tri, val block: Block, val cap: Boolean)

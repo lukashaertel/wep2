@@ -54,45 +54,43 @@ interface Block {
 /**
  * True if the block at the position is intermediate.
  */
-fun Map<Tri, Block>.intermediate(level: Int, x: Number, y: Number): Boolean {
+fun Map<Tri, Block>.intermediate(layer: Int, x: Number, y: Number): Boolean {
     val qx = x.toQ()
     val qy = y.toQ()
 
     val ax = (qx + Q.HALF).floor()
     val ay = (qy + Q.HALF).floor()
 
-    val at = Tri(ax, ay, level)
+    val at = Tri(ax, ay, layer)
     return get(at)?.intermediate ?: false
 }
 
 /**
  * Level raising or lowering per position.
  */
-fun Map<Tri, Block>.lift(level: Int, x: Number, y: Number): Int {
+fun Map<Tri, Block>.lift(layer: Int, x: Number, y: Number): Int {
     val qx = x.toQ()
     val qy = y.toQ()
 
     val ax = (qx + Q.HALF).floor()
     val ay = (qy + Q.HALF).floor()
 
-    val at = Tri(ax, ay, level)
+    val at = Tri(ax, ay, layer)
     return get(at)?.lift ?: 0
 }
 
 /**
  * Gets the absolute height at the position.
  */
-fun Map<Tri, Block>.height(level: Int, x: Number, y: Number): Number {
-    val qx = x.toQ()
-    val qy = y.toQ()
+fun Map<Tri, Block>.height(layer: Int, x: Q, y: Q): Q {
 
-    val ax = (qx + Q.HALF).floor()
-    val ay = (qy + Q.HALF).floor()
+    val ax = (x + Q.HALF).floor()
+    val ay = (y + Q.HALF).floor()
 
-    val dx = qx - ax.toQ()
-    val dy = qy - ay.toQ()
+    val dx = x - ax.toQ()
+    val dy = y - ay.toQ()
 
-    val at = Tri(ax, ay, level)
-    return get(at)?.height(dx, dy)?.plus(level.toQ()) ?: level.toQ()
+    val at = Tri(ax, ay, layer)
+    return get(at)?.height(dx, dy)?.plus(layer.toQ()) ?: layer.toQ()
 }
 

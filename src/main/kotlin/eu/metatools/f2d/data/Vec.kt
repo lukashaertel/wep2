@@ -157,7 +157,7 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Comparable<Vec> {
     /**
      * The normalized vector.
      */
-    val nor by lazy { div(len) }
+    val nor by lazy { if (isEmpty()) QVec.ZERO else div(len) }
 
     /**
      * Computes the dot product between this an another vector.
@@ -189,7 +189,7 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Comparable<Vec> {
     operator fun component2() = y
     operator fun component3() = z
 
-    val isEmpty get() = x == 0.0f && y == 0.0f && z == 0.0f
+    fun isEmpty() = x == 0.0f && y == 0.0f && z == 0.0f
 
     /**
      * Returns the vector as a [Vector3].

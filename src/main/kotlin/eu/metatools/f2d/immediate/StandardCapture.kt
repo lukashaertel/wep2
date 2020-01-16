@@ -44,7 +44,7 @@ class StandardCapture(trimExcess: Float ) : ProjectionTrimmed(trimExcess), Captu
         val direction = projection.inv.rotate(-Vec.Z)
 
         // Create tree map from captures.
-        val sortedCaptures = TreeMap(captures).descendingMap()
+        val sortedCaptures = TreeMap(captures)
 
         // Iterate all Z-layers and all capture calls.
         for ((_, captures) in sortedCaptures)
