@@ -7,6 +7,9 @@ import eu.metatools.f2d.data.Q
 import eu.metatools.f2d.data.Tri
 import eu.metatools.f2d.data.toQ
 
+
+// TODO: Bridges not working anymore for now.
+
 /**
  * Enum of shared block types.
  */
@@ -118,92 +121,46 @@ enum class Blocks : Block {
         override val solid = false
     },
     /**
-     * Stairs left, upper-left part.
+     * Stairs left, left part.
      */
-    StairsLeftUL {
-        override val solid = false
-        override val walkable = false
-        override fun height(x: Number, y: Number) =
-            (-Q.HALF - x.toQ()) / Q.TWO
-    },
-    /**
-     * Stairs left, upper-right part.
-     */
-    StairsLeftUR {
-        override val solid = false
-        override val walkable = false
-        override val intermediate = true
-        override val lift = -1
-        override fun height(x: Number, y: Number) =
-            (-Q.HALF - x.toQ()) / Q.TWO - Q.HALF
-    },
-    /**
-     * Stairs left, lower-left part.
-     */
-    StairsLeftLL {
+    StairsLeftA {
         override val body by atlas("stairs_left_ll")
         override val cap by atlas("stairs_left_ul")
-        override val solid = false
-        override val walkable = true
-        override val intermediate = true
-        override val lift = 1
+        override val walkable = false
         override fun height(x: Number, y: Number) =
-            (-Q.HALF - x.toQ()) / Q.TWO + Q.ONE
+            (-Q.HALF - x) / Q.TWO + Q.ONE
     },
     /**
-     * Stairs left, lower-right part.
+     * Stairs left, right part.
      */
-    StairsLeftLR {
+    StairsLeftB {
         override val body by atlas("stairs_left_lr")
         override val cap by atlas("stairs_left_ur")
-        override val solid = false
-        override val walkable = true
-        override fun height(x: Number, y: Number) =
-            (-Q.HALF - x.toQ()) / Q.TWO + Q.HALF
-    },
-    /**
-     * Stairs right, upper-left part.
-     */
-    StairsRightUL {
-        override val solid = false
-        override val walkable = false
-        override val intermediate = true
-        override val lift = -1
-        override fun height(x: Number, y: Number) =
-            StairsLeftUR.height(-x.toQ(), y)
-    },
-    /**
-     * Stairs right, upper-right part.
-     */
-    StairsRightUR {
-        override val solid = false
         override val walkable = false
         override fun height(x: Number, y: Number) =
-            StairsLeftUL.height(-x.toQ(), y)
+            (-Q.HALF - x) / Q.TWO + Q.HALF
     },
     /**
-     * Stairs right, lower-right part.
+     * Stairs right, left part.
      */
-    StairsRightLL {
+    StairsRightA {
         override val body by atlas("stairs_right_ll")
         override val cap by atlas("stairs_right_ul")
-        override val solid = false
-        override val walkable = true
+        override val solid = StairsLeftB.solid
+        override val walkable = StairsLeftB.walkable
         override fun height(x: Number, y: Number) =
-            StairsLeftLR.height(-x.toQ(), y)
+            StairsLeftB.height(-x.toQ(), y)
     },
     /**
-     * Stairs right, upper-left part.
+     * Stairs right, right part.
      */
-    StairsRightLR {
+    StairsRightB {
         override val body by atlas("stairs_right_lr")
         override val cap by atlas("stairs_right_ur")
-        override val solid = false
-        override val walkable = true
-        override val intermediate = true
-        override val lift = 1
+        override val solid = StairsLeftA.solid
+        override val walkable = StairsLeftA.walkable
         override fun height(x: Number, y: Number) =
-            StairsLeftLL.height(-x.toQ(), y)
+            StairsLeftA.height(-x.toQ(), y)
     }
 }
 
@@ -211,18 +168,14 @@ enum class Blocks : Block {
  * Places left facing stairs that end at the given coordinates.
  */
 fun MutableMap<Tri, Block>.stairsLeft(x: Int, y: Int, z: Int) {
-    put(Tri(x, y, z + 1), Blocks.StairsLeftUL)
-    put(Tri(x + 1, y, z + 1), Blocks.StairsLeftUR)
-    put(Tri(x, y, z), Blocks.StairsLeftLL)
-    put(Tri(x + 1, y, z), Blocks.StairsLeftLR)
+    put(Tri(x, y, z), Blocks.StairsLeftA)
+    put(Tri(x + 1, y, z), Blocks.StairsLeftB)
 }
 
 /**
  * Places right facing stairs that end at the given coordinates.
  */
 fun MutableMap<Tri, Block>.stairsRight(x: Int, y: Int, z: Int) {
-    put(Tri(x - 1, y, z + 1), Blocks.StairsRightUL)
-    put(Tri(x, y, z + 1), Blocks.StairsRightUR)
-    put(Tri(x - 1, y, z), Blocks.StairsRightLL)
-    put(Tri(x, y, z), Blocks.StairsRightLR)
+    put(Tri(x - 1, y, z), Blocks.StairsRightA)
+    put(Tri(x, y, z), Blocks.StairsRightB)
 }

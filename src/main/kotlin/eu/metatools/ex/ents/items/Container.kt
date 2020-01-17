@@ -7,7 +7,7 @@ import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
 import eu.metatools.f2d.data.Mat
 import eu.metatools.f2d.data.Q
-import eu.metatools.f2d.data.QPt
+import eu.metatools.f2d.data.QVec
 import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.CaptureCube
@@ -29,21 +29,17 @@ import eu.metatools.up.dt.lx
  */
 abstract class Container(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: QPt, initHeight: Q
-) : Ent(shell, id), Flying, Solid, Rendered, Damageable, Described {
+    initPos: QVec
+) : Ent(shell, id), Moves, Solid, Rendered, Damageable, Described {
     override val world get() = shell.resolve(lx / "root") as World
 
     override val radius = Q.THIRD
 
-    override var xy by { initPos }
+    override var pos by { initPos }
 
-    override var z by { initHeight }
+    override var vel by { QVec.ZERO }
 
     override var t0 by { 0.0 }
-
-    override var dXY by { QPt.ZERO }
-
-    override var dZ by { Q.ZERO }
 
     protected abstract fun visual(): Drawable<Unit?>
 
@@ -51,13 +47,13 @@ abstract class Container(
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
-        val (x, y, z) = xyzAt(time)
+        val (x, y, z) = posAt(time)
 
         // Transformation for displaying the res pack.
         val local = mat
             .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
             .translate(y = tileHeight * z.toFloat())
-            .translate(z = toZ(z))
+            .translate(z = toZ(y, z))
             .scale(tileWidth, tileHeight)
 
         val visual = visual()

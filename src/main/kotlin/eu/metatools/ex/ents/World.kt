@@ -9,7 +9,10 @@ import eu.metatools.ex.ents.items.AmmoContainer
 import eu.metatools.ex.ents.items.Container
 import eu.metatools.ex.ents.items.HealthContainer
 import eu.metatools.ex.sec
-import eu.metatools.f2d.data.*
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.QVec
+import eu.metatools.f2d.data.Tri
+import eu.metatools.f2d.data.toQ
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.CaptureCube
 import eu.metatools.up.Ent
@@ -18,10 +21,10 @@ import eu.metatools.up.dsl.mapObserved
 import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
-import kotlin.math.ceil
 
-fun toZ(level: Number) =
-    -ceil(level.toFloat())
+fun toZ(y: Number, z: Number) =
+    -z.toFloat() + y.toFloat()
+
 
 /**
  * The root world entity.
@@ -62,21 +65,19 @@ class World(
      */
     val worldUpdate = repeating(Short.MAX_VALUE, 50, shell::initializedTime) {
         val seconds = (time.global - shell.initializedTime).sec
-        updateMovement(seconds)
+        updateMovement(seconds, 50L.sec)
         shell.list<Ticking>().forEach {
             it.update(seconds, 50)
         }
 
+        return@repeating
+
         val random = rng()
+
         val containers = shell.list<Container>()
         if (random.nextInt(100) < 5 && containers.count() < 10) {
             val field = map
-                .filter { (k, v) ->
-                    v.extras["RSP"] == true
-                            && map[k.copy(z = k.z.inc())]?.solid != true
-                            && containers.none { it.xy == QPt(k.x, k.y) && it.z == Q(k.z) }
-                }
-
+                .filter { (k, v) -> v.extras["RSP"] == true && map[k.copy(z = k.z.inc())]?.solid != true }
                 .toList()
                 .takeIf { it.isNotEmpty() }
                 ?.let {
@@ -88,14 +89,14 @@ class World(
                     constructed(
                         AmmoContainer(
                             shell, newId(), ui,
-                            QPt(field.x, field.y), field.z.inc().toQ(), 5 + random.nextInt(10)
+                            QVec(field.x, field.y, field.z.inc()), 5 + random.nextInt(10)
                         )
                     )
                 else
                     constructed(
                         HealthContainer(
                             shell, newId(), ui,
-                            QPt(field.x, field.y), field.z.inc().toQ(), 5.toQ() + random.nextInt(10)
+                            QVec(field.x, field.y, field.z.inc()), 5.toQ() + random.nextInt(10)
                         )
                     )
             }
@@ -118,7 +119,7 @@ class World(
                 val local = mat
                     .translate(x = tileWidth * x, y = tileHeight * y)
                     .translate(y = tileHeight * z)
-                    .translate(z = toZ(z))
+                    .translate(z = toZ(y, z))
                     .scale(tileWidth, tileHeight)
 
                 if (block.solid) {
@@ -136,7 +137,7 @@ class World(
                 val local = mat
                     .translate(x = tileWidth * x, y = tileHeight * y)
                     .translate(y = tileHeight * z)
-                    .translate(z = toZ(z))
+                    .translate(z = toZ(y, z) + 1f)
                     .scale(tileWidth, tileHeight)
 
 
@@ -164,7 +165,7 @@ class World(
             constructed(
                 Hero(
                     shell, newId(), ui,
-                    QPt(5f.toQ(), 5f.toQ()), 0, Heroes.Pazu, owner
+                    QVec(5f.toQ(), 5f.toQ(), 0), Heroes.Pazu, owner
                 )
             )
         )

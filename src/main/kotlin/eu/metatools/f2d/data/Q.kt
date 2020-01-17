@@ -108,11 +108,6 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
          */
         val MAX_VALUE = Q(Unit, Int.MAX_VALUE)
 
-        /**
-         * Computes the hypotenuse of [x] and [y].
-         */
-        fun hypot(x: Q, y: Q) =
-            (x * x + y + y).sqrt()
     }
 
     operator fun dec() =
@@ -143,6 +138,19 @@ class Q private constructor(unit: Unit, val numerator: Int) : Number(), Comparab
         val outNumerator = (numerator.toLong() * other.numerator.toLong()) / precision.toLong()
         return Q(Unit, outNumerator.coerceToInt())
     }
+
+    operator fun div(other: Number) =
+        div(other.toQ())
+
+    operator fun minus(other: Number) =
+        minus(other.toQ())
+
+    operator fun plus(other: Number) =
+        plus(other.toQ())
+
+    operator fun times(other: Number) =
+        times(other.toQ())
+
 
     operator fun unaryMinus() = Q(Unit, -numerator)
 
@@ -233,23 +241,15 @@ fun sqrt(q: Q) =
     q.sqrt()
 
 /**
+ * Computes the hypotenuse of [x] and [y].
+ */
+fun hypot(x: Q, y: Q) =
+    (x * x + y * y).sqrt()
+/**
  * Determines the absolute value of [q], equal to [Q.abs] on [q].
  */
 fun abs(q: Q) =
     q.abs()
-
-
-operator fun Q.div(other: Number) =
-    div(other.toQ())
-
-operator fun Q.minus(other: Number) =
-    minus(other.toQ())
-
-operator fun Q.plus(other: Number) =
-    plus(other.toQ())
-
-operator fun Q.times(other: Number) =
-    times(other.toQ())
 
 operator fun Number.div(other: Q) =
     toQ().div(other)

@@ -1,9 +1,6 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.f2d.data.Q
-import eu.metatools.f2d.data.Tri
-import eu.metatools.f2d.data.plus
-import eu.metatools.f2d.data.toQ
+import eu.metatools.f2d.data.*
 import eu.metatools.f2d.drawable.Drawable
 
 /**
@@ -36,61 +33,30 @@ interface Block {
     val extras: Map<out Any, Any> get() = emptyMap()
 
     /**
-     * True if being in this block evaluates hulls on level and level above (e.g., ramps, stairs).
-     */
-    val intermediate: Boolean get() = false
-
-    /**
-     * True if being in this block raises or lowers the level (e.g., ramps, stairs).
-     */
-    val lift: Int get() = 0
-
-    /**
      * Evaluates the relative height when moving in this block (e.g., ramps, stairs).
      */
-    fun height(x: Number, y: Number): Number = 0
+    fun height(x: Number, y: Number): Number = Q.ONE
 }
 
-/**
- * True if the block at the position is intermediate.
- */
-fun Map<Tri, Block>.intermediate(layer: Int, x: Number, y: Number): Boolean {
-    val qx = x.toQ()
-    val qy = y.toQ()
-
-    val ax = (qx + Q.HALF).floor()
-    val ay = (qy + Q.HALF).floor()
-
-    val at = Tri(ax, ay, layer)
-    return get(at)?.intermediate ?: false
-}
-
-/**
- * Level raising or lowering per position.
- */
-fun Map<Tri, Block>.lift(layer: Int, x: Number, y: Number): Int {
-    val qx = x.toQ()
-    val qy = y.toQ()
-
-    val ax = (qx + Q.HALF).floor()
-    val ay = (qy + Q.HALF).floor()
-
-    val at = Tri(ax, ay, layer)
-    return get(at)?.lift ?: 0
-}
-
+private const val maxDZ = 4
 /**
  * Gets the absolute height at the position.
  */
-fun Map<Tri, Block>.height(layer: Int, x: Q, y: Q): Q {
+fun Map<Tri, Block>.height(pos: QVec): Q? {
+    val ax = (pos.x + Q.HALF).floor()
+    val ay = (pos.y + Q.HALF).floor()
+    val az = pos.z.floor()
 
-    val ax = (x + Q.HALF).floor()
-    val ay = (y + Q.HALF).floor()
+    val dx = pos.x - ax.toQ()
+    val dy = pos.y - ay.toQ()
 
-    val dx = x - ax.toQ()
-    val dy = y - ay.toQ()
+    for (dz in 0..maxDZ) {
+        val z = az - dz
+        get(Tri(ax, ay, z))?.height(dx, dy)?.plus(z.toQ())?.let {
+            return it
+        }
+    }
 
-    val at = Tri(ax, ay, layer)
-    return get(at)?.height(dx, dy)?.plus(layer.toQ()) ?: layer.toQ()
+    return null
 }
 

@@ -245,7 +245,7 @@ class Frontend : F2DListener(-100f, 100f) {
                     root.createHero(shell.player)
             } else {
                 // Get the coordinate of the mover.
-                val pos = hero.xyzAt(time)
+                val pos = hero.posAt(time)
                 val (x, y, z) = pos
 
                 // Center on it.
@@ -254,6 +254,9 @@ class Frontend : F2DListener(-100f, 100f) {
                     .scale(scaling, scaling)
                     .translate(x = -x.toFloat() * tileWidth, y = -y.toFloat() * tileHeight)
                     .translate(y = -z.toFloat() * tileHeight)
+
+                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE))
+                    hero.jump()
 
                 // Get desired move direction.
                 keyStick.fetch()?.let {

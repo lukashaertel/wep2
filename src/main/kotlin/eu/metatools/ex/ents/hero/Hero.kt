@@ -38,14 +38,10 @@ import eu.metatools.up.lang.never
  */
 class Hero(
     shell: Shell, id: Lx, val ui: Frontend,
-    initXY: QPt, initLayer: Int, val kind: HeroKind, val owner: Short
-) : Ent(shell, id), Rendered,
-    Walking, Solid,
-    Blocking, HandlesHit,
-    Damageable, Described {
+    initPos: QVec, val kind: HeroKind, val owner: Short
+) : Ent(shell, id), Rendered, Moves, Solid, Blocking, HandlesHit, Damageable, Described {
     override val extraArgs = mapOf(
-        "initXY" to initXY,
-        "initLayer" to initLayer,
+        "initPos" to initPos,
         "kind" to kind,
         "owner" to owner
     )
@@ -77,13 +73,11 @@ class Hero(
 
     override val radius get() = kind.radius
 
-    override var xy by { initXY }
+    override var pos by { initPos }
 
     override var t0 by { 0.0 }
 
-    override var dXY by { QPt() }
-
-    override var layer by { initLayer }
+    override var vel by { QVec.ZERO }
 
     /**
      * Direction the hero is facing, defaults to [Dir.Right].
@@ -131,24 +125,30 @@ class Hero(
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
-        val (x, y, z) = xyzAt(time)
+        val (x, y, z) = posAt(time)
 
         // Transformation for displaying the mover.
         val local = mat
             .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
             .translate(y = tileHeight * z.toFloat())
-            .translate(z = toZ(z))
+            .translate(z = toZ(y, z))
             .scale(tileWidth, tileHeight)
 
         val visual = when {
             drawn != null -> kind.spriteSet.draw(look)
-            dXY.isNotEmpty() -> kind.spriteSet.move(look)
+            // TODO:Fall?
+            vel.x != Q.ZERO || vel.y != Q.ZERO -> kind.spriteSet.move(look)
             else -> kind.spriteSet.idle(look)
         }
 
         // Submit the visual and the capture.
         ui.world.submit(visual, time, local)
         ui.world.submit(CaptureCube, this, time, local)
+    }
+
+    val jump = exchange(::doJump)
+    private fun doJump() {
+        vel = vel.copy(z = vel.z + Q(3))
     }
 
     /**
@@ -158,11 +158,11 @@ class Hero(
 
     private fun doMoveInDirection(direction: QPt) {
         // Set the desired velocity.
-        lastVel = direction.times(stats.speed)
+        lastVel = direction * stats.speed
 
         // Don't move if drawn.
         if (drawn == null)
-            takeMovement(elapsed, lastVel)
+            takeMovement(elapsed, vel.copy(x = lastVel.x, y = lastVel.y))
     }
 
     /**
@@ -185,7 +185,8 @@ class Hero(
         drawn = elapsed
 
         // Clear movement.
-        takeMovement(elapsed, QPt.ZERO)
+        takeMovement(elapsed, vel.copy(x = Q.ZERO, y = Q.ZERO))
+        // TODO: What if falling.
     }
 
     /**
@@ -195,13 +196,12 @@ class Hero(
 
     fun targetOf(any: Any?, time: Double) =
         when (any) {
-            is Hero ->
-                any.xyzAt(time)
+            is Moves ->
+                any.posAt(time)
             is BlockCapture -> {
-                val x =any.tri.x.toQ()
-                val y =any.tri.y.toQ()
-                val z = world.map.height(any.tri.z, x, y) +
-                        if (any.cap) Q.ONE else Q.HALF
+                val x = any.tri.x.toQ()
+                val y = any.tri.y.toQ()
+                val z = any.tri.z.toQ()// TODO Include height.
                 QVec(x, y, z)
             }
             else -> null
@@ -229,7 +229,7 @@ class Hero(
             return
 
         // Get position and direction.
-        val pos = xyzAt(elapsed)
+        val pos = posAt(elapsed)
         val dir = target - pos
 
         // Get draw factor.
@@ -251,8 +251,7 @@ class Hero(
             val projectile = constructed(
                 Projectile(
                     shell, newId(), ui,
-                    QPt(pos.x, pos.y), pos.z,
-                    QPt(vel.x, vel.y), vel.z,
+                    pos, vel,
                     elapsed, damage
                 )
             )
@@ -268,7 +267,7 @@ class Hero(
         drawn = null
 
         // Re-allow movement.
-        takeMovement(elapsed, lastVel)
+        takeMovement(elapsed, vel.copy(x = lastVel.x, y = lastVel.y))
     }
 
     /**
@@ -281,7 +280,7 @@ class Hero(
         drawn = null
 
         // Re-allow movement.
-        takeMovement(elapsed, lastVel)
+        takeMovement(elapsed, vel.copy(x = lastVel.x, y = lastVel.y))
     }
 
     override fun takeDamage(amount: Q): Int {
@@ -290,13 +289,13 @@ class Hero(
 
         // Get time to start animation and position.
         val start = elapsed
-        val (x, y, z) = xyzAt(elapsed)
+        val (x, y, z) = posAt(elapsed)
 
         // Render damage floating up.
         enqueue(ui.world, hitText.limit(3.0).offset(start), amount.toString()) {
             Mat.translation(
                 tileWidth * x.toFloat(),
-                tileHeight * y.toFloat() + (it - start).toFloat() * 10,
+                tileHeight * (y + z).toFloat() + (it - start).toFloat() * 10,
                 subUiZ
             ).scale(16f, 16f)
         }
@@ -330,7 +329,7 @@ class Hero(
 
         // Get time to start animation and position.
         val start = elapsed
-        val (x, y, z) = xyzAt(elapsed)
+        val (x, y, z) = posAt(elapsed)
 
         // TODO: XYZ computation here can probably be fixed.
 
@@ -338,7 +337,7 @@ class Hero(
         enqueue(ui.world, levelUp.limit(5.0).offset(start), "Level up!") {
             Mat.translation(
                 tileWidth * x.toFloat(),
-                tileHeight * y.toFloat() + (it - start).toFloat() * 10,
+                tileHeight * (y + z).toFloat() + (it - start).toFloat() * 10,
                 subUiZ
             ).scale(16f, 16f)
         }

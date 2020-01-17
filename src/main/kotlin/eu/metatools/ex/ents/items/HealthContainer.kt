@@ -4,7 +4,7 @@ import eu.metatools.ex.Frontend
 import eu.metatools.ex.ents.Blocks
 import eu.metatools.ex.ents.hero.Hero
 import eu.metatools.f2d.data.Q
-import eu.metatools.f2d.data.QPt
+import eu.metatools.f2d.data.QVec
 import eu.metatools.up.Shell
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.lang.never
@@ -20,11 +20,10 @@ import eu.metatools.up.lang.never
  */
 class HealthContainer(
     shell: Shell, id: Lx, ui: Frontend,
-    initPos: QPt, initHeight: Q, val content: Q
-) : Container(shell, id, ui, initPos, initHeight) {
+    initPos: QVec, val content: Q
+) : Container(shell, id, ui, initPos) {
     override val extraArgs = mapOf(
         "initPos" to initPos,
-        "initHeight" to initHeight,
         "content" to content
     )
 

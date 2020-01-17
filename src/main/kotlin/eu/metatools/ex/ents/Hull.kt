@@ -1,6 +1,9 @@
 package eu.metatools.ex.ents
 
 import eu.metatools.ex.input.toInt
+import eu.metatools.f2d.data.Q
+import eu.metatools.f2d.data.QPt
+import eu.metatools.f2d.data.QVec
 import org.locationtech.jts.algorithm.distance.DistanceToPoint
 import org.locationtech.jts.algorithm.distance.PointPairDistance
 import org.locationtech.jts.geom.Coordinate
@@ -42,7 +45,7 @@ class Hull {
     /**
      * Computes a square around the given center.
      */
-    private fun square(x: Number, y: Number) =
+    private fun square(x: Int, y: Int) =
         factory.createPolygon(
             arrayOf(
                 Coordinate(x.toDouble() - 0.5, y.toDouble() - 0.5),
@@ -56,7 +59,7 @@ class Hull {
     /**
      * Adds a square on [level] at ([x], [y]).
      */
-    fun add(level: Int, x: Number, y: Number) {
+    fun add(level: Int, x: Int, y: Int) {
         val square = square(x, y)
         levels.compute(level) { _, p -> p?.union(square) ?: square }
         buffers.remove(level)
@@ -65,7 +68,7 @@ class Hull {
     /**
      * Removes a square from [level] at ([x], [y]).
      */
-    fun remove(level: Int, x: Number, y: Number) {
+    fun remove(level: Int, x: Int, y: Int) {
         val square = square(x, y)
         levels.computeIfPresent(level) { _, p -> p.difference(square) }
         buffers.remove(level)
@@ -81,49 +84,22 @@ class Hull {
     }
 
     /**
-     * Returns the position that an object on the [level] at ([x], [y]) of the given [radius] has to be set to be
-     * inside the hull. `null` if no action needs to be taken.
-     */
-    fun bindIn(level: Int, radius: Number, x: Number, y: Number): Pair<Number, Number>? {
-        // Get distance from radius and inversion.
-        val distance = -radius.toDouble()
-
-        // Get buffer, if inverted mode use negative radius.
-        val geometry = buffer(level, distance)
-            ?: return null
-
-        // Convert the coordinate.
-        val coord = Coordinate(x.toDouble(), y.toDouble())
-
-        // If inside geometry, no binding required.
-        if (geometry.contains(factory.createPoint(coord)))
-            return null
-
-        // Compute distance if not contained, also returns the support vector.
-        val support = PointPairDistance().also {
-            DistanceToPoint.computeDistance(geometry, coord, it)
-        }
-
-        // Return support vector.
-        return support.getCoordinate(0).let {
-            it.x to it.y
-        }
-    }
-
-    /**
      * Returns the position that an object on the [level] at ([x], [y]) of the given [radius] has to be set to remain
      * outside the hull. `null` if no action needs to be taken.
      */
-    fun bindOut(level: Int, radius: Number, x: Number, y: Number): Pair<Number, Number>? {
+    fun bind(radius: Q, pos: QVec): QPt? {
         // Get distance from radius and inversion.
         val distance = radius.toDouble()
+
+        // Get level.
+        val level = pos.z.floor()
 
         // Get buffer, if inverted mode use negative radius.
         val geometry = buffer(level, distance)
             ?: return null
 
         // Convert the coordinate.
-        val coord = Coordinate(x.toDouble(), y.toDouble())
+        val coord = Coordinate(pos.x.toDouble(), pos.y.toDouble())
 
         // If inside geometry, no binding required.
         if (!geometry.contains(factory.createPoint(coord)))
@@ -136,20 +112,20 @@ class Hull {
 
         // Return support vector.
         return support.getCoordinate(0).let {
-            it.x to it.y
+            QPt(it.x, it.y)
         }
     }
 
     /**
      * Computes the surface normal of the hit an object on the [level] at ([x], [y]) of the given [radius] has received.
      */
-    fun normal(level: Int, radius: Number, x: Number, y: Number, inside: Boolean = false): Pair<Number, Number> {
+    fun normal(level: Int, radius: Number, x: Q, y: Q): QPt {
         // Get distance from radius and inversion.
-        val distance = if (inside) -radius.toDouble() else radius.toDouble()
+        val distance = radius.toDouble()
 
         // Get geometry or return null.
         val geometry = buffer(level, distance)
-            ?: return 0 to 0
+            ?: return QPt.ZERO
 
         // Convert x and y to doubles.
         val xd = x.toDouble()
@@ -162,6 +138,6 @@ class Hull {
         val b = geometry.contains(factory.createPoint(Coordinate(xd, yd - epsilon))).toInt()
 
         // Return difference.
-        return (l - r) to (b - t)
+        return QPt(l - r, b - t)
     }
 }

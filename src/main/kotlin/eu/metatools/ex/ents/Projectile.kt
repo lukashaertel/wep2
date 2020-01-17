@@ -1,15 +1,11 @@
 package eu.metatools.ex.ents
 
-import com.badlogic.gdx.math.MathUtils
 import eu.metatools.ex.Frontend
 import eu.metatools.ex.atlas
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
-import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.Q
-import eu.metatools.f2d.data.QPt
-import eu.metatools.f2d.data.toQ
+import eu.metatools.f2d.data.*
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.CaptureCube
 import eu.metatools.up.Ent
@@ -39,13 +35,11 @@ class Projectile(
     shell: Shell,
     id: Lx,
     val ui: Frontend,
-    initXY: QPt,
-    initZ: Q,
-    initDXY: QPt,
-    initDZ: Q,
+    initPos: QVec,
+    initVel: QVec,
     initT0: Double,
     val damage: Q
-) : Ent(shell, id), Flying, Solid, HandlesHit, Ticking, Rendered {
+) : Ent(shell, id), Moves, Solid, HandlesHit, Ticking, Rendered {
     companion object {
         /**
          * The drawable for the bullet.
@@ -54,25 +48,21 @@ class Projectile(
     }
 
     override val extraArgs = mapOf(
-        "initXY" to initXY,
-        "initZ" to initZ,
-        "initDXY" to initDXY,
-        "initDZ" to initDZ,
+        "initPos" to initPos,
+        "initVel" to initVel,
         "initT0" to initT0,
         "damage" to damage
     )
 
     override val world get() = shell.resolve(lx / "root") as World
 
-    override var xy by { initXY }
+    override var pos by { initPos }
 
-    override var z by { initZ }
+    override var vel by { initVel }
 
     override var t0 by { initT0 }
 
-    override var dXY by { initDXY }
-
-    override var dZ by { initDZ }
+    override val flying = true
 
     override val radius = 0.05f.toQ()
 
@@ -92,14 +82,14 @@ class Projectile(
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
-        val (x, y, z) = xyzAt(time)
+        val (x, y, z) = posAt(time)
 
         // Transformation for displaying the bullet.
         val local = mat
             .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
             .translate(y = tileHeight * z.toFloat())
-            .translate(z = toZ(z))
-            .rotateZ((dXY.angle).toFloat()) // TODO: Include dZ
+            .translate(z = toZ(y, z))
+            .rotateZ((QPt(vel.x, vel.y).angle).toFloat()) // TODO: Include dZ (project then calculate projected angle)
             .translate(x = -8f)
             .scale(tileWidth, tileHeight)
 
@@ -108,7 +98,7 @@ class Projectile(
         ui.world.submit(CaptureCube, this, time, local)
     }
 
-    override fun hitHull() {
+    override fun hitHull(velocity: QVec) {
         // Hit the hull, just delete.
         delete(this)
     }
