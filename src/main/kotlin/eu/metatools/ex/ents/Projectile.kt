@@ -98,6 +98,10 @@ class Projectile(
         ui.world.submit(CaptureCube, this, time, local)
     }
 
+    override fun hitGround(velocity: QVec) {
+        delete(this)
+    }
+
     override fun hitHull(velocity: QVec) {
         // Hit the hull, just delete.
         delete(this)

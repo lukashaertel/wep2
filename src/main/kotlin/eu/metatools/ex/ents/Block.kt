@@ -1,6 +1,9 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.f2d.data.*
+import eu.metatools.f2d.data.Q
+import eu.metatools.f2d.data.QVec
+import eu.metatools.f2d.data.Tri
+import eu.metatools.f2d.data.toQ
 import eu.metatools.f2d.drawable.Drawable
 
 /**
@@ -32,31 +35,29 @@ interface Block {
      */
     val extras: Map<out Any, Any> get() = emptyMap()
 
-    /**
-     * Evaluates the relative height when moving in this block (e.g., ramps, stairs).
-     */
-    fun height(x: Number, y: Number): Number = Q.ONE
+    fun top(x: Q, y: Q): Q = Q.ONE
+
+    fun bottom(x: Q, y: Q): Q = Q.ZERO
+
+
 }
 
-private const val maxDZ = 4
 /**
  * Gets the absolute height at the position.
  */
-fun Map<Tri, Block>.height(pos: QVec): Q? {
+fun Map<Tri, Block>.bindHeight(pos: QVec): Q? {
     val ax = (pos.x + Q.HALF).floor()
     val ay = (pos.y + Q.HALF).floor()
     val az = pos.z.floor()
 
     val dx = pos.x - ax.toQ()
     val dy = pos.y - ay.toQ()
+    val dz = pos.z - az.toQ()
 
-    for (dz in 0..maxDZ) {
-        val z = az - dz
-        get(Tri(ax, ay, z))?.height(dx, dy)?.plus(z.toQ())?.let {
-            return it
-        }
-    }
-
-    return null
+    val block = get(Tri(ax, ay, az)) ?: return null
+    val top = block.top(dx, dy)
+    val bottom = block.bottom(dx, dy)
+    val relative = top.takeUnless { dz < bottom } ?: return null
+    return relative.plus(az.toQ())
 }
 

@@ -111,6 +111,7 @@ enum class Blocks : Block {
         override val body by atlas("bridge_h")
         override val cap by atlas("bridge_h_cap")
         override val solid = false
+        override fun bottom(x: Q, y: Q) = Q.from(9, 10)
     },
     /**
      * Vertical traverse.
@@ -119,6 +120,7 @@ enum class Blocks : Block {
         override val body by atlas("bridge_v")
         override val cap by atlas("bridge_v_cap")
         override val solid = false
+        override fun bottom(x: Q, y: Q) = Q.from(9, 10)
     },
     /**
      * Stairs left, left part.
@@ -127,7 +129,7 @@ enum class Blocks : Block {
         override val body by atlas("stairs_left_ll")
         override val cap by atlas("stairs_left_ul")
         override val walkable = false
-        override fun height(x: Number, y: Number) =
+        override fun top(x: Q, y: Q) =
             (-Q.HALF - x) / Q.TWO + Q.ONE
     },
     /**
@@ -137,7 +139,7 @@ enum class Blocks : Block {
         override val body by atlas("stairs_left_lr")
         override val cap by atlas("stairs_left_ur")
         override val walkable = false
-        override fun height(x: Number, y: Number) =
+        override fun top(x: Q, y: Q) =
             (-Q.HALF - x) / Q.TWO + Q.HALF
     },
     /**
@@ -148,8 +150,8 @@ enum class Blocks : Block {
         override val cap by atlas("stairs_right_ul")
         override val solid = StairsLeftB.solid
         override val walkable = StairsLeftB.walkable
-        override fun height(x: Number, y: Number) =
-            StairsLeftB.height(-x.toQ(), y)
+        override fun top(x: Q, y: Q) =
+            StairsLeftB.top(-x.toQ(), y)
     },
     /**
      * Stairs right, right part.
@@ -159,8 +161,8 @@ enum class Blocks : Block {
         override val cap by atlas("stairs_right_ur")
         override val solid = StairsLeftA.solid
         override val walkable = StairsLeftA.walkable
-        override fun height(x: Number, y: Number) =
-            StairsLeftA.height(-x.toQ(), y)
+        override fun top(x: Q, y: Q) =
+            StairsLeftA.top(-x.toQ(), y)
     }
 }
 

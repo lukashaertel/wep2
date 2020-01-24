@@ -1,6 +1,8 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.f2d.data.*
+import eu.metatools.f2d.data.Q
+import eu.metatools.f2d.data.QVec
+import eu.metatools.f2d.data.toQ
 import eu.metatools.up.isConnected
 import eu.metatools.up.list
 
@@ -151,47 +153,28 @@ fun World.updateMovement(time: Double, deltaTime: Double) {
                 return@repeat
 
             // Evaluate for hull collision.
-            val pos = a.posAt(time)
+//            val pos = a.posAt(time)
             val radius = a.radius()
 
-            // Get height or abort collision.
-            val height = map.height(pos)
-                ?: return@repeat
-
-            // Skip if no resolution possible
-
-            if (height < pos.z)
-                return@repeat
-
-            val bind = hull.bind(radius, pos)
-            if (bind == null) {
-                a.vel.let {
-                    // Resolve by lifting to height.
-                    a.pos = pos.copy(z = height)
+            map.bindHeight(a.pos)?.let {
+                if (a.pos.z < it) {
+                    val vel = a.vel
+                    a.pos = a.pos.copy(z = it)
                     a.vel = a.vel.copy(z = Q.ZERO)
-                    (a as? HandlesHit)?.hitGround(it)
+                    (a as? HandlesHit)?.hitGround(vel)
                 }
-                return@repeat
             }
 
-            // Compute distances.
-            val distanceHeight = abs(pos.z - height)
-            val distanceBind = hypot(bind.x - pos.x, bind.y - pos.y)
+            if (!a.isConnected())
+                return@repeat
 
-            // Check if resolving height or hull is better.
-            if (distanceHeight < distanceBind)
-                a.vel.let {
-                    // Resolve by lifting to height.
-                    a.pos = pos.copy(z = height)
-                    a.vel = a.vel.copy(z = Q.ZERO)
-                    (a as? HandlesHit)?.hitGround(it)
-                }
-            else
-                a.vel.let {
-                    // Resolve by binding out.
-                    a.pos = pos.copy(x = bind.x, y = bind.y)
-                    (a as? HandlesHit)?.hitHull(it)
-                }
+            // TODO: Bind validation on height. vv this is a shit-fix vv
+            hull.bind(radius, a.pos.copy(z = a.pos.z.ceiling().toQ()))?.let {
+                val vel = a.vel
+                a.pos = a.pos.copy(x = it.x, y = it.y)
+                a.vel = a.vel
+                (a as? HandlesHit)?.hitHull(vel)
+            }
         }
     }
 }
