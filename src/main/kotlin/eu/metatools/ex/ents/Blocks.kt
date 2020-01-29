@@ -3,12 +3,11 @@ package eu.metatools.ex.ents
 import eu.metatools.ex.animation
 import eu.metatools.ex.atlas
 import eu.metatools.ex.atlasStack
-import eu.metatools.f2d.data.Q
+import eu.metatools.ex.data.Dir
+import eu.metatools.ex.data.Mesh
+import eu.metatools.ex.data.box
+import eu.metatools.ex.data.slope
 import eu.metatools.f2d.data.Tri
-import eu.metatools.f2d.data.toQ
-
-
-// TODO: Bridges not working anymore for now.
 
 /**
  * Enum of shared block types.
@@ -71,7 +70,6 @@ enum class Blocks : Block {
     Chest {
         override val body by atlas("chest")
         override val extras = mapOf("container" to true)
-        override val walkable = false
     },
     /**
      * Crate block.
@@ -79,7 +77,6 @@ enum class Blocks : Block {
     Crate {
         override val body by atlas("crate")
         override val extras = mapOf("container" to true)
-        override val walkable = false
     },
     /**
      * Big crate block.
@@ -87,7 +84,6 @@ enum class Blocks : Block {
     BigCrate {
         override val body by atlasStack("big_crate_lower", "big_crate_upper")
         override val extras = mapOf("container" to true)
-        override val walkable = false
     },
     /**
      * Barrel.
@@ -95,14 +91,12 @@ enum class Blocks : Block {
     Barrel {
         override val body by atlas("barrel")
         override val extras = mapOf("container" to true)
-        override val walkable = false
     },
     /**
      * Animated fire pit.
      */
     Fire {
         override val body by animation(0.3, "fire")
-        override val walkable = false
     },
     /**
      * Horizontal traverse.
@@ -110,8 +104,7 @@ enum class Blocks : Block {
     BridgeH {
         override val body by atlas("bridge_h")
         override val cap by atlas("bridge_h_cap")
-        override val solid = false
-        override fun bottom(x: Q, y: Q) = Q.from(9, 10)
+        override fun mesh(x: Float, y: Float, z: Float) = box(x, y, z, zn = 0.4f)
     },
     /**
      * Vertical traverse.
@@ -119,8 +112,7 @@ enum class Blocks : Block {
     BridgeV {
         override val body by atlas("bridge_v")
         override val cap by atlas("bridge_v_cap")
-        override val solid = false
-        override fun bottom(x: Q, y: Q) = Q.from(9, 10)
+        override fun mesh(x: Float, y: Float, z: Float) = box(x, y, z, zn = 0.4f)
     },
     /**
      * Stairs left, left part.
@@ -128,9 +120,8 @@ enum class Blocks : Block {
     StairsLeftA {
         override val body by atlas("stairs_left_ll")
         override val cap by atlas("stairs_left_ul")
-        override val walkable = false
-        override fun top(x: Q, y: Q) =
-            (-Q.HALF - x) / Q.TWO + Q.ONE
+        override fun mesh(x: Float, y: Float, z: Float) = //TODO
+            super.mesh(x, y, z)
     },
     /**
      * Stairs left, right part.
@@ -138,9 +129,8 @@ enum class Blocks : Block {
     StairsLeftB {
         override val body by atlas("stairs_left_lr")
         override val cap by atlas("stairs_left_ur")
-        override val walkable = false
-        override fun top(x: Q, y: Q) =
-            (-Q.HALF - x) / Q.TWO + Q.HALF
+        override fun mesh(x: Float, y: Float, z: Float) =//TODO
+            slope(x, y, z, Dir.Left)
     },
     /**
      * Stairs right, left part.
@@ -148,10 +138,8 @@ enum class Blocks : Block {
     StairsRightA {
         override val body by atlas("stairs_right_ll")
         override val cap by atlas("stairs_right_ul")
-        override val solid = StairsLeftB.solid
-        override val walkable = StairsLeftB.walkable
-        override fun top(x: Q, y: Q) =
-            StairsLeftB.top(-x.toQ(), y)
+        override fun mesh(x: Float, y: Float, z: Float) =//TODO
+            slope(x, y, z, Dir.Right)
     },
     /**
      * Stairs right, right part.
@@ -159,10 +147,8 @@ enum class Blocks : Block {
     StairsRightB {
         override val body by atlas("stairs_right_lr")
         override val cap by atlas("stairs_right_ur")
-        override val solid = StairsLeftA.solid
-        override val walkable = StairsLeftA.walkable
-        override fun top(x: Q, y: Q) =
-            StairsLeftA.top(-x.toQ(), y)
+        override fun mesh(x: Float, y: Float, z: Float) = //TODO
+            super.mesh(x, y, z)
     }
 }
 

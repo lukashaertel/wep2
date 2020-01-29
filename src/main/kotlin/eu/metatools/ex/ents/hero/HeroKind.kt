@@ -1,7 +1,5 @@
 package eu.metatools.ex.ents.hero
 
-import eu.metatools.f2d.data.Q
-
 /**
  * Kind of heroes.
  */
@@ -14,7 +12,7 @@ interface HeroKind {
     /**
      * Radius.
      */
-    val radius: Q
+    val radius: Float
 
     /**
      * Sprite set to use.

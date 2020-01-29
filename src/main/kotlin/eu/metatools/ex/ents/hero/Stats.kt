@@ -1,6 +1,5 @@
 package eu.metatools.ex.ents.hero
 
-import eu.metatools.f2d.data.Q
 
 /**
  * Stats of a [Hero].
@@ -17,15 +16,15 @@ import eu.metatools.f2d.data.Q
  * @param deathXP The XP for killing the hero.
  */
 data class Stats(
-    val health: Q,
+    val health: Float,
     val ammo: Int,
-    val baseDamage: Int,
-    val bowInit: Q,
-    val bowHold: Q,
-    val bowDegrade: Q,
-    val bowMin: Q,
-    val projectileSpeed:Q,
-    val speed: Q,
+    val baseDamage: Float,
+    val bowInit: Float,
+    val bowHold: Float,
+    val bowDegrade: Float,
+    val bowMin: Float,
+    val projectileSpeed:Float,
+    val speed: Float,
     val hitXP: Int,
     val deathXP: Int
 )

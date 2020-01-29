@@ -38,7 +38,7 @@ import eu.metatools.up.lang.never
  */
 class Hero(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: QVec, val kind: HeroKind, val owner: Short
+    initPos: Vec, val kind: HeroKind, val owner: Short
 ) : Ent(shell, id), Rendered, Moves, Solid, Blocking, HandlesHit, Damageable, Described {
     override val extraArgs = mapOf(
         "initPos" to initPos,
@@ -77,7 +77,7 @@ class Hero(
 
     override var t0 by { 0.0 }
 
-    override var vel by { QVec.ZERO }
+    override var vel by { Vec.Zero }
 
     /**
      * Direction the hero is facing, defaults to [Dir.Right].
@@ -88,7 +88,7 @@ class Hero(
     /**
      * Last velocity before [draw].
      */
-    private var lastVel by { QPt() }
+    private var lastVel by { Pt() }
 
     /**
      * The level of the hero.
@@ -129,15 +129,15 @@ class Hero(
 
         // Transformation for displaying the mover.
         val local = mat
-            .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
-            .translate(y = tileHeight * z.toFloat())
+            .translate(x = tileWidth * x, y = tileHeight * y)
+            .translate(y = tileHeight * z)
             .translate(z = toZ(y, z))
             .scale(tileWidth, tileHeight)
 
         val visual = when {
             drawn != null -> kind.spriteSet.draw(look)
             // TODO:Fall?
-            vel.x != Q.ZERO || vel.y != Q.ZERO -> kind.spriteSet.move(look)
+            vel.x != 0f || vel.y != 0f -> kind.spriteSet.move(look)
             else -> kind.spriteSet.idle(look)
         }
 
@@ -148,7 +148,7 @@ class Hero(
 
     val jump = exchange(::doJump)
     private fun doJump() {
-        vel = vel.copy(z = vel.z + Q(3))
+        vel += Vec.Z
     }
 
     /**
@@ -156,13 +156,13 @@ class Hero(
      */
     val move = exchange(::doMoveInDirection)
 
-    private fun doMoveInDirection(direction: QPt) {
+    private fun doMoveInDirection(direction: Pt) {
         // Set the desired velocity.
         lastVel = direction * stats.speed
 
         // Don't move if drawn.
         if (drawn == null)
-            takeMovement(elapsed, vel.copy(x = lastVel.x, y = lastVel.y))
+            takeMovement(elapsed, Vec(lastVel.x, lastVel.y, vel.z))
     }
 
     /**
@@ -185,7 +185,7 @@ class Hero(
         drawn = elapsed
 
         // Clear movement.
-        takeMovement(elapsed, vel.copy(x = Q.ZERO, y = Q.ZERO))
+        takeMovement(elapsed, Vec(0f, 0f, vel.z))
         // TODO: What if falling.
     }
 
@@ -199,10 +199,10 @@ class Hero(
             is Moves ->
                 any.posAt(time)
             is BlockCapture -> {
-                val x = any.tri.x.toQ()
-                val y = any.tri.y.toQ()
-                val z = any.tri.z.toQ()// TODO Include height.
-                QVec(x, y, z)
+                val x = any.tri.x.toFloat()
+                val y = any.tri.y.toFloat()
+                val z = any.tri.z.toFloat()// TODO Include height.
+                Vec(x, y, z)
             }
             else -> null
         }
@@ -210,20 +210,20 @@ class Hero(
     /**
      * Factor of drawing the bow between zero for not ready to one for ready. `null` if not drawing.
      */
-    fun bowDrawFactor(time: Number) =
+    fun bowDrawFactor(time: Double) =
         drawn?.let {
-            minOf(Q.ONE, ((time.toQ() - it) / stats.bowInit))
+            minOf(1f, ((time - it).toFloat() / stats.bowInit))
         }
 
     /**
      * Applied damage factor after bow is drawn. `null` if not drawing.
      */
-    fun bowDamageFactor(time: Number) =
+    fun bowDamageFactor(time: Double) =
         drawn?.let {
-            maxOf(stats.bowMin, Q.ONE - maxOf(Q.ZERO, ((time.toQ() - it) - stats.bowInit) * stats.bowDegrade))
+            maxOf(stats.bowMin, 1f - maxOf(0f, ((time - it).toFloat() - stats.bowInit) * stats.bowDegrade))
         }
 
-    private fun doRelease(target: QVec) {
+    private fun doRelease(target: Vec) {
         // Not drawing return.
         if (drawn == null)
             return
@@ -236,7 +236,7 @@ class Hero(
         val drawFactor = bowDrawFactor(elapsed)
 
         // Check if direction is given, ammo is present and bow has been drawn enough.
-        if (dir.isNotEmpty() && ammo > 0 && drawFactor == Q.ONE) {
+        if (dir.isNotEmpty() && ammo > 0 && drawFactor == 1f) {
             // Reduce the ammo.
             ammo--
 
@@ -267,7 +267,7 @@ class Hero(
         drawn = null
 
         // Re-allow movement.
-        takeMovement(elapsed, vel.copy(x = lastVel.x, y = lastVel.y))
+        takeMovement(elapsed, Vec(lastVel.x, lastVel.y, vel.z))
     }
 
     /**
@@ -280,10 +280,10 @@ class Hero(
         drawn = null
 
         // Re-allow movement.
-        takeMovement(elapsed, vel.copy(x = lastVel.x, y = lastVel.y))
+        takeMovement(elapsed, Vec(lastVel.x, lastVel.y, vel.z))
     }
 
-    override fun takeDamage(amount: Q): Int {
+    override fun takeDamage(amount: Float): Int {
         // Decrease health for taking a hit.
         health -= amount
 
@@ -294,14 +294,14 @@ class Hero(
         // Render damage floating up.
         enqueue(ui.world, hitText.limit(3.0).offset(start), amount.toString()) {
             Mat.translation(
-                tileWidth * x.toFloat(),
-                tileHeight * (y + z).toFloat() + (it - start).toFloat() * 10,
+                tileWidth * x,
+                tileHeight * (y + z) + (it - start).toFloat() * 10,
                 subUiZ
             ).scale(16f, 16f)
         }
 
         // Check if dead now, return XP for killing if true.
-        if (health <= Q.ZERO)
+        if (health <= 0f)
             return stats.deathXP.also {
                 // Also, remove hero and delete this.
                 world.heroes.remove(this)
@@ -336,8 +336,8 @@ class Hero(
         // Render level up floating up.
         enqueue(ui.world, levelUp.limit(5.0).offset(start), "Level up!") {
             Mat.translation(
-                tileWidth * x.toFloat(),
-                tileHeight * (y + z).toFloat() + (it - start).toFloat() * 10,
+                tileWidth * x,
+                tileHeight * (y + z) + (it - start).toFloat() * 10,
                 subUiZ
             ).scale(16f, 16f)
         }
@@ -347,7 +347,7 @@ class Hero(
         ammo = minOf(stats.ammo, ammo + amount)
     }
 
-    fun takeHealth(amount: Q) {
+    fun takeHealth(amount: Float) {
         health = minOf(stats.health, health + amount)
     }
 
@@ -363,6 +363,6 @@ class Hero(
     }
 
     override fun describe(): String =
-        "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
+        pos.toString() ?: "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
 
 }

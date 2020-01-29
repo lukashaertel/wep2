@@ -144,6 +144,13 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Comparable<Vec> {
     operator fun unaryMinus() =
         Vec(-x, -y, -z)
 
+    infix fun cross(other: Vec) =
+        Vec(
+            y * other.z - z * other.y,
+            z * other.x - x * other.z,
+            x * other.y - y * other.x
+        )
+
     /**
      * The squared length.
      */
@@ -157,7 +164,7 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Comparable<Vec> {
     /**
      * The normalized vector.
      */
-    val nor by lazy { if (isEmpty()) QVec.ZERO else div(len) }
+    val nor by lazy { if (isEmpty()) Zero else div(len) }
 
     /**
      * Computes the dot product between this an another vector.
@@ -229,6 +236,9 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Comparable<Vec> {
         append(')')
     }
 }
+
+fun Vec.isNotEmpty() =
+    !isEmpty()
 
 /**
  * Applies the function on the components.

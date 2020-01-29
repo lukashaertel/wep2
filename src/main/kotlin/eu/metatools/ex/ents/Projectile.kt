@@ -35,10 +35,10 @@ class Projectile(
     shell: Shell,
     id: Lx,
     val ui: Frontend,
-    initPos: QVec,
-    initVel: QVec,
+    initPos: Vec,
+    initVel: Vec,
     initT0: Double,
-    val damage: Q
+    val damage: Float
 ) : Ent(shell, id), Moves, Solid, HandlesHit, Ticking, Rendered {
     companion object {
         /**
@@ -64,7 +64,7 @@ class Projectile(
 
     override val flying = true
 
-    override val radius = 0.05f.toQ()
+    override val radius = 0.05f
 
     /**
      * The genesis of the projectile.
@@ -86,10 +86,10 @@ class Projectile(
 
         // Transformation for displaying the bullet.
         val local = mat
-            .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
-            .translate(y = tileHeight * z.toFloat())
+            .translate(x = tileWidth * x, y = tileHeight * y)
+            .translate(y = tileHeight * z)
             .translate(z = toZ(y, z))
-            .rotateZ((QPt(vel.x, vel.y).angle).toFloat()) // TODO: Include dZ (project then calculate projected angle)
+            .rotateZ((Pt(vel.x, vel.y).angle)) // TODO: Include dZ (project then calculate projected angle)
             .translate(x = -8f)
             .scale(tileWidth, tileHeight)
 
@@ -98,11 +98,8 @@ class Projectile(
         ui.world.submit(CaptureCube, this, time, local)
     }
 
-    override fun hitGround(velocity: QVec) {
-        delete(this)
-    }
 
-    override fun hitHull(velocity: QVec) {
+    override fun hitHull(vel: Vec) {
         // Hit the hull, just delete.
         delete(this)
     }

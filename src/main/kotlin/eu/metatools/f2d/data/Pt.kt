@@ -2,6 +2,7 @@ package eu.metatools.f2d.data
 
 import com.badlogic.gdx.math.Vector2
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.sqrt
 
 /**
@@ -156,6 +157,8 @@ class Pt(val values: FloatArray, val offset: Int = 0) : Comparable<Pt> {
      * The normalized point.
      */
     val nor by lazy { div(len) }
+
+    val angle by lazy { atan2(y, x) }
 
     /**
      * Computes the dot product between this an another point.

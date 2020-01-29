@@ -6,7 +6,6 @@ import eu.metatools.ex.Resources
 import eu.metatools.ex.uiZ
 import eu.metatools.f2d.InOut
 import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.Q
 import eu.metatools.f2d.drawable.tint
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.resource.get
@@ -39,7 +38,7 @@ fun InOut.submitDraw(hero: Hero, time: Double) {
     val damageFactor = hero.bowDamageFactor(time)
 
     // Check if still drawing.
-    if (drawFactor != null && drawFactor < Q.ONE) {
+    if (drawFactor != null && drawFactor < 1f) {
         // Display closing white or red (no ammo) bar.
         val color = if (hero.ammo == 0) Color.RED else Color.WHITE
 

@@ -8,6 +8,7 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.minlog.Log
 import eu.metatools.ex.data.basicMap
+import eu.metatools.ex.data.forEach
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
@@ -17,12 +18,10 @@ import eu.metatools.ex.input.Look
 import eu.metatools.ex.input.Mouse
 import eu.metatools.f2d.F2DListener
 import eu.metatools.f2d.InOut
-import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.QVec
-import eu.metatools.f2d.data.Vec
-import eu.metatools.f2d.data.toQPt
+import eu.metatools.f2d.data.*
 import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.drawable.tint
+import eu.metatools.f2d.tools.ShapePoly
 import eu.metatools.up.*
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
@@ -261,7 +260,7 @@ class Frontend : F2DListener(-100f, 100f) {
                 // Get desired move direction.
                 keyStick.fetch()?.let {
                     // Send to mover if present.
-                    hero.move(it.toQPt())
+                    hero.move(Pt(it.x.toFloat(), it.y.toFloat()))
                 }
 
                 // If look at direction has changed, look at it.
@@ -290,6 +289,21 @@ class Frontend : F2DListener(-100f, 100f) {
                 ui.submitXP(hero, time)
             }
         }
+
+//        fun toPt(qVec: QVec) = Pt(qVec.x.toFloat() * tileWidth, (qVec.y + qVec.z).toFloat() * tileHeight)
+//        root.meshes.forEach { (at, mesh) ->
+//            if(at.z == -1)
+//            mesh.forEach { v1, v2, v3 ->
+//                world.submit(
+//                    ShapePoly, Pts(
+//                        toPt(v1),
+//                        toPt(v2),
+//                        toPt(v3)
+//                    ), time, Mat.translation(z = uiZ)
+//                )
+//            }
+//        }
+
 
         // Submit described elements.
         ui.submitDescribed(capture?.first as? Described, time)
@@ -350,7 +364,7 @@ class Frontend : F2DListener(-100f, 100f) {
     /**
      * Current captured element and position.
      */
-    var capture: Pair<Any, QVec>? = null
+    var capture: Pair<Any, Vec>? = null
         private set
 
     /**
@@ -364,7 +378,7 @@ class Frontend : F2DListener(-100f, 100f) {
         val (x, y, z) = view.inv * intersection
 
         // Memorize result, convert to world space.
-        capture = (result ?: root) to QVec(x / tileWidth, y / tileHeight, -z)
+        capture = (result ?: root) to Vec(x / tileWidth, y / tileHeight, -z)
     }
 
     override fun pause() = Unit

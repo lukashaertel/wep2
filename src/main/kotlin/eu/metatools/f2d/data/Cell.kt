@@ -13,6 +13,3 @@ data class Cell(val x: Int, val y: Int) : Comparable<Cell> {
 
     override fun toString() = "($x, $y)"
 }
-
-fun Cell.toQPt() =
-    QPt(x.toQ(), y.toQ())

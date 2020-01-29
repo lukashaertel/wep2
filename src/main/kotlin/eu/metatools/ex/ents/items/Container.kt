@@ -6,8 +6,7 @@ import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
 import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.Q
-import eu.metatools.f2d.data.QVec
+import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.CaptureCube
@@ -29,15 +28,15 @@ import eu.metatools.up.dt.lx
  */
 abstract class Container(
     shell: Shell, id: Lx, val ui: Frontend,
-    initPos: QVec
+    initPos: Vec
 ) : Ent(shell, id), Moves, Solid, Rendered, Damageable, Described {
     override val world get() = shell.resolve(lx / "root") as World
 
-    override val radius = Q.THIRD
+    override val radius = 0.3f
 
     override var pos by { initPos }
 
-    override var vel by { QVec.ZERO }
+    override var vel by { Vec.Zero }
 
     override var t0 by { 0.0 }
 
@@ -51,8 +50,8 @@ abstract class Container(
 
         // Transformation for displaying the res pack.
         val local = mat
-            .translate(x = tileWidth * x.toFloat(), y = tileHeight * y.toFloat())
-            .translate(y = tileHeight * z.toFloat())
+            .translate(x = tileWidth * x, y = tileHeight * y)
+            .translate(y = tileHeight * z)
             .translate(z = toZ(y, z))
             .scale(tileWidth, tileHeight)
 
@@ -63,7 +62,7 @@ abstract class Container(
         ui.world.submit(CaptureCube, this, time, local)
     }
 
-    override fun takeDamage(amount: Q): Int {
+    override fun takeDamage(amount: Float): Int {
         delete(this)
         return 1
     }

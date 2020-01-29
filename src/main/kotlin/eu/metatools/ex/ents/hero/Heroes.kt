@@ -1,10 +1,5 @@
 package eu.metatools.ex.ents.hero
 
-import eu.metatools.f2d.data.Q
-import eu.metatools.f2d.data.over
-import eu.metatools.f2d.data.plus
-import eu.metatools.f2d.data.toQ
-
 /**
  * Enum of known heroes.
  */
@@ -14,22 +9,22 @@ enum class Heroes : HeroKind {
      */
     Pazu {
         override val label = "Pazu"
-        override val radius = Q.THIRD
+        override val radius = 0.3f
         override val spriteSet = SpriteSets.Pazu
 
         override fun stats(level: Int) = Stats(
-            health = 25.toQ() + level * 5,
+            health = 25f + level * 5f,
             ammo = 10 + level * 2,
-            baseDamage = 2 + level,
+            baseDamage = 2f + level,
             bowInit = maxOf(
-                Q.QUARTER,
-                Q.ONE - level.over(5)
+                0.25f,
+                1f - level / 5f
             ),
-            bowHold = 1.over(2) + level.over(5),
-            bowDegrade = 1.over(2 + level),
-            bowMin = 1 over 5,
-            projectileSpeed =  10f + level.over(2),
-            speed = 2 + level.over(5),
+            bowHold = 0.5f + level / 5f,
+            bowDegrade = 1f / (2f + level),
+            bowMin = 0.2f,
+            projectileSpeed = 10f + level / 2f,
+            speed = 2f + level / 5f,
             hitXP = 5 + 2 * level,
             deathXP = 15 + 5 * level
         )

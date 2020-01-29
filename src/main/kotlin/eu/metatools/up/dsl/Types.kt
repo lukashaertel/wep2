@@ -25,12 +25,6 @@ class TypeException(
 
 object Types {
     @Suppress("experimental_api_usage_error")
-    private val floatType = typeOf<Float>()
-
-    @Suppress("experimental_api_usage_error")
-    private val doubleType = typeOf<Float>()
-
-    @Suppress("experimental_api_usage_error")
     private val mutableCollectionType = typeOf<MutableCollection<*>>()
 
     @Suppress("experimental_api_usage_error")
@@ -70,35 +64,21 @@ object Types {
 
         // Performs a recursive type check.
         fun check(type: KType, allowMutable: Boolean) {
-            when (type) {
-                // Warn for float.
-                floatType -> report(
-                    "Float may lead to inconsistency from rounding errors, consider using a stable type."
-                )
+            // Warn for mutable collections.
+            if (!allowMutable && mutableCollectionType.isSupertypeOf(type))
+                report("Use immutable type or use set or map property. ")
 
-                // Warn for double.
-                doubleType -> report(
-                    "Double may lead to inconsistency from rounding errors, consider using a stable type."
-                )
+            // Warn for hash based types.
+            if (hashSetType.isSupertypeOf(type))
+                report("Use stable set or set property.")
 
-                else -> {
-                    // Warn for mutable collections.
-                    if (!allowMutable && mutableCollectionType.isSupertypeOf(type))
-                        report("Use immutable type or use set or map property. ")
+            if (hashMapType.isSupertypeOf(type))
+                report("Use stable map or map property.")
 
-                    // Warn for hash based types.
-                    if (hashSetType.isSupertypeOf(type))
-                        report("Use stable set or set property.")
-
-                    if (hashMapType.isSupertypeOf(type))
-                        report("Use stable map or map property.")
-
-                    // Warn for each argument.
-                    type.arguments.forEach {
-                        it.type?.let {
-                            check(it, false)
-                        }
-                    }
+            // Warn for each argument.
+            type.arguments.forEach {
+                it.type?.let {
+                    check(it, false)
                 }
             }
         }
