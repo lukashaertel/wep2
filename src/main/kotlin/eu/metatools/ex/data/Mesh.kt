@@ -1,10 +1,7 @@
 package eu.metatools.ex.data
 
-import eu.metatools.ex.math.td
 import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.data.Vecs
-import kotlin.math.abs
-import kotlin.math.sqrt
 
 /**
  * A pair of points and triangle indices.
@@ -67,15 +64,17 @@ inline fun Mesh.forEach(triBlock: (Vec, Vec, Vec) -> Unit) {
  * Returns the triangle with the smallest absolute distance to the point [p].
  */
 fun Mesh.closest(p: Vec): Pair<Vecs, Float> {
-    // Tracked minimal values.
-    var minimal = Float.MAX_VALUE
+    // Tracked maximal values.
+    var maximal = Float.MIN_VALUE
     val result = Vecs(3)
 
     // Iterate all triangles, underwrite if closer.
     forEach { v1, v2, v3 ->
-        val new = td(p, v1, v2, v3)
-        if (new < minimal) {
-            minimal = new
+        val n = (v3 - v1 cross v2 - v1).nor
+        val d = (p - v1) dot n
+
+        if (d > maximal) {
+            maximal = d
             result.values[0] = v1.x
             result.values[1] = v1.y
             result.values[2] = v1.z
@@ -89,7 +88,7 @@ fun Mesh.closest(p: Vec): Pair<Vecs, Float> {
     }
 
     // Return the minimized vectors with the distance.
-    return result to sqrt(minimal)
+    return result to maximal
 }
 
 /**

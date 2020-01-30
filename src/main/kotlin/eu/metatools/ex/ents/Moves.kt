@@ -4,12 +4,14 @@ import eu.metatools.ex.data.closest
 import eu.metatools.ex.data.forEach
 import eu.metatools.ex.data.inside
 import eu.metatools.ex.math.sp
-import eu.metatools.f2d.data.*
+import eu.metatools.f2d.data.Tri
+import eu.metatools.f2d.data.Vec
+import eu.metatools.f2d.data.Vecs
 import eu.metatools.up.isConnected
 import eu.metatools.up.list
 import kotlin.math.roundToInt
 
-val g = Vec(0f, 0f, -1f)
+val g = Vec(0f, 0f, -5f)
 
 fun World.bind(radius: Float, from: Vec, to: Vec): Vecs {
     // Get mesh path.
@@ -147,7 +149,6 @@ interface HandlesHit {
  */
 fun World.updateMovement(time: Double, deltaTime: Double) {
     val moves = shell.list<Moves>().toList()
-    val origins = moves.associateWith { it.pos }
 
     for ((i, a) in moves.withIndex()) {
         // Skip if deleted from other.
@@ -200,28 +201,34 @@ fun World.updateMovement(time: Double, deltaTime: Double) {
         val triX = a.pos.x.roundToInt()
         val triY = a.pos.y.roundToInt()
         val triZ = a.pos.z.roundToInt()
+
+        var outPos = a.pos
+        var outVel = a.vel
+
         for (x in triX.dec()..triX.inc()) for (y in triY.dec()..triY.inc()) for (z in triZ.dec()..triZ.inc()) {
             val mesh = meshes[Tri(x, y, z)] ?: continue
 
-            if (!mesh.inside(a.pos, a.radius))
+            if (!mesh.inside(outPos, a.radius))
                 continue
 
-            val (tri, distance) = mesh.closest(a.pos)
-            val t = (tri[1] - tri[0]).nor
-            val b = (tri[2] - tri[0]).nor
+            val (tri, distance) = mesh.closest(outPos)
+            val t = (tri[1] - tri[0])
+            val b = (tri[2] - tri[0])
             val n = (b cross t).nor
 
-            // This is still fucked.
-            val btn = Mat(
-                b.x, b.y, b.z, 0f,
-                b.x, t.y, t.z, 0f,
-                b.x, n.y, n.z, 0f,
-                0f, 0f, 0f, 1f
-            )
-            a.pos += n * (a.radius - distance)
-            a.vel = (btn.inv * a.vel).let { (x, y) ->
-                btn * Vec(x, y, 0f)
-            }
+            outPos += n * (a.radius - distance)
+            outVel -= n * (outVel dot n)
+        }
+
+        // TODO: Unfuck clipping on inside brushes
+        // TODO: Friction
+        // TODO: No gravity when on ground.
+        // TODO: Movement when not at desired speed.
+
+        if (a.pos != outPos || a.vel != outVel) {
+            a.t0 = time
+            a.pos = outPos
+            a.vel = outVel
         }
 
 

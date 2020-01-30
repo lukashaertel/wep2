@@ -221,6 +221,17 @@ class Mat(val values: FloatArray) {
                 0f, 0f, 0f, 1f
             )
         }
+
+        /**
+         * Creates the matrix from the given axis.
+         */
+        fun from(x: Vec, y: Vec, z: Vec, pos: Vec = Vec.Zero) =
+            Mat(
+                x.x, x.y, x.z, pos.x,
+                y.x, y.y, y.z, pos.y,
+                z.x, z.y, z.z, pos.x,
+                0f, 0f, 0f, 1f
+            )
     }
 
     /**
@@ -415,7 +426,7 @@ class Mat(val values: FloatArray) {
     /**
      * Post-multiplies the matrix with the given scaling.
      */
-    fun scale(sx: Float = 1f, sy: Float= 1f, sz: Float = 1f) =
+    fun scale(sx: Float = 1f, sy: Float = 1f, sz: Float = 1f) =
         times(scaling(sx, sy, sz))
 
     /**

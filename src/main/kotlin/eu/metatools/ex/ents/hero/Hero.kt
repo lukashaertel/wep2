@@ -148,7 +148,7 @@ class Hero(
 
     val jump = exchange(::doJump)
     private fun doJump() {
-        vel += Vec.Z
+        vel -= g
     }
 
     /**
