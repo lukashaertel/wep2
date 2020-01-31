@@ -8,7 +8,6 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.minlog.Log
 import eu.metatools.ex.data.basicMap
-import eu.metatools.ex.data.forEach
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
@@ -18,10 +17,11 @@ import eu.metatools.ex.input.Look
 import eu.metatools.ex.input.Mouse
 import eu.metatools.f2d.F2DListener
 import eu.metatools.f2d.InOut
-import eu.metatools.f2d.data.*
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.Pt
+import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.drawable.tint
-import eu.metatools.f2d.tools.ShapePoly
 import eu.metatools.up.*
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
@@ -251,16 +251,22 @@ class Frontend : F2DListener(-100f, 100f) {
                 view = Mat
                     .translation(Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
                     .scale(scaling, scaling)
-                    .translate(x = -x.toFloat() * tileWidth, y = -y.toFloat() * tileHeight)
-                    .translate(y = -z.toFloat() * tileHeight)
+                    .translate(x = -x * tileWidth, y = -y * tileHeight)
+                    .translate(y = -z * tileHeight)
 
-                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE))
-                    hero.jump()
+                if (Gdx.input.isKeyJustPressed(Keys.SPACE)) {
+                    if (hero.isGrounded())
+                        hero.jump()
+                }
 
                 // Get desired move direction.
-                keyStick.fetch()?.let {
-                    // Send to mover if present.
-                    hero.move(Pt(it.x.toFloat(), it.y.toFloat()))
+                keyStick.current.let {
+                    if (hero.isGrounded()) {
+                        val velFrom = Pt(hero.vel.x, hero.vel.y)
+                        val velTo = Pt(it.x.toFloat(), it.y.toFloat())
+                        if (velFrom != velTo)
+                            hero.move(velTo)
+                    }
                 }
 
                 // If look at direction has changed, look at it.

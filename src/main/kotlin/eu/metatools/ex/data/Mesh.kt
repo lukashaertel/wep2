@@ -72,6 +72,7 @@ fun Mesh.closest(p: Vec): Pair<Vecs, Float> {
     forEach { v1, v2, v3 ->
         val n = (v3 - v1 cross v2 - v1).nor
         val d = (p - v1) dot n
+        // TODO: Maybe perform insideness check with triangle projection?
 
         if (d > maximal) {
             maximal = d
@@ -84,6 +85,41 @@ fun Mesh.closest(p: Vec): Pair<Vecs, Float> {
             result.values[6] = v3.x
             result.values[7] = v3.y
             result.values[8] = v3.z
+        }
+    }
+
+    // Return the minimized vectors with the distance.
+    return result to maximal
+}
+
+
+/**
+ * Returns the triangle with the smallest absolute distance to the point [p]. Limits the selection of triangles by a
+ * given [dir] and a lower limit of the dot product of normal and [dir].
+ */
+fun Mesh.closest(p: Vec, dir: Vec, limit: Float = 0f): Pair<Vecs, Float> {
+    // Tracked maximal values.
+    var maximal = Float.MIN_VALUE
+    val result = Vecs(3)
+
+    // Iterate all triangles, underwrite if closer.
+    forEach { v1, v2, v3 ->
+        val n = (v3 - v1 cross v2 - v1).nor
+        if (n dot dir > limit) {
+            val d = (p - v1) dot n
+
+            if (d > maximal) {
+                maximal = d
+                result.values[0] = v1.x
+                result.values[1] = v1.y
+                result.values[2] = v1.z
+                result.values[3] = v2.x
+                result.values[4] = v2.y
+                result.values[5] = v2.z
+                result.values[6] = v3.x
+                result.values[7] = v3.y
+                result.values[8] = v3.z
+            }
         }
     }
 

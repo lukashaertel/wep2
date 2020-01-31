@@ -54,6 +54,16 @@ class Pts(vararg val values: Float) : Iterable<Pt> {
         }
     }
 
+    fun lerp(to: Pts, t: Float): Pts {
+        val tInv = 1f - t
+        return Pts(minOf(size, to.size)) {
+            Pt(
+                x[it] * tInv + to.x[it] * t,
+                y[it] * tInv + to.y[it] * t
+            )
+        }
+    }
+
     /**
      * Gets a new point of the [n]th values.
      */

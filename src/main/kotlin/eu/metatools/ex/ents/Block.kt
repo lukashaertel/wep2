@@ -2,10 +2,11 @@ package eu.metatools.ex.ents
 
 import eu.metatools.ex.data.Mesh
 import eu.metatools.ex.data.box
-import eu.metatools.ex.math.sp
-import eu.metatools.f2d.data.*
+import eu.metatools.ex.data.closest
+import eu.metatools.f2d.data.Tri
+import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.drawable.Drawable
-import java.util.*
+import kotlin.math.roundToInt
 
 /**
  * World geometry and data block.

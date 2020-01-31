@@ -20,16 +20,20 @@ class KeyStick(
      */
     private var last: Cell? = null
 
+    val current: Cell
+        get() {
+            val dx = Gdx.input.isKeyPressed(right).toInt() -
+                    Gdx.input.isKeyPressed(left).toInt()
+            val dy = Gdx.input.isKeyPressed(up).toInt() -
+                    Gdx.input.isKeyPressed(down).toInt()
+            return Cell(dx, dy)
+        }
+
     /**
      * Gets the changed value or null if unchanged.
      */
     fun fetch(): Cell? {
-        val dx = Gdx.input.isKeyPressed(right).toInt() -
-                Gdx.input.isKeyPressed(left).toInt()
-        val dy = Gdx.input.isKeyPressed(up).toInt() -
-                Gdx.input.isKeyPressed(down).toInt()
-
-        val next = Cell(dx, dy)
+        val next = current
         if (next != last) {
             last = next
             return next

@@ -39,6 +39,7 @@ abstract class Container(
     override var vel by { Vec.Zero }
 
     override var t0 by { 0.0 }
+    override var height by { 0f }
 
     protected abstract fun visual(): Drawable<Unit?>
 

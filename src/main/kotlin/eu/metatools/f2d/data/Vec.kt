@@ -192,6 +192,11 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Comparable<Vec> {
      */
     val z get() = values[offset + 2]
 
+    fun lerp(to: Vec, t: Float): Vec {
+        val tInv = 1f - t
+        return Vec(x * tInv + to.x * t, y * tInv + to.y * t, z * tInv + to.z * t)
+    }
+
     operator fun component1() = x
     operator fun component2() = y
     operator fun component3() = z

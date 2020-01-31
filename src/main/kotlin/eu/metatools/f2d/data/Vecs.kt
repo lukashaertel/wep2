@@ -89,6 +89,17 @@ class Vecs(vararg val values: Float) : Iterable<Vec> {
      */
     operator fun get(n: Int) = Vec(values, n * 3)
 
+    fun lerp(to: Vecs, t: Float): Vecs {
+        val tInv = 1f - t
+        return Vecs(minOf(size, to.size)) {
+            Vec(
+                x[it] * tInv + to.x[it] * t,
+                y[it] * tInv + to.y[it] * t,
+                z[it] * tInv + to.z[it] * t
+            )
+        }
+    }
+
     operator fun component1() = get(0)
     operator fun component2() = get(1)
     operator fun component3() = get(2)

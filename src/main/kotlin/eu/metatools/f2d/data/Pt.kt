@@ -181,6 +181,12 @@ class Pt(val values: FloatArray, val offset: Int = 0) : Comparable<Pt> {
      */
     val y get() = values[offset + 1]
 
+    fun lerp(to: Pt, t: Float): Pt {
+        val tInv = 1f - t
+        return Pt(x * tInv + to.x * t, y * tInv + to.y * t)
+    }
+
+
     operator fun component1() = x
     operator fun component2() = y
 

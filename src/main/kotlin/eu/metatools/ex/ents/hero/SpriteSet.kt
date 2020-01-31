@@ -8,17 +8,22 @@ import eu.metatools.f2d.drawable.Drawable
  */
 interface SpriteSet {
     /**
-     * Idle set for the given [dir]ection.
+     * Idle set for the given [dir].
      */
     fun idle(dir: Dir): Drawable<Unit?>
 
     /**
-     * Movement for the given [dir]ection.
+     * Movement for the given [dir].
      */
     fun move(dir: Dir): Drawable<Unit?>
 
     /**
-     * Drawing weapon for the given [dir]ection.
+     * When in air for the given [dir].
+     */
+    fun air(dir: Dir): Drawable<Unit?>
+
+    /**
+     * Drawing weapon for the given [dir].
      */
     fun draw(dir: Dir): Drawable<Unit?>
 }

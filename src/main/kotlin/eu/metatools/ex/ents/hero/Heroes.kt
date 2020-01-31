@@ -26,7 +26,8 @@ enum class Heroes : HeroKind {
             projectileSpeed = 10f + level / 2f,
             speed = 2f + level / 5f,
             hitXP = 5 + 2 * level,
-            deathXP = 15 + 5 * level
+            deathXP = 15 + 5 * level,
+            jumpHeight = 0.8f
         )
     }
 }

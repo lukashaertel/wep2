@@ -2,6 +2,7 @@ package eu.metatools.ex.ents
 
 import eu.metatools.ex.Frontend
 import eu.metatools.ex.data.Mesh
+import eu.metatools.ex.data.closest
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
@@ -20,6 +21,7 @@ import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
 import java.util.*
+import kotlin.math.roundToInt
 
 fun toZ(y: Number, z: Number) =
     -z.toFloat() + y.toFloat()
@@ -162,3 +164,24 @@ class World(
 }
 
 data class BlockCapture(val tri: Tri, val block: Block, val cap: Boolean)
+
+
+
+fun World.findGround(pos: Vec): Vec? {
+    val triX = pos.x.roundToInt()
+    val triY = pos.y.roundToInt()
+    val triZ = pos.z.roundToInt()
+
+    for (z in triZ downTo triZ - heightCheckLimit) {
+        // Get mesh under or in.
+        val mesh = meshes[Tri(triX, triY, z)] ?: continue
+
+        // Get distance.
+        val (_, distance) = mesh.closest(pos, Vec.Z)
+
+        // Return and stop loop.
+        return pos - Vec.Z * distance
+    }
+
+    return null
+}

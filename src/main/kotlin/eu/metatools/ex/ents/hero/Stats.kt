@@ -23,8 +23,9 @@ data class Stats(
     val bowHold: Float,
     val bowDegrade: Float,
     val bowMin: Float,
-    val projectileSpeed:Float,
+    val projectileSpeed: Float,
     val speed: Float,
     val hitXP: Int,
-    val deathXP: Int
+    val deathXP: Int,
+    val jumpHeight: Float
 )

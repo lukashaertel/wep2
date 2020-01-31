@@ -13,49 +13,49 @@ arrow
   index: -1
 barrel
   rotate: false
-  xy: 470, 2
+  xy: 808, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 big_crate_lower
   rotate: false
-  xy: 1224, 2
+  xy: 1250, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 big_crate_upper
   rotate: false
-  xy: 808, 2
+  xy: 834, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 brick
   rotate: false
-  xy: 28, 2
+  xy: 886, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 brick_cap
   rotate: false
-  xy: 392, 2
+  xy: 418, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 bridge_h
   rotate: false
-  xy: 1042, 2
+  xy: 1068, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 bridge_h_cap
   rotate: false
-  xy: 1094, 2
+  xy: 106, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -69,14 +69,14 @@ bridge_v
   index: -1
 bridge_v_cap
   rotate: false
-  xy: 366, 2
+  xy: 392, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 chest
   rotate: false
-  xy: 106, 2
+  xy: 28, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -104,35 +104,35 @@ dirt_cap
   index: -1
 door
   rotate: false
-  xy: 964, 2
+  xy: 990, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 fire
   rotate: false
-  xy: 834, 2
-  size: 24, 24
-  orig: 24, 24
-  offset: 0, 0
-  index: 1
-fire
-  rotate: false
-  xy: 860, 2
+  xy: 340, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: 2
 fire
   rotate: false
-  xy: 886, 2
+  xy: 860, 2
+  size: 24, 24
+  orig: 24, 24
+  offset: 0, 0
+  index: 1
+fire
+  rotate: false
+  xy: 912, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: 3
 grass_lower
   rotate: false
-  xy: 912, 2
+  xy: 938, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -146,7 +146,7 @@ grass_upper
   index: -1
 pa_d_d
   rotate: false
-  xy: 1198, 2
+  xy: 1224, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -160,7 +160,7 @@ pa_d_l
   index: -1
 pa_d_r
   rotate: false
-  xy: 782, 2
+  xy: 132, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -174,7 +174,7 @@ pa_d_u
   index: -1
 pa_i_d
   rotate: false
-  xy: 1146, 2
+  xy: 1172, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -188,14 +188,14 @@ pa_i_l
   index: -1
 pa_i_r
   rotate: false
-  xy: 314, 2
+  xy: 1094, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 pa_i_u
   rotate: false
-  xy: 340, 2
+  xy: 366, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -209,7 +209,7 @@ pa_w1_d
   index: -1
 pa_w1_l
   rotate: false
-  xy: 418, 2
+  xy: 444, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -230,14 +230,14 @@ pa_w1_u
   index: -1
 pa_w2_d
   rotate: false
-  xy: 132, 2
+  xy: 314, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 pa_w2_l
   rotate: false
-  xy: 444, 2
+  xy: 470, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -256,9 +256,16 @@ pa_w2_u
   orig: 24, 24
   offset: 0, 0
   index: -1
+shadow
+  rotate: false
+  xy: 1016, 2
+  size: 24, 24
+  orig: 24, 24
+  offset: 0, 0
+  index: -1
 slab
   rotate: false
-  xy: 1172, 2
+  xy: 1198, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -272,14 +279,14 @@ stairs_left_ll
   index: -1
 stairs_left_lr
   rotate: false
-  xy: 1250, 2
+  xy: 1276, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 stairs_left_ul
   rotate: false
-  xy: 1016, 2
+  xy: 1042, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
@@ -300,42 +307,42 @@ stairs_right_ll
   index: -1
 stairs_right_lr
   rotate: false
-  xy: 626, 2
+  xy: 756, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 stairs_right_ul
   rotate: false
-  xy: 990, 2
+  xy: 626, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 stairs_right_ur
   rotate: false
-  xy: 1068, 2
+  xy: 1120, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 stone
   rotate: false
-  xy: 756, 2
+  xy: 782, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 stone_cap
   rotate: false
-  xy: 1120, 2
+  xy: 1146, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0
   index: -1
 tree
   rotate: false
-  xy: 938, 2
+  xy: 964, 2
   size: 24, 24
   orig: 24, 24
   offset: 0, 0

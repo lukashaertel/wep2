@@ -7,11 +7,16 @@ import eu.metatools.ex.math.sp
 import eu.metatools.f2d.data.Tri
 import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.data.Vecs
+import eu.metatools.f2d.data.isNotEmpty
 import eu.metatools.up.isConnected
 import eu.metatools.up.list
 import kotlin.math.roundToInt
 
-val g = Vec(0f, 0f, -5f)
+val g = 5f
+
+val groundedLimit = 0.05f
+
+val heightCheckLimit = 5
 
 fun World.bind(radius: Float, from: Vec, to: Vec): Vecs {
     // Get mesh path.
@@ -53,24 +58,6 @@ fun World.bind(radius: Float, from: Vec, to: Vec): Vecs {
         Vecs(0)
 }
 
-data class Dyn(val origin: Vec, val vel: Vec, val time: Double, val limit: Double) {
-    constructor(position: Vec) : this(position, Vec.Zero, Double.NaN, Double.NaN)
-
-    fun at(t: Double): Vec {
-        if (vel.isEmpty())
-            return origin
-        val dt = minOf(limit, t) - time
-        return Vec(
-            (origin.x + vel.x * dt).toFloat(),
-            (origin.y + vel.y * dt).toFloat(),
-            (origin.z + vel.z * dt).toFloat()
-        )
-    }
-}
-
-// TODO: Simple and stupid push-out.
-//       For fast movers, apply penetration check via. spheroid-passage
-
 /**
  * Entity moves.
  */
@@ -91,6 +78,11 @@ interface Moves : All {
     var vel: Vec
 
     /**
+     * True of the mover is on an non-sloped ground block.
+     */
+    var height: Float
+
+    /**
      * True if unaffected by gravity.
      */
     val flying: Boolean get() = false
@@ -100,6 +92,9 @@ interface Moves : All {
      */
     fun ignores(other: Moves) = false
 }
+
+fun Moves.isGrounded() =
+    height <= groundedLimit
 
 /**
  * Evaluates the coordinates of [Moves].
@@ -136,7 +131,7 @@ interface HandlesHit {
     /**
      * Entity hit the world hull.
      */
-    fun hitHull(vel: Vec) = Unit
+    fun hitHull(velPrime: Vec) = Unit
 
     /**
      * Entity hit [other] [Moves].
@@ -159,8 +154,8 @@ fun World.updateMovement(time: Double, deltaTime: Double) {
         a.t0 = time
 
         // Add gravity if not flying.
-        if (!a.flying)
-            a.vel += g * deltaTime.toFloat() // TODO: Block off if on ground.
+        if (!a.flying && !a.isGrounded())
+            a.vel -= Vec.Z * g * deltaTime.toFloat()
 
         // Collide with other.
         for (b in moves.subList(i + 1, moves.size)) {
@@ -198,39 +193,65 @@ fun World.updateMovement(time: Double, deltaTime: Double) {
         if (!a.isConnected())
             continue
 
+        // Get integral position to address block map.
         val triX = a.pos.x.roundToInt()
         val triY = a.pos.y.roundToInt()
         val triZ = a.pos.z.roundToInt()
 
+        // Initialize out position and velocity.
         var outPos = a.pos
         var outVel = a.vel
+        var outHeight = Float.MAX_VALUE
 
+        // Update height. // TODO: This will shit the bed if on a ledge.
+        for (z in triZ downTo triZ - heightCheckLimit) {
+            // Get mesh under or in.
+            val mesh = meshes[Tri(triX, triY, z)] ?: continue
+
+            // Get distance.
+            val (_, distance) = mesh.closest(outPos, Vec.Z)
+
+            // Update height and stop loop.
+            outHeight = minOf(outHeight, distance - a.radius)
+        }
+
+        // Update collision.
         for (x in triX.dec()..triX.inc()) for (y in triY.dec()..triY.inc()) for (z in triZ.dec()..triZ.inc()) {
+            // No mash here, skip.
             val mesh = meshes[Tri(x, y, z)] ?: continue
 
+            // Not inside the mesh, skip.
             if (!mesh.inside(outPos, a.radius))
                 continue
 
+            // Get distance and triangle.
             val (tri, distance) = mesh.closest(outPos)
             val t = (tri[1] - tri[0])
             val b = (tri[2] - tri[0])
             val n = (b cross t).nor
 
+            // Update position to outside of the closest tri, remove normal component from velocity.
             outPos += n * (a.radius - distance)
             outVel -= n * (outVel dot n)
         }
 
         // TODO: Unfuck clipping on inside brushes
         // TODO: Friction
-        // TODO: No gravity when on ground.
-        // TODO: Movement when not at desired speed.
 
-        if (a.pos != outPos || a.vel != outVel) {
-            a.t0 = time
+        // Get velocity change.
+        val velPrime = outVel - a.vel
+
+        // Update values if changed.
+        if (a.pos != outPos)
             a.pos = outPos
+        if (a.vel != outVel)
             a.vel = outVel
-        }
+        if (a.height != outHeight)
+            a.height = outHeight
 
+        // If collision occurred, and element handles hit, dispatch hit hull with velocity change.
+        if (velPrime.isNotEmpty())
+            (a as? HandlesHit)?.hitHull(velPrime)
 
     }
 }

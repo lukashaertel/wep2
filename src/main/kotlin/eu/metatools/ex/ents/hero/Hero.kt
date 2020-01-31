@@ -3,13 +3,17 @@ package eu.metatools.ex.ents.hero
 import com.badlogic.gdx.graphics.Color
 import eu.metatools.ex.Frontend
 import eu.metatools.ex.Resources
+import eu.metatools.ex.atlas
 import eu.metatools.ex.data.Dir
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.items.Container
 import eu.metatools.ex.subUiZ
-import eu.metatools.f2d.data.*
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.Pt
+import eu.metatools.f2d.data.Vec
+import eu.metatools.f2d.data.isNotEmpty
 import eu.metatools.f2d.drawable.limit
 import eu.metatools.f2d.drawable.offset
 import eu.metatools.f2d.drawable.tint
@@ -27,6 +31,7 @@ import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.never
+import kotlin.math.sqrt
 
 /**
  * A moving shooting entity, controlled by an [owner].
@@ -67,6 +72,8 @@ class Hero(
         }
 
         private val fire by lazy { Resources.fire.get() }
+
+        private val shadow by atlas("shadow")
     }
 
     override val world get() = shell.resolve(lx / "root") as World
@@ -79,16 +86,13 @@ class Hero(
 
     override var vel by { Vec.Zero }
 
+    override var height by { 0f }
+
     /**
      * Direction the hero is facing, defaults to [Dir.Right].
      */
     var look by { Dir.Right }
         private set
-
-    /**
-     * Last velocity before [draw].
-     */
-    private var lastVel by { Pt() }
 
     /**
      * The level of the hero.
@@ -125,44 +129,53 @@ class Hero(
 
     override fun render(mat: Mat, time: Double) {
         // Get position and height.
-        val (x, y, z) = posAt(time)
+        val pos = posAt(time)
+        world.findGround(pos)?.let { (x, y, z) ->
 
-        // Transformation for displaying the mover.
-        val local = mat
+            val localShadow = mat
+                .translate(x = tileWidth * x, y = tileHeight * y)
+                .translate(y = tileHeight * z)
+                .translate(z = toZ(y, z))
+                .scale(tileWidth, tileHeight)
+
+
+            ui.world.submit(shadow, time, localShadow)
+        }
+
+        val (x, y, z) = pos
+
+
+        // Transformation for displaying the mover and the shadow.
+        val localSprite = mat
             .translate(x = tileWidth * x, y = tileHeight * y)
             .translate(y = tileHeight * z)
             .translate(z = toZ(y, z))
             .scale(tileWidth, tileHeight)
 
+
         val visual = when {
+            !isGrounded() -> kind.spriteSet.air(look)
             drawn != null -> kind.spriteSet.draw(look)
-            // TODO:Fall?
-            vel.x != 0f || vel.y != 0f -> kind.spriteSet.move(look)
+            vel.lenSq > 0.1f * 0.1f -> kind.spriteSet.move(look)
             else -> kind.spriteSet.idle(look)
         }
 
         // Submit the visual and the capture.
-        ui.world.submit(visual, time, local)
-        ui.world.submit(CaptureCube, this, time, local)
+        ui.world.submit(visual, time, localSprite)
+        ui.world.submit(CaptureCube, this, time, localSprite)
     }
 
     val jump = exchange(::doJump)
     private fun doJump() {
-        vel -= g
+        // Apply velocity so that the jump height is reached at the peak.
+        vel += Vec.Z * sqrt(stats.jumpHeight * g / 2f)
     }
 
-    /**
-     * Sets the desired movement. If [drawn], movement will be applied after [release].
-     */
-    val move = exchange(::doMoveInDirection)
+    val move = exchange(::doMove)
 
-    private fun doMoveInDirection(direction: Pt) {
-        // Set the desired velocity.
-        lastVel = direction * stats.speed
-
-        // Don't move if drawn.
-        if (drawn == null)
-            takeMovement(elapsed, Vec(lastVel.x, lastVel.y, vel.z))
+    private fun doMove(dir: Pt) {
+        val speed = stats.speed
+        takeMovement(elapsed, Vec(dir.x * speed, dir.y * speed, vel.z))
     }
 
     /**
@@ -183,10 +196,6 @@ class Hero(
     private fun doDraw() {
         // Set drawn time.
         drawn = elapsed
-
-        // Clear movement.
-        takeMovement(elapsed, Vec(0f, 0f, vel.z))
-        // TODO: What if falling.
     }
 
     /**
@@ -265,9 +274,6 @@ class Hero(
 
         // Always reset drawing time.
         drawn = null
-
-        // Re-allow movement.
-        takeMovement(elapsed, Vec(lastVel.x, lastVel.y, vel.z))
     }
 
     /**
@@ -278,9 +284,6 @@ class Hero(
     private fun doCancelDraw() {
         // Reset drawing time.
         drawn = null
-
-        // Re-allow movement.
-        takeMovement(elapsed, Vec(lastVel.x, lastVel.y, vel.z))
     }
 
     override fun takeDamage(amount: Float): Int {
@@ -351,6 +354,11 @@ class Hero(
         health = minOf(stats.health, health + amount)
     }
 
+    override fun hitHull(velPrime: Vec) {
+        if (velPrime.lenSq > 5f * 5f)
+            takeDamage(velPrime.len - 4f)
+    }
+
     override fun hitOther(other: Moves) {
         // If other entity is an ammo container, receive the ammo.
         if (other is Container) {
@@ -363,6 +371,6 @@ class Hero(
     }
 
     override fun describe(): String =
-        pos.toString() ?: "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
+        "Level ${XP.levelFor(xp)} ${kind.label}" + if (shell.player == owner) " (You)" else ""
 
 }

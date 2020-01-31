@@ -23,6 +23,15 @@ enum class SpriteSets : SpriteSet {
         private val moveDown: Drawable<Unit?> by animation(0.8, "pa_w1_d", "pa_i_d", "pa_w2_d", "pa_i_d")
         private val moveLeft: Drawable<Unit?> by animation(0.8, "pa_w1_l", "pa_i_l", "pa_w2_l", "pa_i_l")
 
+
+        private val airUp: Drawable<Unit?> by animation(0.8, "pa_w1_u")
+        private val airRight: Drawable<Unit?> by animation(0.8, "pa_w1_r")
+        private val airDown: Drawable<Unit?> by animation(0.8, "pa_w1_d")
+        private val airLeft: Drawable<Unit?> by animation(0.8, "pa_w1_l")
+
+        override fun air(dir:Dir) =
+            dir.select(airUp, airRight, airDown, airLeft)
+
         override fun move(dir: Dir) =
             dir.select(moveUp, moveRight, moveDown, moveLeft)
 

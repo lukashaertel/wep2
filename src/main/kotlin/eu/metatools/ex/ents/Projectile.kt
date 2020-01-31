@@ -5,7 +5,9 @@ import eu.metatools.ex.atlas
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
-import eu.metatools.f2d.data.*
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.Pt
+import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.CaptureCube
 import eu.metatools.up.Ent
@@ -62,6 +64,8 @@ class Projectile(
 
     override var t0 by { initT0 }
 
+    override var height by { 0f }
+
     override val flying = true
 
     override val radius = 0.05f
@@ -99,7 +103,7 @@ class Projectile(
     }
 
 
-    override fun hitHull(vel: Vec) {
+    override fun hitHull(velPrime: Vec) {
         // Hit the hull, just delete.
         delete(this)
     }
