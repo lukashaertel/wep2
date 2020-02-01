@@ -64,7 +64,7 @@ class Projectile(
 
     override var t0 by { initT0 }
 
-    override var height by { 0f }
+    override var grounded by { false }
 
     override val flying = true
 

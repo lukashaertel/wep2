@@ -1,12 +1,8 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.ex.data.Mesh
-import eu.metatools.ex.data.box
-import eu.metatools.ex.data.closest
-import eu.metatools.f2d.data.Tri
-import eu.metatools.f2d.data.Vec
+import eu.metatools.ex.geom.Mesh
+import eu.metatools.ex.geom.box
 import eu.metatools.f2d.drawable.Drawable
-import kotlin.math.roundToInt
 
 /**
  * World geometry and data block.
@@ -30,5 +26,6 @@ interface Block {
     /**
      * Generates the triangles for this block.
      */
-    fun mesh(x: Float, y: Float, z: Float): Mesh = box(x, y, z)
+    fun mesh(x: Float, y: Float, z: Float): Mesh =
+        box(x, y, z)
 }

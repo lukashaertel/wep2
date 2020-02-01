@@ -1,17 +1,17 @@
 package eu.metatools.ex.ents
 
 import eu.metatools.ex.Frontend
-import eu.metatools.ex.data.Mesh
-import eu.metatools.ex.data.closest
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
 import eu.metatools.ex.ents.hero.Heroes
-import eu.metatools.ex.ents.items.AmmoContainer
-import eu.metatools.ex.ents.items.Container
-import eu.metatools.ex.ents.items.HealthContainer
+import eu.metatools.ex.geom.Mesh
+import eu.metatools.ex.geom.closest
+import eu.metatools.ex.geom.inside
 import eu.metatools.ex.sec
-import eu.metatools.f2d.data.*
+import eu.metatools.f2d.data.Mat
+import eu.metatools.f2d.data.Tri
+import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.immediate.submit
 import eu.metatools.f2d.tools.CaptureCube
 import eu.metatools.up.Ent
@@ -166,22 +166,23 @@ class World(
 data class BlockCapture(val tri: Tri, val block: Block, val cap: Boolean)
 
 
-
 fun World.findGround(pos: Vec): Vec? {
-    val triX = pos.x.roundToInt()
-    val triY = pos.y.roundToInt()
-    val triZ = pos.z.roundToInt()
-
-    for (z in triZ downTo triZ - heightCheckLimit) {
-        // Get mesh under or in.
-        val mesh = meshes[Tri(triX, triY, z)] ?: continue
-
-        // Get distance.
-        val (_, distance) = mesh.closest(pos, Vec.Z)
-
-        // Return and stop loop.
-        return pos - Vec.Z * distance
-    }
-
     return null
+//    val triX = pos.x.roundToInt()
+//    val triY = pos.y.roundToInt()
+//    val triZ = pos.z.roundToInt()
+//
+//    for (z in triZ downTo triZ - heightCheckLimit) {
+//        // Get mesh under or in.
+//        val mesh = meshes[Tri(triX, triY, z)] ?: continue
+//
+//
+//        // Get distance.
+//        val (_, distance) = mesh.closest(pos, 0f, Vec.Z, 0f)
+//
+//        // Return and stop loop.
+//        return pos - Vec.Z * distance
+//    }
+//
+//    return null
 }

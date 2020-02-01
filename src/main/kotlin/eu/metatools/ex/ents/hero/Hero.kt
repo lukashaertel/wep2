@@ -86,7 +86,7 @@ class Hero(
 
     override var vel by { Vec.Zero }
 
-    override var height by { 0f }
+    override var grounded by { false }
 
     /**
      * Direction the hero is facing, defaults to [Dir.Right].
@@ -154,7 +154,7 @@ class Hero(
 
 
         val visual = when {
-            !isGrounded() -> kind.spriteSet.air(look)
+            !grounded -> kind.spriteSet.air(look)
             drawn != null -> kind.spriteSet.draw(look)
             vel.lenSq > 0.1f * 0.1f -> kind.spriteSet.move(look)
             else -> kind.spriteSet.idle(look)

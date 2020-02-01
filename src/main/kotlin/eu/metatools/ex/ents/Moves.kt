@@ -1,8 +1,8 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.ex.data.closest
-import eu.metatools.ex.data.forEach
-import eu.metatools.ex.data.inside
+import eu.metatools.ex.geom.depth
+import eu.metatools.ex.geom.filterNormal
+import eu.metatools.ex.geom.forEach
 import eu.metatools.ex.math.sp
 import eu.metatools.f2d.data.Tri
 import eu.metatools.f2d.data.Vec
@@ -13,10 +13,6 @@ import eu.metatools.up.list
 import kotlin.math.roundToInt
 
 val g = 5f
-
-val groundedLimit = 0.05f
-
-val heightCheckLimit = 5
 
 fun World.bind(radius: Float, from: Vec, to: Vec): Vecs {
     // Get mesh path.
@@ -80,7 +76,7 @@ interface Moves : All {
     /**
      * True of the mover is on an non-sloped ground block.
      */
-    var height: Float
+    var grounded: Boolean
 
     /**
      * True if unaffected by gravity.
@@ -92,9 +88,6 @@ interface Moves : All {
      */
     fun ignores(other: Moves) = false
 }
-
-fun Moves.isGrounded() =
-    height <= groundedLimit
 
 /**
  * Evaluates the coordinates of [Moves].
@@ -154,7 +147,7 @@ fun World.updateMovement(time: Double, deltaTime: Double) {
         a.t0 = time
 
         // Add gravity if not flying.
-        if (!a.flying && !a.isGrounded())
+        if (!a.flying && !a.grounded)
             a.vel -= Vec.Z * g * deltaTime.toFloat()
 
         // Collide with other.
@@ -201,41 +194,21 @@ fun World.updateMovement(time: Double, deltaTime: Double) {
         // Initialize out position and velocity.
         var outPos = a.pos
         var outVel = a.vel
-        var outHeight = Float.MAX_VALUE
+        var outGrounded = false
 
-        // Update height. // TODO: This will shit the bed if on a ledge.
-        for (z in triZ downTo triZ - heightCheckLimit) {
-            // Get mesh under or in.
-            val mesh = meshes[Tri(triX, triY, z)] ?: continue
-
-            // Get distance.
-            val (_, distance) = mesh.closest(outPos, Vec.Z)
-
-            // Update height and stop loop.
-            outHeight = minOf(outHeight, distance - a.radius)
-        }
+        // Update on ground flag, set if a ground normal triangle hits the extended hull.
+        for (x in triX.dec()..triX.inc()) for (y in triY.dec()..triY.inc()) for (z in triZ.dec()..triZ.inc())
+            meshes[Tri(x, y, z)]?.filterNormal(Vec.Z, 0.7f)?.depth(outPos, a.radius + 0.1f)?.let {
+                outGrounded = true
+            }
 
         // Update collision.
-        for (x in triX.dec()..triX.inc()) for (y in triY.dec()..triY.inc()) for (z in triZ.dec()..triZ.inc()) {
-            // No mash here, skip.
-            val mesh = meshes[Tri(x, y, z)] ?: continue
+        for (x in triX.dec()..triX.inc()) for (y in triY.dec()..triY.inc()) for (z in triZ.dec()..triZ.inc())
+            meshes[Tri(x, y, z)]?.depth(outPos, a.radius)?.let { (n, d) ->
+                outPos += n * d
+                outVel -= n * (outVel dot n)
+            }
 
-            // Not inside the mesh, skip.
-            if (!mesh.inside(outPos, a.radius))
-                continue
-
-            // Get distance and triangle.
-            val (tri, distance) = mesh.closest(outPos)
-            val t = (tri[1] - tri[0])
-            val b = (tri[2] - tri[0])
-            val n = (b cross t).nor
-
-            // Update position to outside of the closest tri, remove normal component from velocity.
-            outPos += n * (a.radius - distance)
-            outVel -= n * (outVel dot n)
-        }
-
-        // TODO: Unfuck clipping on inside brushes
         // TODO: Friction
 
         // Get velocity change.
@@ -246,8 +219,8 @@ fun World.updateMovement(time: Double, deltaTime: Double) {
             a.pos = outPos
         if (a.vel != outVel)
             a.vel = outVel
-        if (a.height != outHeight)
-            a.height = outHeight
+        if (a.grounded != outGrounded)
+            a.grounded = outGrounded
 
         // If collision occurred, and element handles hit, dispatch hit hull with velocity change.
         if (velPrime.isNotEmpty())

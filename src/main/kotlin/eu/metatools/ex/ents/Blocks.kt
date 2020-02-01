@@ -3,10 +3,10 @@ package eu.metatools.ex.ents
 import eu.metatools.ex.animation
 import eu.metatools.ex.atlas
 import eu.metatools.ex.atlasStack
-import eu.metatools.ex.data.Dir
-import eu.metatools.ex.data.Mesh
-import eu.metatools.ex.data.box
-import eu.metatools.ex.data.slope
+import eu.metatools.ex.geom.box
+import eu.metatools.ex.geom.rotate180
+import eu.metatools.ex.geom.slope
+import eu.metatools.ex.geom.slopeStump
 import eu.metatools.f2d.data.Tri
 
 /**
@@ -97,6 +97,11 @@ enum class Blocks : Block {
      */
     Fire {
         override val body by animation(0.3, "fire")
+        override fun mesh(x: Float, y: Float, z: Float) =
+            box(
+                x, y, z, xn = -0.25f, xp = 0.25f,
+                yn = -0.25f, yp = 0.25f, zp = -0.2f
+            )
     },
     /**
      * Horizontal traverse.
@@ -104,7 +109,8 @@ enum class Blocks : Block {
     BridgeH {
         override val body by atlas("bridge_h")
         override val cap by atlas("bridge_h_cap")
-        override fun mesh(x: Float, y: Float, z: Float) = box(x, y, z, zn = 0.4f)
+        override fun mesh(x: Float, y: Float, z: Float) =
+            box(x, y, z, zn = 0.4f)
     },
     /**
      * Vertical traverse.
@@ -112,7 +118,8 @@ enum class Blocks : Block {
     BridgeV {
         override val body by atlas("bridge_v")
         override val cap by atlas("bridge_v_cap")
-        override fun mesh(x: Float, y: Float, z: Float) = box(x, y, z, zn = 0.4f)
+        override fun mesh(x: Float, y: Float, z: Float) =
+            box(x, y, z, zn = 0.4f)
     },
     /**
      * Stairs left, left part.
@@ -120,8 +127,8 @@ enum class Blocks : Block {
     StairsLeftA {
         override val body by atlas("stairs_left_ll")
         override val cap by atlas("stairs_left_ul")
-        override fun mesh(x: Float, y: Float, z: Float) = //TODO
-            super.mesh(x, y, z)
+        override fun mesh(x: Float, y: Float, z: Float) =
+            StairsRightB.mesh(x, y, z).rotate180(x,y)
     },
     /**
      * Stairs left, right part.
@@ -129,8 +136,8 @@ enum class Blocks : Block {
     StairsLeftB {
         override val body by atlas("stairs_left_lr")
         override val cap by atlas("stairs_left_ur")
-        override fun mesh(x: Float, y: Float, z: Float) =//TODO
-            slope(x, y, z, Dir.Left)
+        override fun mesh(x: Float, y: Float, z: Float) =
+            StairsRightA.mesh(x, y, z).rotate180(x,y)
     },
     /**
      * Stairs right, left part.
@@ -138,8 +145,8 @@ enum class Blocks : Block {
     StairsRightA {
         override val body by atlas("stairs_right_ll")
         override val cap by atlas("stairs_right_ul")
-        override fun mesh(x: Float, y: Float, z: Float) =//TODO
-            slope(x, y, z, Dir.Right)
+        override fun mesh(x: Float, y: Float, z: Float) =
+            slope(x, y, z, zp = 0f)
     },
     /**
      * Stairs right, right part.
@@ -147,8 +154,8 @@ enum class Blocks : Block {
     StairsRightB {
         override val body by atlas("stairs_right_lr")
         override val cap by atlas("stairs_right_ur")
-        override fun mesh(x: Float, y: Float, z: Float) = //TODO
-            super.mesh(x, y, z)
+        override fun mesh(x: Float, y: Float, z: Float) =
+            slopeStump(x, y, z, zpFrom = 0f, zpTo = 0.5f)
     }
 }
 

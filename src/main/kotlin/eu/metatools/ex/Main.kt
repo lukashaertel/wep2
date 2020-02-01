@@ -12,6 +12,7 @@ import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.*
+import eu.metatools.ex.geom.forEach
 import eu.metatools.ex.input.KeyStick
 import eu.metatools.ex.input.Look
 import eu.metatools.ex.input.Mouse
@@ -19,9 +20,11 @@ import eu.metatools.f2d.F2DListener
 import eu.metatools.f2d.InOut
 import eu.metatools.f2d.data.Mat
 import eu.metatools.f2d.data.Pt
+import eu.metatools.f2d.data.Pts
 import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.drawable.Drawable
 import eu.metatools.f2d.drawable.tint
+import eu.metatools.f2d.tools.ShapePoly
 import eu.metatools.up.*
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
@@ -255,13 +258,13 @@ class Frontend : F2DListener(-100f, 100f) {
                     .translate(y = -z * tileHeight)
 
                 if (Gdx.input.isKeyJustPressed(Keys.SPACE)) {
-                    if (hero.isGrounded())
+                    if (hero.grounded)
                         hero.jump()
                 }
 
                 // Get desired move direction.
                 keyStick.current.let {
-                    if (hero.isGrounded()) {
+                    if (hero.grounded) {
                         val velFrom = Pt(hero.vel.x, hero.vel.y)
                         val velTo = Pt(it.x.toFloat(), it.y.toFloat())
                         if (velFrom != velTo)
@@ -296,19 +299,17 @@ class Frontend : F2DListener(-100f, 100f) {
             }
         }
 
-//        fun toPt(qVec: QVec) = Pt(qVec.x.toFloat() * tileWidth, (qVec.y + qVec.z).toFloat() * tileHeight)
-//        root.meshes.forEach { (at, mesh) ->
-//            if(at.z == -1)
-//            mesh.forEach { v1, v2, v3 ->
-//                world.submit(
-//                    ShapePoly, Pts(
-//                        toPt(v1),
-//                        toPt(v2),
-//                        toPt(v3)
-//                    ), time, Mat.translation(z = uiZ)
-//                )
-//            }
-//        }
+        fun toPt(vec: Vec) = Pt(vec.x * tileWidth, (vec.y + vec.z) * tileHeight)
+        (capture?.first as? BlockCapture)?.let {
+            root.meshes[it.tri]?.let { mesh ->
+                mesh.forEach { v1, v2, v3 ->
+                    world.submit(
+                        ShapePoly, Pts(toPt(v1), toPt(v2), toPt(v3)),
+                        time, Mat.translation(z = uiZ)
+                    )
+                }
+            }
+        }
 
 
         // Submit described elements.
