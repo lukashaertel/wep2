@@ -3,13 +3,14 @@ package eu.metatools.ex.geom
 import eu.metatools.ex.data.Dir
 import eu.metatools.f2d.data.Vec
 import eu.metatools.f2d.data.Vecs
+import eu.metatools.f2d.data.mapVecs
 
 /**
  * A pair of points and triangle indices.
  * @property points The points of the mesh.
  * @param indices The indices of the mesh.
  */
-data class Mesh(val points: List<Vec>, val indices: IntArray) : Sequence<Vecs> {
+data class Mesh(val points: Vecs, val indices: IntArray) {
     val center by lazy {
         // Initialize aggregator.
         var x = 0.0
@@ -52,30 +53,30 @@ data class Mesh(val points: List<Vec>, val indices: IntArray) : Sequence<Vecs> {
         return result
     }
 
-    override fun iterator() = object : Iterator<Vecs> {
-        private val current = Vecs(3)
-
+    private fun iterator() = object : Iterator<Vecs> {
         var index = 0
         override fun hasNext() =
             index + 2 < indices.size
 
         override fun next(): Vecs {
-            val p1 = points[indices[index]]
-            val p2 = points[indices[index + 1]]
-            val p3 = points[indices[index + 2]]
             index += 3
-            current.values[0] = p1.x
-            current.values[1] = p1.y
-            current.values[2] = p1.z
-            current.values[3] = p2.x
-            current.values[4] = p2.y
-            current.values[5] = p2.z
-            current.values[6] = p3.x
-            current.values[7] = p3.y
-            current.values[8] = p3.z
-            return current
+            return Vecs(
+                points[indices[index - 3]],
+                points[indices[index - 2]],
+                points[indices[index - 1]]
+            )
         }
     }
+
+    /**
+     * Interprets the mesh as an iterable of triangles.
+     */
+    fun asIterable() = Iterable { iterator() }
+
+    /**
+     * Interprets the mesh as a sequence of triangles.
+     */
+    fun asSequence() = Sequence { iterator() }
 }
 
 /**
@@ -105,7 +106,7 @@ fun box(
     yn: Float = -0.5f, yp: Float = 0.5f,
     zn: Float = -0.5f, zp: Float = 0.5f
 ): Mesh {
-    val points = listOf(
+    val points = Vecs(
         Vec(x + xn, y + yn, z + zn),
         Vec(x + xn, y + yn, z + zp),
         Vec(x + xn, y + yp, z + zn),
@@ -130,19 +131,38 @@ fun box(
 }
 
 fun Mesh.rotate90(x: Float, y: Float) =
-    Mesh(points.map { Vec((it.y - y) + x, -(it.x - x) + y, it.z) }, indices)
+    Mesh(points.mapVecs { Vec((it.y - y) + x, -(it.x - x) + y, it.z) }, indices)
 
 fun Mesh.rotate180(x: Float, y: Float) =
-    Mesh(points.map { Vec(-(it.x - x) + x, -(it.y - y) + y, it.z) }, indices)
+    Mesh(points.mapVecs { Vec(-(it.x - x) + x, -(it.y - y) + y, it.z) }, indices)
 
 fun Mesh.rotate270(x: Float, y: Float) =
-    Mesh(points.map { Vec(-(it.y - y) + x, (it.x - x) + y, it.z) }, indices)
+    Mesh(points.mapVecs { Vec(-(it.y - y) + x, (it.x - x) + y, it.z) }, indices)
 
 fun Mesh.rotate(x: Float, y: Float, dir: Dir) = when (dir) {
     Dir.Right -> this
     Dir.Down -> rotate90(x, y)
     Dir.Left -> rotate180(x, y)
     Dir.Up -> rotate270(x, y)
+}
+
+/**
+ * Filters the triangles, returns a new mesh.
+ */
+fun Mesh.filter(block: (Vecs) -> Boolean): Mesh {
+    val points = arrayListOf<Vec>()
+    val indices = arrayListOf<Int>()
+    for (vecs in asIterable())
+        if (block(vecs)) {
+            val i1 = points.indexOf(vecs[0]).takeIf { it >= 0 } ?: points.size.also { points.add(vecs[0]) }
+            val i2 = points.indexOf(vecs[1]).takeIf { it >= 0 } ?: points.size.also { points.add(vecs[1]) }
+            val i3 = points.indexOf(vecs[2]).takeIf { it >= 0 } ?: points.size.also { points.add(vecs[2]) }
+            indices.add(i1)
+            indices.add(i2)
+            indices.add(i3)
+        }
+
+    return Mesh(Vecs(points), indices.toIntArray())
 }
 
 /**
@@ -154,7 +174,7 @@ fun slope(
     yn: Float = -0.5f, yp: Float = 0.5f,
     zn: Float = -0.5f, zp: Float = 0.5f
 ): Mesh {
-    val points = listOf(
+    val points = Vecs(
         Vec(x + xn, y + yn, z + zn),
         Vec(x + xn, y + yp, z + zn),
 
@@ -184,7 +204,7 @@ fun slopeStump(
     yn: Float = -0.5f, yp: Float = 0.5f,
     zn: Float = -0.5f, zpFrom: Float = 0.5f, zpTo: Float = 0.5f
 ): Mesh {
-    val points = listOf(
+    val points = Vecs(
         Vec(x + xn, y + yn, z + zn),
         Vec(x + xn, y + yn, z + zpFrom),
         Vec(x + xn, y + yp, z + zn),

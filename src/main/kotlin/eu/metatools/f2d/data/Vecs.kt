@@ -37,6 +37,18 @@ class Vecs(vararg val values: Float) : Iterable<Vec> {
         vectors[it / 3][it % 3]
     })
 
+    constructor(vectors: Iterable<Vec>) : this(vectors.toList())
+
+    constructor(vectors: Collection<Vec>) : this(vectors.size, vectors.iterator().let {
+        // Take next of iterator.
+        { _: Int -> it.next() }
+    })
+
+    constructor(vectors: List<Vec>) : this(vectors.size, {
+        // Get item at index.
+        vectors[it]
+    })
+
     /**
      * The amount of vectors in the list.
      */
@@ -152,3 +164,6 @@ class Vecs(vararg val values: Float) : Iterable<Vec> {
         append(']')
     }
 }
+
+inline fun Vecs.mapVecs(crossinline block: (Vec) -> Vec) =
+    Vecs(size) { block(get(it)) }

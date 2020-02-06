@@ -1,7 +1,9 @@
 package eu.metatools.f2d.data
 
 import com.badlogic.gdx.math.Vector3
+import eu.metatools.up.lang.never
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -242,8 +244,18 @@ class Vec(val values: FloatArray, val offset: Int = 0) : Comparable<Vec> {
     }
 }
 
+/**
+ * True if [Vec] is not [isEmpty]
+ */
 fun Vec.isNotEmpty() =
     !isEmpty()
+
+/**
+ * Returns a [Tri] with the components rounded to int.
+ */
+fun Vec.roundToInt() =
+    Tri(x.roundToInt(), y.roundToInt(), z.roundToInt())
+
 
 /**
  * Applies the function on the components.
@@ -262,3 +274,38 @@ inline fun reduceComponents(a: Vec, b: Vec, block: (Float, Float) -> Float) =
  */
 fun abs(vec: Vec) =
     Vec(abs(vec.x), abs(vec.y), abs(vec.z))
+
+fun classify(vec: Vec) =
+    if (vec.isEmpty())
+        "Zero"
+    else
+        listOf(
+            Vec.X to "X+", -Vec.X to "X-",
+            Vec.Y to "Y+", -Vec.Y to "Y-",
+            Vec.Z to "Z+", -Vec.Z to "Z-"
+        ).maxBy { (v, _) -> vec dot v }?.second ?: never
+
+/**
+ * Returns the sequence of integral positions touched around the vector with the given radius.
+ */
+fun Vec.touching(radius: Float): Sequence<Tri> {
+    // Get minimal and maximal components.
+    val minX = (x - radius).roundToInt()
+    val maxX = (x + radius).roundToInt()
+    val minY = (y - radius).roundToInt()
+    val maxY = (y + radius).roundToInt()
+    val minZ = (z - radius).roundToInt()
+    val maxZ = (z + radius).roundToInt()
+
+    // Get ranges.
+    val xs = minX..maxX
+    val ys = minY..maxY
+    val zs = minZ..maxZ
+
+    // Return nested sequence.
+    return xs.asSequence().flatMap { x ->
+        ys.asSequence().flatMap { y ->
+            zs.asSequence().map { z -> Tri(x, y, z) }
+        }
+    }
+}

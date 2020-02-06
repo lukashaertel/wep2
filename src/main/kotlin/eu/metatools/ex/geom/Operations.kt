@@ -6,16 +6,6 @@ import eu.metatools.f2d.data.Vecs
 import kotlin.math.abs
 
 /**
- * Filters the triangles of the mesh with a [normal] and a [limit] that the dot product of the normalized triangle
- * normal may not be less than.
- */
-fun Sequence<Vecs>.filterNormal(normal: Vec, limit: Float = 0f) =
-    filter { (v1, v2, v3) ->
-        // Limit must be less than the dot product of the normal and the triangle normal.
-        limit <= (v3 - v1 cross v2 - v1).nor dot normal
-    }
-
-/**
  * Returns true if the point is inside the mesh. The mesh must be convex.
  */
 fun Sequence<Vecs>.inside(pos: Vec, radius: Float): Boolean {

@@ -1,18 +1,17 @@
 package eu.metatools.ex.ents
 
 import eu.metatools.ex.geom.depth
-import eu.metatools.ex.geom.filterNormal
 import eu.metatools.ex.geom.forEach
+import eu.metatools.ex.geom.matchNormal
 import eu.metatools.ex.math.sp
-import eu.metatools.f2d.data.Tri
-import eu.metatools.f2d.data.Vec
-import eu.metatools.f2d.data.Vecs
-import eu.metatools.f2d.data.isNotEmpty
+import eu.metatools.f2d.data.*
 import eu.metatools.up.isConnected
 import eu.metatools.up.list
 import kotlin.math.roundToInt
 
 val g = 5f
+
+val isGround = matchNormal(Vec.Z, 0.7f)
 
 fun World.bind(radius: Float, from: Vec, to: Vec): Vecs {
     // Get mesh path.
@@ -186,29 +185,25 @@ fun World.updateMovement(time: Double, deltaTime: Double) {
         if (!a.isConnected())
             continue
 
-        // Get integral position to address block map.
-        val triX = a.pos.x.roundToInt()
-        val triY = a.pos.y.roundToInt()
-        val triZ = a.pos.z.roundToInt()
-
         // Initialize out position and velocity.
         var outPos = a.pos
         var outVel = a.vel
-        var outGrounded = false
 
         // Update on ground flag, set if a ground normal triangle hits the extended hull.
-        for (x in triX.dec()..triX.inc()) for (y in triY.dec()..triY.inc()) for (z in triZ.dec()..triZ.inc())
-            meshes[Tri(x, y, z)]?.filterNormal(Vec.Z, 0.7f)?.depth(outPos, a.radius + 0.1f)?.let {
-                outGrounded = true
-            }
+        val outGrounded = outPos.touching(a.radius + 0.1f)
+            .mapNotNull { meshes[it] }
+            .map { it.asSequence() }
+            .any { it.filter(isGround).depth(outPos, a.radius + 0.1f) != null }
 
         // Update collision.
-        for (x in triX.dec()..triX.inc()) for (y in triY.dec()..triY.inc()) for (z in triZ.dec()..triZ.inc())
-            meshes[Tri(x, y, z)]?.depth(outPos, a.radius)?.let { (n, d) ->
+        outPos.touching(a.radius)
+            .mapNotNull { meshes[it] }
+            .map { it.asSequence() }
+            .mapNotNull { it.depth(outPos, a.radius) }
+            .forEach { (n, d) ->
                 outPos += n * d
                 outVel -= n * (outVel dot n)
             }
-
         // TODO: Friction
 
         // Get velocity change.

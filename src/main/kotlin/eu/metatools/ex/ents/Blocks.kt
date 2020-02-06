@@ -3,10 +3,7 @@ package eu.metatools.ex.ents
 import eu.metatools.ex.animation
 import eu.metatools.ex.atlas
 import eu.metatools.ex.atlasStack
-import eu.metatools.ex.geom.box
-import eu.metatools.ex.geom.rotate180
-import eu.metatools.ex.geom.slope
-import eu.metatools.ex.geom.slopeStump
+import eu.metatools.ex.geom.*
 import eu.metatools.f2d.data.Tri
 
 /**
@@ -128,7 +125,7 @@ enum class Blocks : Block {
         override val body by atlas("stairs_left_ll")
         override val cap by atlas("stairs_left_ul")
         override fun mesh(x: Float, y: Float, z: Float) =
-            StairsRightB.mesh(x, y, z).rotate180(x,y)
+            StairsRightB.mesh(x, y, z).rotate180(x, y)
     },
     /**
      * Stairs left, right part.
@@ -137,7 +134,7 @@ enum class Blocks : Block {
         override val body by atlas("stairs_left_lr")
         override val cap by atlas("stairs_left_ur")
         override fun mesh(x: Float, y: Float, z: Float) =
-            StairsRightA.mesh(x, y, z).rotate180(x,y)
+            StairsRightA.mesh(x, y, z).rotate180(x, y)
     },
     /**
      * Stairs right, left part.
@@ -146,7 +143,7 @@ enum class Blocks : Block {
         override val body by atlas("stairs_right_ll")
         override val cap by atlas("stairs_right_ul")
         override fun mesh(x: Float, y: Float, z: Float) =
-            slope(x, y, z, zp = 0f)
+            slope(x, y, z, zp = 0f).filter { !isXP(it) }
     },
     /**
      * Stairs right, right part.
@@ -155,7 +152,7 @@ enum class Blocks : Block {
         override val body by atlas("stairs_right_lr")
         override val cap by atlas("stairs_right_ur")
         override fun mesh(x: Float, y: Float, z: Float) =
-            slopeStump(x, y, z, zpFrom = 0f, zpTo = 0.5f)
+            slopeStump(x, y, z, zpFrom = 0f, zpTo = 0.5f).filter { !isXN(it) }
     }
 }
 
