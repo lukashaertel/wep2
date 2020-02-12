@@ -2,7 +2,7 @@ package eu.metatools.ex.input
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
-import eu.metatools.f2d.data.Cell
+import eu.metatools.fio.data.Cell
 
 fun Boolean.toInt() = if (this) 1 else 0
 

@@ -1,9 +1,9 @@
 package eu.metatools.ex
 
 import com.badlogic.gdx.Gdx
-import eu.metatools.f2d.drawable.over
-import eu.metatools.f2d.drawable.shift
-import eu.metatools.f2d.tools.*
+import eu.metatools.fio.drawable.over
+import eu.metatools.fio.drawable.shift
+import eu.metatools.fio.tools.*
 
 object Resources {
     val solid by lazy { frontend.use(SolidResource()) }

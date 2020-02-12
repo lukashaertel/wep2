@@ -1,8 +1,8 @@
 package eu.metatools.ex.geom
 
 import eu.metatools.ex.math.td
-import eu.metatools.f2d.data.Vec
-import eu.metatools.f2d.data.Vecs
+import eu.metatools.fio.data.Vec
+import eu.metatools.fio.data.Vecs
 import kotlin.math.abs
 
 /**
@@ -50,7 +50,7 @@ fun Sequence<Vecs>.depth(pos: Vec, radius: Float): Pair<Vec, Float>? {
         val s2 = v2to3 cross n
         val s3 = v3to1 cross n
 
-        // Skip this triangle if not under it.
+        // Skip this triangle if not under it. // TODO: Does this cause issues with smaller blocks? (not important).
         if (s1 dot v1toPos < 0f || s2 dot v2toPos < 0f || s3 dot v3toPos < 0f)
             continue
 

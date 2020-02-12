@@ -4,10 +4,10 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import eu.metatools.ex.Resources
 import eu.metatools.ex.shadowText
-import eu.metatools.f2d.InOut
-import eu.metatools.f2d.drawable.tint
-import eu.metatools.f2d.tools.Location
-import eu.metatools.f2d.tools.ReferText
+import eu.metatools.fio.InOut
+import eu.metatools.fio.drawable.tint
+import eu.metatools.fio.tools.Location
+import eu.metatools.fio.tools.ReferText
 import eu.metatools.up.isConnected
 
 /**

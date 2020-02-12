@@ -2,8 +2,8 @@ package eu.metatools.ex.input
 
 import com.badlogic.gdx.Gdx
 import eu.metatools.ex.data.Dir
-import eu.metatools.f2d.util.centeredX
-import eu.metatools.f2d.util.centeredY
+import eu.metatools.fio.util.centeredX
+import eu.metatools.fio.util.centeredY
 
 /**
  * Computes looked-at direction from center.

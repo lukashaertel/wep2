@@ -5,11 +5,11 @@ import eu.metatools.ex.atlas
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
-import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.Pt
-import eu.metatools.f2d.data.Vec
-import eu.metatools.f2d.immediate.submit
-import eu.metatools.f2d.tools.CaptureCube
+import eu.metatools.fio.data.Mat
+import eu.metatools.fio.data.Pt
+import eu.metatools.fio.data.Vec
+import eu.metatools.fio.immediate.submit
+import eu.metatools.fio.tools.CaptureCube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.provideDelegate

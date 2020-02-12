@@ -1,6 +1,6 @@
 package eu.metatools.ex.math
 
-import eu.metatools.f2d.data.*
+import eu.metatools.fio.data.*
 import kotlin.math.sign
 import kotlin.math.sqrt
 

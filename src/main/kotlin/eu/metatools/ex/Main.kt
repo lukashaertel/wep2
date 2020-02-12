@@ -6,6 +6,7 @@ import com.badlogic.gdx.Input.Keys
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
+import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.minlog.Log
 import eu.metatools.ex.data.basicMap
 import eu.metatools.ex.ents.*
@@ -16,30 +17,19 @@ import eu.metatools.ex.geom.forEach
 import eu.metatools.ex.input.KeyStick
 import eu.metatools.ex.input.Look
 import eu.metatools.ex.input.Mouse
-import eu.metatools.f2d.F2DListener
-import eu.metatools.f2d.InOut
-import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.Pt
-import eu.metatools.f2d.data.Pts
-import eu.metatools.f2d.data.Vec
-import eu.metatools.f2d.drawable.Drawable
-import eu.metatools.f2d.drawable.tint
-import eu.metatools.f2d.tools.ShapePoly
-import eu.metatools.up.*
-import eu.metatools.up.dt.Instruction
-import eu.metatools.up.dt.Lx
+import eu.metatools.fio.InOut
+import eu.metatools.fio.data.Mat
+import eu.metatools.fio.data.Pt
+import eu.metatools.fio.data.Pts
+import eu.metatools.fio.data.Vec
+import eu.metatools.fio.drawable.Drawable
+import eu.metatools.fio.drawable.tint
+import eu.metatools.fio.tools.ShapePoly
+import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
-import eu.metatools.up.net.NetworkClaimer
-import eu.metatools.up.net.NetworkClock
-import eu.metatools.up.net.NetworkSignOff
-import eu.metatools.up.net.makeNetwork
-import java.util.*
-import kotlin.NoSuchElementException
-import kotlin.reflect.KParameter
-import kotlin.reflect.full.isSubtypeOf
-import kotlin.reflect.full.isSupertypeOf
-import kotlin.reflect.typeOf
+import eu.metatools.up.lang.Bind
+import eu.metatools.up.list
 
 /**
  * True if state hashes should be displayed.
@@ -84,118 +74,38 @@ fun InOut.shadowText(on: Drawable<String>, text: String, time: Double, x: Float,
     submit(on, text, time, Mat.translation(x, y, uiZ).scale(size, size))
 }
 
-class Frontend : F2DListener(-100f, 100f) {
-    /**
-     * Handle bundling the engine.
-     */
-    private fun handleBundle(): Map<Lx, Any?> {
-        val result = hashMapOf<Lx, Any?>()
-        shell.store(result::set)
-        return result
+class Frontend : BaseGame(-100f, 100f) {
+    override fun configureNet(kryo: Kryo) {
+        configureKryo(kryo)
     }
 
-    /**
-     * Handle receiving the instruction.
-     */
-    private fun handleReceive(instruction: Instruction) {
-        shell.receive(instruction)
+
+
+    override fun outputInit() {
+        // Set model scaling to display scaled up.
+        view = Mat.scaling(scaling)
+
+        // Set title.
+        Gdx.graphics.setTitle("Joined, player: ${shell.player}")
     }
-
-    /**
-     * Network connection.
-     */
-    private val net = makeNetwork("next-cluster", { handleBundle() }, { handleReceive(it) },
-        configureKryo = ::configureKryo
-    )
-
-    /**
-     * Network clock.
-     */
-    private val clock = NetworkClock(net)
-
-    /**
-     * Network player claimer. Claims and holds a player ID per UUID.
-     */
-    private val claimer = NetworkClaimer(net, UUID.randomUUID(), changed = { old, new ->
-        System.err.println("Warning: Claim for engine has changed from $old to $new, this should not happen.")
-    })
-
-    /**
-     * Sign-off coordinator.
-     */
-    private val signOff = NetworkSignOff(net,
-        initialDelay = clock.time.toNextFullSecond(),
-        changed = { _, new ->
-            if (new != null)
-                signOffValue = new
-        })
-
-    /**
-     * The shell that runs the game.
-     */
-    val shell = StandardShell(claimer.currentClaim).also {
-        it.send = net::instruction
-    }
-
-    /**
-     * Resolves global parameter for entities. Used to provide the UI references.
-     */
-    @Suppress("experimental_api_usage_error")
-    private fun resolveGlobal(param: KParameter): Any {
-        // If F2DListener <= type <= Frontend, return this.
-        if (param.type.isSubtypeOf(typeOf<F2DListener>()) && param.type.isSupertypeOf(typeOf<Frontend>()))
-            return this
-
-        // Unknown.
-        throw NoSuchElementException(param.toString())
-    }
-
-    /**
-     * The current time of the connected system.
-     */
-    override val time: Double
-        get() = (clock.time - shell.initializedTime).sec
-
 
     /**
      * Root world.
      */
     lateinit var root: World
 
-    /**
-     * Sign off value, received by the sign off coordinator.
-     */
-    private var signOffValue: Long? = null
+    override fun shellResolve() {
+        root = shell.resolve(lx / "root") as World
+    }
 
-    override fun create() {
-        super.create()
-
-        // Set model scaling to display scaled up.
-        view = Mat.scaling(scaling)
-
-        // Set title.
-        Gdx.graphics.setTitle("Joined, player: ${shell.player}")
-
-        // Critically execute.
-        shell.critical {
-            // Assign world from loading or creating.
-            root = if (net.isCoordinating) {
-                // This instance is coordinating, create the world.
-                World(shell, lx / "root", this, basicMap).also {
-                    shell.engine.add(it)
-                }
-            } else {
-                // Joined, restore and resolve root.
-                val bundle = net.bundle()
-                shell.loadFromMap(bundle, ::resolveGlobal, check = true)
-                shell.resolve(lx / "root") as World
-            }
-
-            // On joining, create a mover.
-            shell.withTime(clock) {
-                root.createHero(shell.player)
-            }
+    override fun shellCreate() {
+        root = World(shell, lx / "root", this, basicMap).also {
+            shell.engine.add(it)
         }
+    }
+
+    override fun Bind<Time>.shellAlways() {
+        root.createHero(shell.player)
     }
 
     /**
@@ -219,85 +129,96 @@ class Frontend : F2DListener(-100f, 100f) {
     private fun ownMover(): Hero? =
         shell.list<Hero>().find { it.owner == shell.player }
 
-    override fun render() {
-        // Block network on all rendering, including sending via Once.
-        shell.critical {
-            super.render()
-        }
-    }
-
     /**
      * Current scaling factor.
      */
     private var scaling = 4f
 
-    override fun render(time: Double, delta: Double) {
-        // Bind current time.
-        shell.withTime(clock) {
-            // Get own mover (might be non-existent).
-            val hero = ownMover()
+    override fun Bind<Time>.inputShell(time: Double, delta: Double) {
+        // Get own mover (might be non-existent).
+        val hero = ownMover()
 
-            // Check if mover is there.
-            if (hero == null) {
-                // Set to scaling.
-                view = Mat.scaling(scaling)
+        // Check if mover is there.
+        if (hero == null) {
+            // Set to scaling.
+            view = Mat.scaling(scaling)
 
-                // If key just pressed, create a new mover.
-                if (Gdx.input.isKeyJustPressed(Keys.F1))
-                    root.createHero(shell.player)
-            } else {
-                // Get the coordinate of the mover.
-                val pos = hero.posAt(time)
-                val (x, y, z) = pos
+            // If key just pressed, create a new mover.
+            if (Gdx.input.isKeyJustPressed(Keys.F1))
+                root.createHero(shell.player)
+        } else {
+            // Get the coordinate of the mover.
+            val pos = hero.posAt(time)
+            val (x, y, z) = pos
 
-                // Center on it.
-                view = Mat
-                    .translation(Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
-                    .scale(scaling, scaling)
-                    .translate(x = -x * tileWidth, y = -y * tileHeight)
-                    .translate(y = -z * tileHeight)
+            // Center on it.
+            view = Mat
+                .translation(Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
+                .scale(scaling, scaling)
+                .translate(x = -x * tileWidth, y = -y * tileHeight)
+                .translate(y = -z * tileHeight)
 
-                if (Gdx.input.isKeyJustPressed(Keys.SPACE)) {
-                    if (hero.grounded)
-                        hero.jump()
-                }
-
-                // Get desired move direction.
-                keyStick.current.let {
-                    if (hero.grounded) {
-                        val velFrom = Pt(hero.vel.x, hero.vel.y)
-                        val velTo = Pt(it.x.toFloat(), it.y.toFloat())
-                        if (velFrom != velTo)
-                            hero.move(velTo)
-                    }
-                }
-
-                // If look at direction has changed, look at it.
-                centerLook.fetch()?.let {
-                    hero.lookAt(it)
-                }
-
-                // If mouse status has changed, handle input.
-                mouse.fetch()?.let {
-                    if (mouse.justPressed(Input.Buttons.RIGHT))
-                        hero.cancelDraw()
-
-                    if (mouse.justPressed(Input.Buttons.LEFT))
-                        hero.draw()
-
-                    if (mouse.justReleased(Input.Buttons.LEFT))
-                        hero.targetOf(capture?.first, time)?.let { target ->
-                            hero.release(target)
-                        }
-                }
-
-                // Render mover parameters.
-                ui.submitHealth(hero, time)
-                ui.submitDraw(hero, time)
-                ui.submitAmmo(hero, time)
-                ui.submitXP(hero, time)
+            if (Gdx.input.isKeyJustPressed(Keys.SPACE)) {
+                if (hero.grounded)
+                    hero.jump()
             }
+
+            // Get desired move direction.
+            keyStick.current.let {
+                if (hero.grounded) {
+                    val velFrom = Pt(hero.vel.x, hero.vel.y)
+                    val velTo = Pt(it.x.toFloat(), it.y.toFloat())
+                    if (velFrom != velTo)
+                        hero.move(velTo)
+                }
+            }
+
+            // If look at direction has changed, look at it.
+            centerLook.fetch()?.let {
+                hero.lookAt(it)
+            }
+
+            // If mouse status has changed, handle input.
+            mouse.fetch()?.let {
+                if (mouse.justPressed(Input.Buttons.RIGHT))
+                    hero.cancelDraw()
+
+                if (mouse.justPressed(Input.Buttons.LEFT))
+                    hero.draw()
+
+                if (mouse.justReleased(Input.Buttons.LEFT))
+                    hero.targetOf(capture?.first, time)?.let { target ->
+                        hero.release(target)
+                    }
+            }
+
+            // Render mover parameters.
+            ui.submitHealth(hero, time)
+            ui.submitDraw(hero, time)
+            ui.submitAmmo(hero, time)
+            ui.submitXP(hero, time)
         }
+    }
+
+    override fun inputRepeating(timeMs: Long) {
+        // Dispatch global update.
+        root.worldUpdate(timeMs)
+    }
+
+    override fun outputShell(time: Double, delta: Double) {
+        // Submit described elements.
+        ui.submitDescribed(capture?.first as? Described, time)
+
+        // Render everything.
+        shell.list<Rendered>().forEach { it.render(Mat.ID, time) }
+    }
+
+    override fun outputOther(time: Double, delta: Double) {
+        // Draw ping.
+        ui.submitPing(netClock, time)
+
+        // Display all hashes if debugging.
+        if (debug) ui.submitHashes(shellHashes, time)
 
         fun toPt(vec: Vec) = Pt(vec.x * tileWidth, (vec.y + vec.z) * tileHeight)
         (capture?.first as? BlockCapture)?.let {
@@ -310,41 +231,12 @@ class Frontend : F2DListener(-100f, 100f) {
                 }
             }
         }
-
-
-        // Submit described elements.
-        ui.submitDescribed(capture?.first as? Described, time)
-
-        // Dispatch global update.
-        root.worldUpdate(clock.time)
-
-        // Render everything.
-        shell.list<Rendered>().forEach { it.render(Mat.ID, time) }
-
-        // Check if sign off was set.
-        signOffValue?.let {
-            // Invalidate to it and reset sign off.
-            shell.engine.invalidate(it)
-            signOffValue = null
-
-            // Update hash values if debugging.
-            if (debug) shellHashes.pushHash(shell) else shellHashes.clear()
-        }
-
-        // Draw ping.
-        ui.submitPing(clock, time)
-
-        // Display all hashes if debugging.
-        if (debug) ui.submitHashes(shellHashes, time)
-
-        // Handle other inputs.
-        otherInputs()
     }
 
     /**
      * Handles non-game stuff.
      */
-    private fun otherInputs() {
+    override fun inputOther(time: Double, delta: Double) {
         // Set zoom.
         if (Gdx.input.isKeyJustPressed(Keys.NUM_1))
             scaling = 1f
@@ -368,6 +260,13 @@ class Frontend : F2DListener(-100f, 100f) {
         }
     }
 
+    override fun signOff(it: Long) {
+        super.signOff(it)
+
+        // Update hash values if debugging.
+        if (debug) shellHashes.pushHash(shell) else shellHashes.clear()
+    }
+
     /**
      * Current captured element and position.
      */
@@ -388,18 +287,6 @@ class Frontend : F2DListener(-100f, 100f) {
         capture = (result ?: root) to Vec(x / tileWidth, y / tileHeight, -z)
     }
 
-    override fun pause() = Unit
-
-    override fun resume() = Unit
-
-    override fun dispose() {
-        super.dispose()
-
-        signOff.close()
-        claimer.close()
-        clock.close()
-        net.close()
-    }
 }
 
 /**

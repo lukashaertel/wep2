@@ -3,7 +3,7 @@ package eu.metatools.ex.ents.items
 import eu.metatools.ex.Frontend
 import eu.metatools.ex.ents.Blocks
 import eu.metatools.ex.ents.hero.Hero
-import eu.metatools.f2d.data.Vec
+import eu.metatools.fio.data.Vec
 import eu.metatools.up.Shell
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.lang.never

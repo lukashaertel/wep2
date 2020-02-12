@@ -4,7 +4,7 @@ import eu.metatools.ex.animation
 import eu.metatools.ex.atlas
 import eu.metatools.ex.atlasStack
 import eu.metatools.ex.geom.*
-import eu.metatools.f2d.data.Tri
+import eu.metatools.fio.data.Tri
 
 /**
  * Enum of shared block types.

@@ -2,7 +2,7 @@ package eu.metatools.ex.ents
 
 import eu.metatools.ex.geom.Mesh
 import eu.metatools.ex.geom.box
-import eu.metatools.f2d.drawable.Drawable
+import eu.metatools.fio.drawable.Drawable
 
 /**
  * World geometry and data block.

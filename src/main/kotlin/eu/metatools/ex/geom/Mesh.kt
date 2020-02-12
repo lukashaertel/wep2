@@ -1,9 +1,9 @@
 package eu.metatools.ex.geom
 
 import eu.metatools.ex.data.Dir
-import eu.metatools.f2d.data.Vec
-import eu.metatools.f2d.data.Vecs
-import eu.metatools.f2d.data.mapVecs
+import eu.metatools.fio.data.Vec
+import eu.metatools.fio.data.Vecs
+import eu.metatools.fio.data.mapVecs
 
 /**
  * A pair of points and triangle indices.

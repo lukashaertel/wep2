@@ -1,7 +1,7 @@
 package eu.metatools.ex.ents.hero
 
 import eu.metatools.ex.data.Dir
-import eu.metatools.f2d.drawable.Drawable
+import eu.metatools.fio.drawable.Drawable
 
 /**
  * Sprite set of a [Hero].

@@ -5,13 +5,13 @@ import com.badlogic.gdx.graphics.Color
 import eu.metatools.ex.Resources
 import eu.metatools.ex.shadowText
 import eu.metatools.ex.uiZ
-import eu.metatools.f2d.InOut
-import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.drawable.tint
-import eu.metatools.f2d.immediate.submit
-import eu.metatools.f2d.resource.get
-import eu.metatools.f2d.tools.Location
-import eu.metatools.f2d.tools.ReferText
+import eu.metatools.fio.InOut
+import eu.metatools.fio.data.Mat
+import eu.metatools.fio.drawable.tint
+import eu.metatools.fio.immediate.submit
+import eu.metatools.fio.resource.get
+import eu.metatools.fio.tools.Location
+import eu.metatools.fio.tools.ReferText
 
 /**
  * Solid white.

@@ -2,8 +2,8 @@ package eu.metatools.ex.input
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
-import eu.metatools.f2d.util.centeredX
-import eu.metatools.f2d.util.centeredY
+import eu.metatools.fio.util.centeredX
+import eu.metatools.fio.util.centeredY
 import java.util.*
 
 /**

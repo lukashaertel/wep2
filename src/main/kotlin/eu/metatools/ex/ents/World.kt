@@ -6,14 +6,12 @@ import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
 import eu.metatools.ex.ents.hero.Heroes
 import eu.metatools.ex.geom.Mesh
-import eu.metatools.ex.geom.closest
-import eu.metatools.ex.geom.inside
 import eu.metatools.ex.sec
-import eu.metatools.f2d.data.Mat
-import eu.metatools.f2d.data.Tri
-import eu.metatools.f2d.data.Vec
-import eu.metatools.f2d.immediate.submit
-import eu.metatools.f2d.tools.CaptureCube
+import eu.metatools.fio.data.Mat
+import eu.metatools.fio.data.Tri
+import eu.metatools.fio.data.Vec
+import eu.metatools.fio.immediate.submit
+import eu.metatools.fio.tools.CaptureCube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.mapObserved
@@ -21,7 +19,6 @@ import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
 import java.util.*
-import kotlin.math.roundToInt
 
 fun toZ(y: Number, z: Number) =
     -z.toFloat() + y.toFloat()
