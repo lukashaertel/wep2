@@ -13,3 +13,16 @@ data class Cell(val x: Int, val y: Int) : Comparable<Cell> {
 
     override fun toString() = "($x, $y)"
 }
+
+fun Cell.top() =
+    copy(y = y.inc())
+
+fun Cell.right() =
+    copy(x = x.inc())
+
+fun Cell.bottom() =
+    copy(y = y.dec())
+
+
+fun Cell.left() =
+    copy(x = x.dec())

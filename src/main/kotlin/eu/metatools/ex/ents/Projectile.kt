@@ -1,6 +1,6 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.ex.Frontend
+import eu.metatools.ex.EX
 import eu.metatools.ex.atlas
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
@@ -36,7 +36,7 @@ import eu.metatools.up.dt.lx
 class Projectile(
     shell: Shell,
     id: Lx,
-    val ui: Frontend,
+    val ui: EX,
     initPos: Vec,
     initVel: Vec,
     initT0: Double,

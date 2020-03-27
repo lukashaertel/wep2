@@ -12,8 +12,6 @@ import eu.metatools.fio.resource.Lifecycle
 import eu.metatools.fio.util.uniformX
 import eu.metatools.fio.util.uniformY
 
-interface InOut : Capture, Draw, Play, QueuedCapture, QueuedDraw, QueuedPlay
-
 /**
  * Basic application listener dispatching rendering and providing capture/output functionality.
  */
@@ -21,7 +19,7 @@ abstract class FioListener(
     val near: Float = 0f,
     val far: Float = 1f,
     val trimExcess: Float = 0.5f
-) : ApplicationListener {
+) : ApplicationListener, Fio {
     companion object {
         /**
          * The time to use for the first delta.
@@ -46,10 +44,7 @@ abstract class FioListener(
     var postDispose = false
         private set
 
-    /**
-     * Marks an element as used, will be initialized and disposed of in the corresponding methods.
-     */
-    fun <T : Lifecycle> use(element: T): T {
+    override fun <T : Lifecycle> use(element: T): T {
         // Add to resources to be initialized and disposed of.
         roots.add(element)
 
@@ -109,7 +104,7 @@ abstract class FioListener(
 
     private val worldQueuedPlay = StandardQueuedPlay(worldPlay)
 
-    val ui: InOut = object : InOut,
+    override val ui: InOut = object : InOut,
         Capture by standardCapture,
         Draw by standardDraw,
         Play by standardPlay,
@@ -117,18 +112,13 @@ abstract class FioListener(
         QueuedDraw by standardQueuedDraw,
         QueuedPlay by standardQueuedPlay {}
 
-    val world: InOut = object : InOut,
+    override val world: InOut = object : InOut,
         Capture by worldCapture,
         Draw by worldDraw,
         Play by worldPlay,
         QueuedCapture by worldQueuedCapture,
         QueuedDraw by worldQueuedDraw,
         QueuedPlay by worldQueuedPlay {}
-
-    /**
-     * Gets the current time.
-     */
-    abstract val time: Double
 
     /**
      * The time of the last render.

@@ -1,6 +1,6 @@
 package eu.metatools.ex.ents
 
-import eu.metatools.ex.Frontend
+import eu.metatools.ex.EX
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.Hero
@@ -31,7 +31,7 @@ fun toZ(y: Number, z: Number) =
  * @param map The map data.
  */
 class World(
-    shell: Shell, id: Lx, val ui: Frontend, map: Map<Tri, Block>
+    shell: Shell, id: Lx, val ui: EX, map: Map<Tri, Block>
 ) : Ent(shell, id), Rendered {
     override val extraArgs = mapOf("map" to map)
 

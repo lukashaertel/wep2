@@ -1,6 +1,9 @@
-package eu.metatools.ex
+package eu.metatools.ugs
 
 import com.esotericsoftware.kryo.Kryo
+import eu.metatools.ex.sec
+import eu.metatools.ex.toNextFullSecond
+import eu.metatools.fio.Fio
 import eu.metatools.fio.FioListener
 import eu.metatools.up.StandardShell
 import eu.metatools.up.dt.Instruction
@@ -17,8 +20,8 @@ import eu.metatools.up.withTime
 import java.util.*
 import kotlin.NoSuchElementException
 import kotlin.reflect.KParameter
+import kotlin.reflect.full.createType
 import kotlin.reflect.full.isSubtypeOf
-import kotlin.reflect.typeOf
 
 /**
  * Basic game infrasturcture.
@@ -27,6 +30,28 @@ import kotlin.reflect.typeOf
  * @param machineID The machine ID or empty, if no locally unique player ID is needed.
  */
 abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUUID()) : FioListener(near, far) {
+    companion object {
+        /**
+         * Type of the [Fio] interface.
+         */
+        private val fioType = Fio::class.createType()
+
+        /**
+         * Type of the [FioListener] class.
+         */
+        private val fioListenerType = FioListener::class.createType()
+
+        /**
+         * Type of the [BaseGame] class.
+         */
+        private val baseGameType = BaseGame::class.createType()
+    }
+
+    /**
+     * The type of the current instance. Override if the instance requires type arguments.
+     */
+    protected open val selfType = this::class.createType()
+
     /**
      * Network connection.
      */
@@ -100,11 +125,14 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
     /**
      * Resolves global parameter for entities.
      */
-    @Suppress("experimental_api_usage_error")
-    private fun resolveGlobal(param: KParameter): Any {
+    protected open fun resolveGlobal(param: KParameter): Any {
+        // If self, return this.
+        if (param.type.isSubtypeOf(selfType)) return this
+
         // If assignable to interface or class, return this instance.
-        if (param.type.isSubtypeOf(typeOf<FioListener>())) return this
-        if (param.type.isSubtypeOf(typeOf<BaseGame>())) return this
+        if (param.type.isSubtypeOf(fioType)) return this
+        if (param.type.isSubtypeOf(fioListenerType)) return this
+        if (param.type.isSubtypeOf(baseGameType)) return this
 
         // Unknown.
         throw NoSuchElementException(param.toString())
@@ -141,7 +169,7 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
     /**
      * Run before network is connected and after engine resources may be used.
      */
-    protected abstract fun outputInit()
+    protected open fun outputInit() = Unit
 
     /**
      * Resolves critical entities of a game on joining (e.g., root world entity).
@@ -156,7 +184,7 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
     /**
      * Run after shell was created or resolved. Runs with the synchronized time at that point.
      */
-    protected abstract fun Bind<Time>.shellAlways()
+    protected open fun Bind<Time>.shellAlways() = Unit
 
     /**
      * Critically renders the [FioListener]s [FioListener.render] method.
@@ -171,12 +199,12 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
     /**
      * Creates for a render step the inputs to the shell from the user.
      */
-    protected abstract fun Bind<Time>.inputShell(time: Double, delta: Double)
+    protected open fun Bind<Time>.inputShell(time: Double, delta: Double) = Unit
 
     /**
      * After processing inputs to shell, should update repeating calls.
      */
-    protected abstract fun inputRepeating(timeMs: Long)
+    protected open fun inputRepeating(timeMs: Long) = Unit
 
     /**
      * Renders and updates the game.
@@ -218,18 +246,18 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
     /**
      * Generates the output of the shell, i.e., how entities are displayed.
      */
-    protected abstract fun outputShell(time: Double, delta: Double)
+    protected open fun outputShell(time: Double, delta: Double) = Unit
 
     /**
      * Generates extra output. This method might be merged with [outputShell].
      */
-    protected abstract fun outputOther(time: Double, delta: Double)
+    protected open fun outputOther(time: Double, delta: Double) = Unit
 
 
     /**
      * Handles non-shell-critical input, i.e., UI movement.
      */
-    protected abstract fun inputOther(time: Double, delta: Double)
+    protected open fun inputOther(time: Double, delta: Double) = Unit
 
     /**
      * Does nothing on pause.

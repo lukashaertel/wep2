@@ -1,6 +1,6 @@
 package eu.metatools.ex.ents.items
 
-import eu.metatools.ex.Frontend
+import eu.metatools.ex.EX
 import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
@@ -27,7 +27,7 @@ import eu.metatools.up.dt.lx
  * @param initHeight The height of the container.
  */
 abstract class Container(
-    shell: Shell, id: Lx, val ui: Frontend,
+    shell: Shell, id: Lx, val ui: EX,
     initPos: Vec
 ) : Ent(shell, id), Moves, Solid, Rendered, Damageable, Described {
     override val world get() = shell.resolve(lx / "root") as World

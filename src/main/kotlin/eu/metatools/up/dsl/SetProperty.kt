@@ -1,8 +1,7 @@
 package eu.metatools.up.dsl
 
-import eu.metatools.up.dt.Change
 import eu.metatools.up.*
-import eu.metatools.up.dt.div
+import eu.metatools.up.dt.Change
 import eu.metatools.up.lang.ObservedSet
 import eu.metatools.up.lang.ReadOnlyPropertyProvider
 import eu.metatools.up.lang.validate

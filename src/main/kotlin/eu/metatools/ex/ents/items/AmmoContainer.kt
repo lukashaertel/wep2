@@ -1,6 +1,6 @@
 package eu.metatools.ex.ents.items
 
-import eu.metatools.ex.Frontend
+import eu.metatools.ex.EX
 import eu.metatools.ex.ents.Blocks
 import eu.metatools.ex.ents.hero.Hero
 import eu.metatools.fio.data.Vec
@@ -18,8 +18,8 @@ import eu.metatools.up.lang.never
  * @param initHeight The height of the container.
  */
 class AmmoContainer(
-    shell: Shell, id: Lx, ui: Frontend,
-    initPos: Vec,  val content: Int
+    shell: Shell, id: Lx, ui: EX,
+    initPos: Vec, val content: Int
 ) : Container(shell, id, ui, initPos) {
     override val extraArgs = mapOf(
         "initPos" to initPos,

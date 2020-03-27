@@ -6,18 +6,18 @@ import eu.metatools.fio.drawable.shift
 import eu.metatools.fio.tools.*
 
 object Resources {
-    val solid by lazy { frontend.use(SolidResource()) }
+    val solid by lazy { ex.use(SolidResource()) }
 
-    val data by lazy { frontend.use(DataResource()) }
+    val data by lazy { ex.use(DataResource()) }
 
     val fire by lazy {
-        frontend.use(SoundResource {
+        ex.use(SoundResource {
             Gdx.files.internal("shoot.ogg")
         })
     }
 
     val atlas by lazy {
-        frontend.use(AtlasResource {
+        ex.use(AtlasResource {
             Gdx.files.internal(
                 "CTP.atlas"
             )
@@ -25,7 +25,7 @@ object Resources {
     }
 
     val segoe by lazy {
-        frontend.use(TextResource {
+        ex.use(TextResource {
             findDefinitions(
                 Gdx.files.internal("segoe_ui")
             )
@@ -33,13 +33,12 @@ object Resources {
     }
 
     val consolas by lazy {
-        frontend.use(TextResource {
+        ex.use(TextResource {
             findDefinitions(
                 Gdx.files.internal("consolas")
             )
         })
     }
-
 }
 
 /**

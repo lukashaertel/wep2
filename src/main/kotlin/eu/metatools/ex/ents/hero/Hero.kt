@@ -1,7 +1,7 @@
 package eu.metatools.ex.ents.hero
 
 import com.badlogic.gdx.graphics.Color
-import eu.metatools.ex.Frontend
+import eu.metatools.ex.EX
 import eu.metatools.ex.Resources
 import eu.metatools.ex.atlas
 import eu.metatools.ex.data.Dir
@@ -42,7 +42,7 @@ import kotlin.math.sqrt
  * @property owner Constant. the owner of this mover.
  */
 class Hero(
-    shell: Shell, id: Lx, val ui: Frontend,
+    shell: Shell, id: Lx, val ui: EX,
     initPos: Vec, val kind: HeroKind, val owner: Short
 ) : Ent(shell, id), Rendered, Moves, Solid, Blocking, HandlesHit, Damageable, Described {
     override val extraArgs = mapOf(

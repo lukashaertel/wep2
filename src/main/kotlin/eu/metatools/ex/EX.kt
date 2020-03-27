@@ -25,6 +25,7 @@ import eu.metatools.fio.data.Vec
 import eu.metatools.fio.drawable.Drawable
 import eu.metatools.fio.drawable.tint
 import eu.metatools.fio.tools.ShapePoly
+import eu.metatools.ugs.BaseGame
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
@@ -74,7 +75,7 @@ fun InOut.shadowText(on: Drawable<String>, text: String, time: Double, x: Float,
     submit(on, text, time, Mat.translation(x, y, uiZ).scale(size, size))
 }
 
-class Frontend : BaseGame(-100f, 100f) {
+class EX : BaseGame(-100f, 100f) {
     override fun configureNet(kryo: Kryo) {
         configureKryo(kryo)
     }
@@ -292,16 +293,16 @@ class Frontend : BaseGame(-100f, 100f) {
 /**
  * Frontend instance.
  */
-lateinit var frontend: Frontend
+lateinit var ex: EX
 
 fun main() {
     // Create the frontend.
-    frontend = Frontend()
+    ex = EX()
 
     // Set config values.
     val config = LwjglApplicationConfiguration()
     config.height = config.width
 
     // Start application.
-    LwjglApplication(frontend, config)
+    LwjglApplication(ex, config)
 }
