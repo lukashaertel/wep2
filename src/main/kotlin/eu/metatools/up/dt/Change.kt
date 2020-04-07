@@ -14,10 +14,3 @@ interface Change<T : Change<T>> {
      */
     fun invert(): T
 }
-
-/**
- * Force merges the change with the other. Ignores the out-projected type.
- */
-fun Change<*>.mergeForce(other: Change<*>) =
-    @Suppress("member_projected_out")
-    merge(other)
