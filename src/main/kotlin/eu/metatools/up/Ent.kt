@@ -67,9 +67,11 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
                     part.connect(null)
                 }
 
-
             // Mark connected.
             isConnected = true
+
+            // Invoke post-connect handler.
+            postConnect()
         }
 
         override fun persist(entOut: EntOut) {
@@ -85,6 +87,9 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
          */
         override fun disconnect() {
             requireConnected()
+
+            // Invoke pre-disconnect handler.
+            preDisconnect()
 
             // Mark not connected.
             isConnected = false
@@ -197,6 +202,9 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             shell.engine.add(ent)
         }
     }
+
+    protected open fun postConnect() = Unit
+    protected open fun preDisconnect() = Unit
 
     /**
      * Creates an exchanged send/perform wrapper for the function.

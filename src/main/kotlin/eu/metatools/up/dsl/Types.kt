@@ -1,10 +1,10 @@
 package eu.metatools.up.dsl
 
-import kotlin.reflect.KClass
-import kotlin.reflect.KProperty
-import kotlin.reflect.KType
+import kotlin.reflect.*
+import kotlin.reflect.full.createType
+import kotlin.reflect.full.isSubclassOf
 import kotlin.reflect.full.isSupertypeOf
-import kotlin.reflect.typeOf
+import kotlin.reflect.full.superclasses
 
 /**
  * An exception from [Types.performTypeCheck].
@@ -24,8 +24,28 @@ class TypeException(
 }
 
 object Types {
-    @Suppress("experimental_api_usage_error")
-    private val mutableCollectionType = typeOf<MutableCollection<*>>()
+    /**
+     * Checks if type is a mutable collection.
+     */
+    private fun isMutable(type: KType): Boolean {
+        // Reason on classifier, cannot check other.
+        val classifier = type.classifier as? KClass<*> ?: return false
+
+        // Any is mutable set (do not do supertype check as mutable class gets erased).
+        if (classifier.superclasses.any { it == MutableSet::class })
+            return true
+
+        // Any is mutable list (do not do supertype check as mutable class gets erased).
+        if (classifier.superclasses.any { it == MutableList::class })
+            return true
+
+        // Any is mutable map (do not do supertype check as mutable class gets erased).
+        if (classifier.superclasses.any { it == MutableMap::class })
+            return true
+
+        // No failure, return false.
+        return false
+    }
 
     @Suppress("experimental_api_usage_error")
     private val hashSetType = typeOf<HashSet<*>>()
@@ -65,7 +85,7 @@ object Types {
         // Performs a recursive type check.
         fun check(type: KType, allowMutable: Boolean) {
             // Warn for mutable collections.
-            if (!allowMutable && mutableCollectionType.isSupertypeOf(type))
+            if (!allowMutable && isMutable(type))
                 report("Use immutable type or use set or map property. ")
 
             // Warn for hash based types.

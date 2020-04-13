@@ -131,5 +131,5 @@ fun <T> propObserved(init: () -> T, zero: T, changed: (PropChange<T>) -> Unit) =
 /**
  * Shorthand for [prop].
  */
-inline operator fun <reified T> (() -> T).provideDelegate(ent: Ent, property: KProperty<*>) =
+operator fun <T> (() -> T).provideDelegate(ent: Ent, property: KProperty<*>) =
     prop(this).provideDelegate(ent, property)

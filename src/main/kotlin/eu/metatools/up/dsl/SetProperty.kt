@@ -147,7 +147,7 @@ fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) =
 /**
  * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
  */
-fun <E : Comparable<E>> setObserved(init: () -> List<E> = ::emptyList, changed: (SetChange<E>) -> Unit) =
+fun <E : Comparable<E>> setObserved(init: () -> List<E> = ::emptyList, changed:  (SetChange<E>) -> Unit) =
     ReadOnlyPropertyProvider { ent: Ent, property ->
         // Perform optional type check.
         Types.performTypeCheck(ent, property, true)
