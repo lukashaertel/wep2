@@ -8,7 +8,7 @@ data class Tri(val x: Int, val y: Int, val z: Int) : Comparable<Tri> {
     override fun compareTo(other: Tri): Int {
         val rz = z.compareTo(other.z)
         if (rz != 0) return rz
-        val ry = -y.compareTo(other.y)
+        val ry = -y.compareTo(other.y)// todo owch
         if (ry != 0) return ry
         return x.compareTo(other.x)
     }

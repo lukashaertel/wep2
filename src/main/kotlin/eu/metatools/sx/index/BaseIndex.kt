@@ -4,7 +4,7 @@ package eu.metatools.sx.index
  * Provides the base implementation for registration and publication mechanisms, used
  * in root nodes.
  */
-abstract class BaseStore<K : Comparable<K>, V> : Index<K, V>() {
+abstract class BaseIndex<K : Comparable<K>, V> : Index<K, V>() {
     /**
      * The registration of listeners.
      */

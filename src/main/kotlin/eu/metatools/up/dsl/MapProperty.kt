@@ -87,6 +87,9 @@ data class MapChange<K, V>(
     override fun invert() =
         MapChange(removed, added)
 
+    override fun isChange() =
+        removed.isNotEmpty() || added.isNotEmpty()
+
     /**
      * Applies the change to a map.
      */

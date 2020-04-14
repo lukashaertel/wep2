@@ -5,7 +5,7 @@ import java.util.*
 /**
  * Stores values directly in a backing tree map.
  */
-class Tree<K : Comparable<K>, V> : BaseStore<K, V>() {
+class IndexTree<K : Comparable<K>, V> : BaseIndex<K, V>() {
 
     /**
      * The items that are stored in this direct index.
@@ -88,7 +88,7 @@ class Tree<K : Comparable<K>, V> : BaseStore<K, V>() {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as Tree<*, *>
+        other as IndexTree<*, *>
 
         if (items != other.items) return false
 

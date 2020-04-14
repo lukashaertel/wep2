@@ -203,7 +203,14 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         }
     }
 
+    /**
+     * Invoked after property connection.
+     */
     protected open fun postConnect() = Unit
+
+    /**
+     * Invoked before property disconnection.
+     */
     protected open fun preDisconnect() = Unit
 
     /**

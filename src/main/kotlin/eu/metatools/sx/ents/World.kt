@@ -1,15 +1,54 @@
 package eu.metatools.sx.ents
 
+import eu.metatools.fio.data.Tri
 import eu.metatools.sx.SX
+import eu.metatools.sx.index.*
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
-import eu.metatools.up.dsl.map
-import eu.metatools.up.dsl.set
-import eu.metatools.up.dsl.setObserved
+import eu.metatools.up.dsl.*
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.lx
-import java.util.*
-import kotlin.collections.ArrayList
+
+
+/**
+ * Known index.
+ */
+interface KI<K : Comparable<K>> {
+    /**
+     * Unique key of index.
+     */
+    val key: Lx
+
+    /**
+     * Definition if index is absent.
+     */
+    val definition: Index<K, Any?>
+}
+
+class Actor(
+    shell: Shell,
+    id: Lx,
+    sx: SX,
+    inLocation: Tri,
+    inState: Any
+) : Ent(shell, id) {
+    var onLocationChange: ((Actor, Tri, Tri) -> Unit)? = null
+    var onStateChange: ((Actor, Any, Any) -> Unit)? = null
+
+    override val extraArgs = mapOf(
+        "inLocation" to inLocation,
+        "inState" to inState
+    )
+    var location by propObserved({ inLocation }, inLocation) {
+        if (it.isChange())
+            onLocationChange?.invoke(this, it.from, it.to)
+    }
+    var state by propObserved({ inState }, inState) {
+        if (it.isChange())
+            onStateChange?.invoke(this, it.from, it.to)
+    }
+
+}
 
 class World(
     shell: Shell,
@@ -18,107 +57,74 @@ class World(
 ) : Ent(shell, lx) {
     val players by set<Player>()
 
-    /**
-     * Forward dependencies of the federated graph.
-     */
-    private val dependForward by map<Actor<*, *>, Set<Actor<*, *>>>()
+    private val indices by map<Lx, Pair<Index<*, Any?>, Int>>()
 
     /**
-     * Backward dependencies of the federated graph.
+     * Increases the ref-count of the given index definition and returns the index.
      */
-    private val dependBackward by map<Actor<*, *>, Set<Actor<*, *>>>()
+    fun <K : Comparable<K>> acquire(source: KI<K>): Index<K, Any?> {
+        // Update reference on index.
+        @Suppress("unchecked_cast")
+        return requireNotNull(indices.compute(source.key) { _, existing ->
+            if (existing != null)
+            // Existing index, increment references.
+                existing.first to existing.second.inc()
+            else
+            // Non-existing index, create and initialize.
+                source.definition as Index<*, Any?> to 1
+        }).first as Index<K, Any?>
+    }
 
     /**
-     * Dependency graph.
+     * Decreases the ref-count of the given index definition or removes the definition.
      */
-    private val depend = FederatedGraph(::dependForward, ::dependBackward)
+    fun release(source: KI<*>) {
+        // Decrement and delete reference.
+        indices.compute(source.key) { _, existing ->
+            if (existing != null && 1 < existing.second)
+            // Existing and reference count valid after decrement, decrement reference.
+                existing.first to existing.second.dec()
+            else
+            // Invalid, delete.
+                null
+        }
+    }
 
-    /**
-     * Actor set, change to this causes reevaluation of some dependency queries.
-     */
-    val actors: NavigableSet<Actor<*, *>> by setObserved { (added, removed) ->
-        // First part, of all actors that depend on some of the removed, collect for invalidation.
+    val actors= IndexVolume<Actor>()
+
+    private val actorSet by setObserved<Actor> { (added, removed) ->
         for (actor in removed) {
-            for (invalidated in depend.from(actor)) {
-                depend.remove(actor, invalidated)
-                collect(invalidated)
-            }
+            actor.onLocationChange = null
+            actor.onStateChange = null
         }
 
-        // Second part, for all existing actors check if new actors are considered.
-        for (actor in actors) if (actor !in added)
-            for (source in added)
-                if (source in actor.inDef.depends) {
-                    depend.add(actor, source)
-                    collect(actor)
-                }
-
-        // Third part, for all added actors add sources.
         for (actor in added) {
-            val sources = actor.inDef.depends.all(this)
-            for (source in sources) {
-                depend.add(actor, source)
-                collect(source)
-            }
+            actor.onLocationChange = ::updateLocation
+            actor.onStateChange = ::updateState
         }
-
-        // Fourth part, add actor itself, will be invalid.
-        for (actor in added)
-            collect(actor)
     }
 
-    /**
-     * Collected for update of derivative.
-     */
-    private val collected by set<Actor<*, *>>()
+    private fun updateLocation(actor: Actor, from: Tri, to: Tri) {
 
-    // Add actor to be updated.
-    fun collect(actor: Actor<*, *>) {
-        println("Update: $actor")
-        collected.add(actor)
     }
 
-    // Add dependents to be updated.
-    fun collectDependent(actor: Actor<*, *>) {
-        val elements = depend.from(actor)
-        println("From $actor update: $elements")
-        collected.addAll(elements)
-    }
+    private fun updateState(actor: Actor, from: Any, to: Any) {
 
-    /**
-     * Runs a simulation step.
-     */
-    fun simulate(time: Double, dt: Double) {
-        println("Sim start ...")
-
-        // Clone updated set, clear base.
-        val simulate = TreeSet(collected)
-        collected.clear()
-
-        // Iterate and update all entries that need derivative.
-        for (update in simulate)
-            update.derive(depend.from(update))
-
-        // Simulate all actors.
-        for (actor in actors) {
-            actor.advance(time, dt)
-        }
-
-        println("sim end.")
     }
 
     /**
      * Periodic world update.
      */
     val worldUpdate = repeating(Short.MAX_VALUE, 1000, shell::initializedTime) {
-        simulate(time.global / 1000.0, 1.0)
+
     }
+
 
     /**
      * Renders all actors.
      */
     fun render(time: Double, delta: Double) {
-        for (actor in actors)
-            actor.render(time, delta)
+        //for (actor in actors)
+        // actor.render(time, delta)
     }
 }

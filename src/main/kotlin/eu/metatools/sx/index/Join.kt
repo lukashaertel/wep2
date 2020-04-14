@@ -95,21 +95,3 @@ data class Join<K1 : Comparable<K1>, V1, K2 : Comparable<K2>, V2>(
  */
 infix fun <K : Comparable<K>, V1, V2> Index<K, V1>.join(other: Index<K, V2>) =
     Join(this, other, ::At, ::At)
-
-fun main() {
-    val gs = StoreGrid<String>(10, 10)
-
-    val sj = Join(gs, gs,
-        { (x, y) -> StoreGrid.around(x, y, 2, 2) },
-        { (x, y) -> StoreGrid.around(x, y, 2, 2) })
-
-    sj.register(Always()) { k, d ->
-        println("$k $d")
-    }
-
-    gs.put(1, 2, "Alpha")
-    println()
-    gs.put(4, 2, "Beta")
-    println()
-    gs.put(2, 2, "Gamma")
-}

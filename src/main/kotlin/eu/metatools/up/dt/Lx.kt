@@ -39,6 +39,8 @@ data class At<T : Comparable<T>>(val value: T) : Local() {
         value.toString()
 }
 
+fun Local.requireValue() = requireNotNull(this as? At<*>).value
+
 /**
  * Lexicographic hierarchy supporting [Inf] and [Sup] queries.
  */
@@ -133,6 +135,7 @@ val Lx.parent
  */
 val Lx.children
     get() = this / inf to this / sup
+
 /**
  * Returns the keys describing all siblings. If this node is empty, returns [Inf] to [Sup].
  */

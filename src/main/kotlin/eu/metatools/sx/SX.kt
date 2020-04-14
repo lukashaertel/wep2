@@ -18,53 +18,6 @@ import java.util.*
 import kotlin.math.max
 import kotlin.math.min
 
-
-object ANull : DefActor<Double, Unit> {
-    override val depends: Query
-        get() = QueryNone
-    override val deltaZero: Unit
-        get() = Unit
-
-    override fun derive(state: Double, depends: SortedSet<Actor<*, *>>) {
-    }
-
-    override fun advance(state: Double, derivative: Unit, time: Double, dt: Double): Double {
-        return state
-    }
-
-    override fun isEdge(state: Double, derivative: Unit): Boolean {
-        return false
-    }
-
-}
-
-object AD : DefActor<Double, Pair<Double, Double>> {
-    override val depends: Query
-        get() = QueryWhere { t, s, d -> t is ANull }
-
-    override val deltaZero: Pair<Double, Double>
-        get() = 0.0 to 0.0
-
-    override fun derive(state: Double, depends: SortedSet<Actor<*, *>>): Pair<Double, Double> {
-        val target = depends.map { it.state as Double }.sum()
-        val rate = (target - state) / 10.0
-        return (target to rate).also(::println)
-    }
-
-    override fun advance(state: Double, derivative: Pair<Double, Double>, time: Double, dt: Double): Double {
-        val (target, rate) = derivative
-        return if (rate > 0.0)
-            min(target, state + dt * rate).also(::println)
-        else
-            max(target, state + dt * rate).also(::println)
-    }
-
-    override fun isEdge(state: Double, derivative: Pair<Double, Double>): Boolean {
-        val (target, _) = derivative
-        return state == target
-    }
-}
-
 class SXRes(val fio: Fio) {
     val solid by lazy { fio.use(SolidResource()) }
 
@@ -93,16 +46,6 @@ class SX : BaseGame(-100f, 100f) {
         root = World(shell, lx / "root", this)
             .also(shell.engine::add)
 
-        Actor(shell, lx / "aa", this, 4.0, ANull, null)
-            .also(shell.engine::add)
-            .let(root.actors::add)
-        Actor(shell, lx / "ab", this, 2.0, ANull, null)
-            .also(shell.engine::add)
-            .let(root.actors::add)
-
-        Actor(shell, lx / "ac", this, 0.0, AD, null)
-            .also(shell.engine::add)
-            .let(root.actors::add)
     }
 
     override fun Bind<Time>.inputShell(time: Double, delta: Double) {

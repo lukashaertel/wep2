@@ -21,6 +21,9 @@ data class PropChange<T>(val from: T, val to: T) : Change<PropChange<T>> {
     override fun invert() =
         PropChange(to, from)
 
+    override fun isChange() =
+        from != to
+
     override fun toString() =
         "$from -> $to"
 }

@@ -13,4 +13,9 @@ interface Change<T : Change<T>> {
      * Inverts the receiver.
      */
     fun invert(): T
+
+    /**
+     * True if actually a change.
+     */
+    fun isChange() = !equals(invert())
 }
