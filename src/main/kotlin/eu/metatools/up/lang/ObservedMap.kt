@@ -8,7 +8,7 @@ import java.util.*
  * @property actual The actual implementation.
  * @property notify The listener.
  */
-class ObservedMap<K : Comparable<K>, V>(
+class ObservedMap<K, V>(
     val actual: NavigableMap<K, V>,
     val notify: (SortedMap<K, V>, SortedMap<K, V>) -> Unit
 ) : NavigableMap<K, V> {
@@ -18,12 +18,12 @@ class ObservedMap<K : Comparable<K>, V>(
 
     override fun clear() {
         // Copy this map as the set of removed items, clear the actual map.
-        val removed = actual.toSortedMap()
+        val removed = TreeMap(actual)
         actual.clear()
 
         // If actually removed, notify.
         if (removed.isNotEmpty())
-            notify(sortedMapOf(), removed)
+            notify(actual.aligned(), removed)
     }
 
     override fun floorKey(key: K): K? =
@@ -52,8 +52,8 @@ class ObservedMap<K : Comparable<K>, V>(
             return
 
         // Track adds and changes.
-        val added = TreeMap<K, V>()
-        val removed = TreeMap<K, V>()
+        val added = actual.aligned()
+        val removed = actual.aligned()
 
         // Iterate all items to put.
         for ((key, value) in from) {
@@ -110,7 +110,7 @@ class ObservedMap<K : Comparable<K>, V>(
 
         // If there was an entry, notify change.
         if (result != null)
-            notify(sortedMapOf(), sortedMapOf(result.key to result.value))
+            notify(actual.aligned(), actual.aligned(result.key to result.value))
 
         // Return polled entry.
         return result
@@ -130,7 +130,7 @@ class ObservedMap<K : Comparable<K>, V>(
 
         // If there was an entry, notify change.
         if (result != null)
-            notify(sortedMapOf(), sortedMapOf(result.key to result.value))
+            notify(actual.aligned(), actual.aligned(result.key to result.value))
 
         // Return polled entry.
         return result
@@ -154,9 +154,9 @@ class ObservedMap<K : Comparable<K>, V>(
 
         // Check if processing as change or add.
         if (before == null)
-            notify(sortedMapOf(key to value), sortedMapOf())
+            notify(actual.aligned(key to value), actual.aligned())
         else
-            notify(sortedMapOf(key to value), sortedMapOf(key to before))
+            notify(actual.aligned(key to value), actual.aligned(key to before))
 
         // Return the original value.
         return before
@@ -168,7 +168,7 @@ class ObservedMap<K : Comparable<K>, V>(
 
         // If value was present, notify removal.
         if (before != null)
-            notify(sortedMapOf(), sortedMapOf(key to before))
+            notify(actual.aligned(), actual.aligned(key to before))
 
         // Return the previous association.
         return before
@@ -217,9 +217,9 @@ class ObservedMap<K : Comparable<K>, V>(
 
             // Notify according to value is new or is changed.
             if (before == null)
-                notify(sortedMapOf(element.key to element.value), sortedMapOf())
+                notify(actual.aligned(element.key to element.value), actual.aligned())
             else
-                notify(sortedMapOf(element.key to element.value), sortedMapOf(element.key to before))
+                notify(actual.aligned(element.key to element.value), actual.aligned(element.key to before))
 
             // Return true as value was changed..
             return true
@@ -231,8 +231,8 @@ class ObservedMap<K : Comparable<K>, V>(
                 return false
 
             // Track adds and changes.
-            val added = TreeMap<K, V>()
-            val removed = TreeMap<K, V>()
+            val added = actual.aligned()
+            val removed = actual.aligned()
 
             // Set all elements.
             for ((key, value) in elements) {
@@ -289,7 +289,7 @@ class ObservedMap<K : Comparable<K>, V>(
                 iterator.remove()
 
                 // Notify the change with the remembered current value.
-                notify(sortedMapOf(), sortedMapOf(current.key to current.value))
+                notify(actual.aligned(), actual.aligned(current.key to current.value))
             }
         }
 
@@ -303,7 +303,7 @@ class ObservedMap<K : Comparable<K>, V>(
                 return false
 
             // Track remove.
-            val removed = TreeMap<K, V>()
+            val removed = actual.aligned()
 
             actual.entries.iterator().let {
                 // Use mutable iteration.
@@ -324,7 +324,7 @@ class ObservedMap<K : Comparable<K>, V>(
                 return false
 
             // Notify and return changed.
-            notify(sortedMapOf(), removed)
+            notify(actual.aligned(), removed)
             return true
         }
 
@@ -341,7 +341,7 @@ class ObservedMap<K : Comparable<K>, V>(
             }
 
             // Track removals.
-            val removed = TreeMap<K, V>()
+            val removed = actual.aligned()
 
             actual.entries.iterator().let {
                 // Use mutable iteration.
@@ -362,7 +362,7 @@ class ObservedMap<K : Comparable<K>, V>(
                 return false
 
             // Notify removal, return true.
-            notify(sortedMapOf(), removed)
+            notify(actual.aligned(), removed)
             return true
         }
 
@@ -455,13 +455,13 @@ class ObservedMap<K : Comparable<K>, V>(
                 iterator.remove()
 
                 // Notify the change with the remembered current value.
-                notify(sortedMapOf(), sortedMapOf(current.key to current.value))
+                notify(actual.aligned(), actual.aligned(current.key to current.value))
             }
         }
 
         override fun remove(element: V): Boolean {
             // Track removed entries.
-            val removed = TreeMap<K, V>()
+            val removed = actual.aligned()
 
             actual.entries.iterator().let {
                 // Use mutable iteration.
@@ -481,7 +481,7 @@ class ObservedMap<K : Comparable<K>, V>(
                 return false
 
             // Removal occurred, notify and return true.
-            notify(sortedMapOf(), removed)
+            notify(actual.aligned(), removed)
             return true
         }
 
@@ -491,7 +491,7 @@ class ObservedMap<K : Comparable<K>, V>(
                 return false
 
             // Track removed entries and if actual has changed.
-            val removed = TreeMap<K, V>()
+            val removed = actual.aligned()
 
             actual.entries.iterator().let {
                 // Use mutable iteration.
@@ -511,7 +511,7 @@ class ObservedMap<K : Comparable<K>, V>(
                 return false
 
             // Removal occurred, notify and return true.
-            notify(sortedMapOf(), removed)
+            notify(actual.aligned(), removed)
             return true
         }
 
@@ -528,7 +528,7 @@ class ObservedMap<K : Comparable<K>, V>(
             }
 
             // Track removed entries and if actual has changed.
-            val removed = TreeMap<K, V>()
+            val removed = actual.aligned()
 
             actual.entries.iterator().let {
                 // Use mutable iteration.
@@ -548,7 +548,7 @@ class ObservedMap<K : Comparable<K>, V>(
                 return false
 
             // Removal occurred, notify and return true.
-            notify(sortedMapOf(), removed)
+            notify(actual.aligned(), removed)
             return true
         }
 
@@ -589,7 +589,7 @@ class ObservedMap<K : Comparable<K>, V>(
             value = newValue
 
             // Notify change.
-            notify(sortedMapOf(key to newValue), sortedMapOf(key to previous))
+            notify(actual.aligned(key to newValue), actual.aligned(key to previous))
             return previous
         }
     }
@@ -602,7 +602,7 @@ class ObservedMap<K : Comparable<K>, V>(
         if (add.isNotEmpty()) throw UnsupportedOperationException()
 
         // Collect all actually removed.
-        val removed = TreeMap<K, V>()
+        val removed = actual.aligned()
         for (key in remove) {
             val before = actual.remove(key)
             if (before != null)
@@ -611,7 +611,7 @@ class ObservedMap<K : Comparable<K>, V>(
 
         // Notify.
         if (removed.isNotEmpty())
-            notify(sortedMapOf(), removed)
+            notify(actual.aligned(), removed)
     }
 
     override fun hashCode() =

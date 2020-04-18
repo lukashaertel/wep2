@@ -16,13 +16,29 @@ import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.mapObserved
 import eu.metatools.up.dsl.set
+import eu.metatools.up.dsl.setObserved
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
 import java.util.*
+import kotlin.collections.Map
+import kotlin.collections.any
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.forEach
+import kotlin.collections.iterator
+import kotlin.collections.mapOf
+import kotlin.collections.set
 
 fun toZ(y: Number, z: Number) =
     -z.toFloat() + y.toFloat()
 
+private val invTriComparator = compareBy<Tri> {
+    it.z
+}.thenBy {
+    -it.y
+}.thenBy {
+    it.x
+}
 
 /**
  * The root world entity.
@@ -35,12 +51,12 @@ class World(
 ) : Ent(shell, id), Rendered {
     override val extraArgs = mapOf("map" to map)
 
-    val meshes = TreeMap<Tri, Mesh>()
+    val meshes = TreeMap<Tri, Mesh>(invTriComparator)
 
     /**
      * The map. On updates, the [hull] and [bounds] are updated.
      */
-    val map by mapObserved({ map }) { changed ->
+    val map by mapObserved(invTriComparator, { map }) { changed ->
         changed.removed.forEach { (at, block) ->
             meshes.remove(at)
         }

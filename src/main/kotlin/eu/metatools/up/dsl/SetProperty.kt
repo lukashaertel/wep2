@@ -4,6 +4,7 @@ import eu.metatools.up.*
 import eu.metatools.up.dt.Change
 import eu.metatools.up.lang.ObservedSet
 import eu.metatools.up.lang.ReadOnlyPropertyProvider
+import eu.metatools.up.lang.aligned
 import eu.metatools.up.lang.validate
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -18,12 +19,17 @@ data class SetChange<E>(
     val added: SortedSet<E>,
     val removed: SortedSet<E>
 ) : Change<SetChange<E>> {
+    /**
+     * The comparator used for sorting.
+     */
+    val comparator: Comparator<in E>? = added.comparator() ?: removed.comparator()
+
     override fun merge(other: SetChange<E>) =
         SetChange(
             // A' union (A subtract R')
-            TreeSet(other.added union (added subtract other.removed)),
+            TreeSet(comparator).apply { addAll(other.added union (added subtract other.removed)) },
             // R union (R' subtract A)
-            TreeSet(removed union (other.removed subtract added))
+            TreeSet(comparator).apply { addAll(removed union (other.removed subtract added)) }
         )
 
     override fun invert() =
@@ -68,8 +74,12 @@ data class SetChange<E>(
 /**
  * Set property, uses the full [name] and the given initial value assignment [init] on non-restore.
  */
-class SetProperty<E : Comparable<E>>(
-    val ent: Ent, override val name: String, val init: () -> List<E>, val changed: ((SetChange<E>) -> Unit)?
+class SetProperty<E>(
+    override val name: String,
+    val comparator: Comparator<in E>?,
+    val ent: Ent,
+    val init: () -> List<E>,
+    val changed: ((SetChange<E>) -> Unit)?
 ) : Part, ReadOnlyProperty<Any?, NavigableSet<E>> {
     private val shell get() = ent.shell
 
@@ -82,7 +92,7 @@ class SetProperty<E : Comparable<E>>(
         private set
 
     private fun createObservedSet(from: List<E>) =
-        ObservedSet(TreeSet(from)) { add, remove ->
+        ObservedSet(TreeSet(comparator).apply { addAll(from) }) { add, remove ->
             // If listening, notify changed.
             changed?.invoke(SetChange(add, remove))
 
@@ -120,7 +130,7 @@ class SetProperty<E : Comparable<E>>(
 
     override fun ready() {
         // Invoke initial change.
-        changed?.invoke(SetChange(current.toSortedSet(), sortedSetOf()))
+        changed?.invoke(SetChange(TreeSet(current), current.aligned()))
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
@@ -135,29 +145,45 @@ class SetProperty<E : Comparable<E>>(
 /**
  * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
  */
-fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) =
-    ReadOnlyPropertyProvider { ent: Ent, property ->
-        // Perform optional type check.
-        Types.performTypeCheck(ent, property, true)
+fun <E : Comparable<E>> set(
+    comparator: Comparator<in E>?,
+    init: () -> List<E> = ::emptyList
+) = ReadOnlyPropertyProvider { ent: Ent, property ->
+    // Perform optional type check.
+    Types.performTypeCheck(ent, property, true)
 
-        // Create set from implied values.
-        SetProperty(ent, property.name, init, null).also {
-            // Include in entity.
-            ent.driver.configure(it)
-        }
+    // Create set from implied values.
+    SetProperty(property.name, comparator, ent, init, null).also {
+        // Include in entity.
+        ent.driver.configure(it)
     }
+}
+
+/**
+ * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
+ */
+fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) = set(null, init)
+
+/**
+ * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
+ */
+fun <E : Comparable<E>> setObserved(
+    comparator: Comparator<in E>? = null,
+    init: () -> List<E> = ::emptyList,
+    changed: (SetChange<E>) -> Unit
+) = ReadOnlyPropertyProvider { ent: Ent, property ->
+    // Perform optional type check.
+    Types.performTypeCheck(ent, property, true)
+
+    // Create set from implied values.
+    SetProperty(property.name, comparator, ent, init, changed).also {
+        // Include in entity.
+        ent.driver.configure(it)
+    }
+}
 
 /**
  * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
  */
 fun <E : Comparable<E>> setObserved(init: () -> List<E> = ::emptyList, changed: (SetChange<E>) -> Unit) =
-    ReadOnlyPropertyProvider { ent: Ent, property ->
-        // Perform optional type check.
-        Types.performTypeCheck(ent, property, true)
-
-        // Create set from implied values.
-        SetProperty(ent, property.name, init, changed).also {
-            // Include in entity.
-            ent.driver.configure(it)
-        }
-    }
+    setObserved(null, init, changed)

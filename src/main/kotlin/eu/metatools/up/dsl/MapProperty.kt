@@ -1,10 +1,10 @@
 package eu.metatools.up.dsl
 
-import eu.metatools.up.dt.Change
 import eu.metatools.up.*
-import eu.metatools.up.dt.div
+import eu.metatools.up.dt.Change
 import eu.metatools.up.lang.ObservedMap
 import eu.metatools.up.lang.ReadOnlyPropertyProvider
+import eu.metatools.up.lang.aligned
 import eu.metatools.up.lang.validate
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
@@ -19,6 +19,11 @@ data class MapChange<K, V>(
     val added: SortedMap<K, V>,
     val removed: SortedMap<K, V>
 ) : Change<MapChange<K, V>> {
+    /**
+     * The comparator used for sorting.
+     */
+    val comparator: Comparator<in K>? = added.comparator() ?: removed.comparator()
+
     /**
      * Constructs a [MapChange] from the secondary defining values. Insertions and deletions
      * that are also mentioned as changes are ignored.
@@ -42,7 +47,7 @@ data class MapChange<K, V>(
      * The added elements that are not part of a change.
      */
     val inserted by lazy {
-        added.filterTo(TreeMap()) { (k, _) ->
+        added.filterTo(TreeMap(comparator)) { (k, _) ->
             k !in removed
         }
     }
@@ -51,7 +56,7 @@ data class MapChange<K, V>(
      * The changed elements with their old and new values.
      */
     val changed by lazy {
-        TreeMap<K, Pair<V, V>>().apply {
+        TreeMap<K, Pair<V, V>>(comparator).apply {
             for ((k, old) in removed)
                 added[k]?.let { new ->
                     put(k, old to new)
@@ -63,7 +68,7 @@ data class MapChange<K, V>(
      * The removed elements that are not part of a change.
      */
     val deleted by lazy {
-        removed.filterTo(TreeMap()) { (k, _) ->
+        removed.filterTo(TreeMap(comparator)) { (k, _) ->
             k !in added
         }
     }
@@ -71,13 +76,13 @@ data class MapChange<K, V>(
     override fun merge(other: MapChange<K, V>) =
         MapChange<K, V>(
             // A' union (A subtract R')
-            added.filterTo(TreeMap<K, V>()) { (k, v) ->
+            added.filterTo(TreeMap<K, V>(comparator)) { (k, v) ->
                 other.removed[k] != v
             }.also {
                 it.putAll(other.added)
             },
             // R union (R' subtract A)
-            other.removed.filterTo(TreeMap<K, V>()) { (k, v) ->
+            other.removed.filterTo(TreeMap<K, V>(comparator)) { (k, v) ->
                 added[k] != v
             }.also {
                 it.putAll(removed)
@@ -126,8 +131,12 @@ data class MapChange<K, V>(
 /**
  * Map property, uses the full [name] and the given initial value assignment [init] on non-restore..
  */
-class MapProperty<K : Comparable<K>, V>(
-    val ent: Ent, override val name: String, val init: () -> Map<K, V>, val changed: ((MapChange<K, V>) -> Unit)?
+class MapProperty<K, V>(
+    override val name: String,
+    val comparator: Comparator<in K>?,
+    val ent: Ent,
+    val init: () -> Map<K, V>,
+    val changed: ((MapChange<K, V>) -> Unit)?
 ) : Part, ReadOnlyProperty<Any?, NavigableMap<K, V>> {
     private val shell get() = ent.shell
 
@@ -137,7 +146,7 @@ class MapProperty<K : Comparable<K>, V>(
     private lateinit var current: ObservedMap<K, V>
 
     private fun createObservedMap(from: Map<K, V>) =
-        ObservedMap(TreeMap(from)) { add, remove ->
+        ObservedMap(TreeMap<K, V>(comparator).apply { putAll(from) }) { add, remove ->
             // If listening, notify changed.
             changed?.invoke(MapChange(add, remove))
 
@@ -184,7 +193,7 @@ class MapProperty<K : Comparable<K>, V>(
 
     override fun ready() {
         // Invoke initial change.
-        changed?.invoke(MapChange(current.toSortedMap(), sortedMapOf()))
+        changed?.invoke(MapChange(TreeMap(current), current.aligned()))
     }
 
     override fun toString() =
@@ -194,29 +203,46 @@ class MapProperty<K : Comparable<K>, V>(
 /**
  * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
  */
-fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
-    ReadOnlyPropertyProvider { ent: Ent, property ->
-        // Perform optional type check.
-        Types.performTypeCheck(ent, property, true)
+fun <K : Comparable<K>, V> map(
+    comparator: Comparator<in K>?,
+    init: () -> Map<K, V> = ::emptyMap
+) = ReadOnlyPropertyProvider { ent: Ent, property ->
+    // Perform optional type check.
+    Types.performTypeCheck(ent, property, true)
 
-        // Create map from implied values.
-        MapProperty(ent, property.name, init, null).also {
-            // Include in entity.
-            ent.driver.configure(it)
-        }
+    // Create map from implied values.
+    MapProperty(property.name, comparator, ent, init, null).also {
+        // Include in entity.
+        ent.driver.configure(it)
     }
+}
+
+/**
+ * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
+ */
+fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
+    map(null, init)
+
+/**
+ * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
+ */
+fun <K : Comparable<K>, V> mapObserved(
+    comparator: Comparator<in K>?,
+    init: () -> Map<K, V> = ::emptyMap,
+    changed: (MapChange<K, V>) -> Unit
+) = ReadOnlyPropertyProvider { ent: Ent, property ->
+    // Perform optional type check.
+    Types.performTypeCheck(ent, property, true)
+
+    // Create map from implied values.
+    MapProperty(property.name, comparator, ent, init, changed).also {
+        // Include in entity.
+        ent.driver.configure(it)
+    }
+}
 
 /**
  * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
  */
 fun <K : Comparable<K>, V> mapObserved(init: () -> Map<K, V> = ::emptyMap, changed: (MapChange<K, V>) -> Unit) =
-    ReadOnlyPropertyProvider { ent: Ent, property ->
-        // Perform optional type check.
-        Types.performTypeCheck(ent, property, true)
-
-        // Create map from implied values.
-        MapProperty(ent, property.name, init, changed).also {
-            // Include in entity.
-            ent.driver.configure(it)
-        }
-    }
+    mapObserved(null, init, changed)

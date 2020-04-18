@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 val gdxVersion = "1.9.10"
 
 plugins {
-    kotlin("jvm") version "1.3.71"
+    kotlin("jvm") version "1.3.72"
 }
 
 group = "eu.metatools"

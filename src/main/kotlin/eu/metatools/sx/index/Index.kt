@@ -8,7 +8,7 @@ abstract class Index<K : Comparable<K>, V> {
     /**
      * Registers a listener that will be notified when the passed query is satisfied.
      * @param query The query that must be met.
-    // * @param block The receiver, will take key, old value if present and new value if present.
+     * @param block The delta receiver.
      * @return Returns a closable that will unregister the listener.
      */
     abstract fun register(query: Query<K>, block: (K, Delta<V>) -> Unit): AutoCloseable
@@ -43,3 +43,12 @@ abstract class Index<K : Comparable<K>, V> {
         }
 }
 
+/**
+ * Runs the [Always] query against the receiving index.
+ */
+fun <K : Comparable<K>, V> Index<K, V>.findAll() = find(Always())
+
+/**
+ * Creates a list from all index assignments.
+ */
+fun <K : Comparable<K>, V> Index<K, V>.toList() = findAll().toList()

@@ -64,21 +64,21 @@ class IndexTree<K : Comparable<K>, V> : BaseIndex<K, V>() {
 
             // For lower, return entries of tail-map as pairs.
             is After<K> ->
-                items.tailMap(query.key)
+                items.tailMap(query.key, true)
                     .entries
                     .asSequence()
                     .map { it.toPair() }
 
             // For upper, return entries of head-map as pairs.
             is Before<K> ->
-                items.headMap(query.key)
+                items.headMap(query.key, true)
                     .entries
                     .asSequence()
                     .map { it.toPair() }
 
             // For range, return entries of sub-map as pairs.
             is Between<K> ->
-                items.subMap(query.keyLower, query.keyUpper)
+                items.subMap(query.keyLower, true, query.keyUpper, true)
                     .entries
                     .asSequence()
                     .map { it.toPair() }

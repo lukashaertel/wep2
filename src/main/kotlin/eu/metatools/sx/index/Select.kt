@@ -1,47 +1,52 @@
 package eu.metatools.sx.index
 
 /**
- * Transforms the items of [it] by applying the [selector].
+ * Transforms the items of [it] by applying the [block].
  * @property it The source index.
- * @property deselector If given, allows putting an element in this index by putting the deselected element into
+ * @property inv If given, allows putting an element in this index by putting the deselected element into
  * the source index.
- * @property selector The block to apply on incoming elements.
+ * @property block The block to apply on incoming elements.
  */
 data class Select<K : Comparable<K>, V, R>(
     val it: Index<K, V>,
-    val deselector: ((R) -> V)?,
-    val selector: (V) -> R
+    val inv: ((R) -> V)?,
+    val block: (V) -> R
 ) : Index<K, R>() {
     /**
      * The deselector instance, if no deselector is given, this will default to an instance
      * that throws an unsupported operation exception.
      */
-    private val deselectorInstance = deselector ?: {
-        throw UnsupportedOperationException("Selection is not bi-directional on index $this")
+    private val invInstance = inv ?: {
+        throw UnsupportedOperationException("Selection is not bi-directional on index $it")
     }
 
     /**
      * Constructs a select index without reverse mutability. Used when the selection is not
+     * @param it The source index.
+     * @param selector The block to apply on incoming elements.
      */
     constructor(it: Index<K, V>, selector: (V) -> R) : this(it, null, selector)
 
     override fun register(query: Query<K>, block: (K, Delta<R>) -> Unit) =
         it.register(query) { k, d ->
-            val out = d.map(selector)
+            val out = d.map(this.block)
             if (out.isChange())
                 block(k, out)
         }
 
     override fun put(key: K, value: R) =
-        it.put(key, deselectorInstance(value))?.let(selector)
+        it.put(key, invInstance(value))?.let(block)
 
     override fun remove(key: K) =
-        it.remove(key)?.let(selector)
+        it.remove(key)?.let(block)
 
     override fun find(query: Query<K>) =
         it.find(query).map { (k, v) ->
-            k to selector(v)
+            k to block(v)
         }
+
+    override fun toString() =
+        "$it[value -> $block(value)]"
 }
 
 /**

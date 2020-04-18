@@ -1,48 +1,120 @@
 package eu.metatools.sx.index
 
 import eu.metatools.fio.data.Tri
-import eu.metatools.up.dt.div
-import eu.metatools.up.dt.lx
 import java.util.*
 
 /**
- * A store index optimized for a fixed grid.
- * @property dimension The chunk size per block
+ * An index representing a sparsely populated, queryable volume.
+ * @property dimension The chunk side dimensions per block
  */
-class IndexVolume<V>(val dimension: Int = 32) : BaseIndex<Tri, V>() {
-//    companion object {
-//        /**
-//         * Creates a query that returns all items left of the given boundary.
-//         */
-//        fun left(of: Int) = Before(lx / of / Int.MAX_VALUE)
-//
-//        /**
-//         * Creates a query that returns all items above the given boundary.
-//         */
-//        fun top(of: Int) = Before(lx / Int.MAX_VALUE / of)
-//
-//        /**
-//         * Creates a query that returns all items right of the given boundary.
-//         */
-//        fun right(of: Int) = After(lx / of / Int.MIN_VALUE)
-//
-//        /**
-//         * Creates a query that returns all items below the given boundary.
-//         */
-//        fun down(of: Int) = Before(lx / Int.MIN_VALUE / of)
-//
-//        /**
-//         * Creates a query that returns all items within the square.
-//         */
-//        fun square(xStart: Int, xEnd: Int, yStart: Int, yEnd: Int) =
-//            Between(lx / xStart / yStart, lx / xEnd / yEnd)
-//
-//        /**
-//         * Creates a square around the coordinates with the given radii.
-//         */
-//        fun around(x: Int, y: Int, width: Int, height: Int) =
-//            square(x - width, x + width + 1, y - height, y + height + 1)
-//    }
+class IndexVolume<V>(val dimension: Int = 8) : BaseIndex<Tri, V>() {
+    companion object {
+        /**
+         * Returns the elements with x less than the given [limit].
+         */
+        fun left(limit: Int) = Before(Tri(limit.dec(), Int.MAX_VALUE, Int.MAX_VALUE))
+
+        /**
+         * Returns the element directly left of [tri].
+         */
+        fun left(tri: Tri) = At(Tri(tri.x.dec(), tri.y, tri.z))
+
+        /**
+         * Returns the elements with y less than the given [limit].
+         */
+        fun back(limit: Int) = Before(Tri(Int.MAX_VALUE, limit.dec(), Int.MAX_VALUE))
+
+        /**
+         * Returns the element directly behind of [tri].
+         */
+        fun back(tri: Tri) = At(Tri(tri.x, tri.y.dec(), tri.z))
+
+        /**
+         * Returns the elements with z less than the given [limit].
+         */
+        fun below(limit: Int) = Before(Tri(Int.MAX_VALUE, Int.MAX_VALUE, limit.dec()))
+
+        /**
+         * Returns the element directly below of [tri].
+         */
+        fun below(tri: Tri) = At(Tri(tri.x, tri.y, tri.z.dec()))
+
+        /**
+         * Returns the elements with x greater than the given [limit].
+         */
+        fun right(limit: Int) = After(Tri(limit.inc(), Int.MIN_VALUE, Int.MIN_VALUE))
+
+        /**
+         * Returns the element directly right of [tri].
+         */
+        fun right(tri: Tri) = At(Tri(tri.x.inc(), tri.y, tri.z))
+
+        /**
+         * Returns the elements with y greater than the given [limit].
+         */
+        fun front(limit: Int) = After(Tri(Int.MIN_VALUE, limit.inc(), Int.MIN_VALUE))
+
+        /**
+         * Returns the element directly in front of [tri].
+         */
+        fun front(tri: Tri) = At(Tri(tri.x, tri.y.inc(), tri.z))
+
+        /**
+         * Returns the elements with z greater than the given [limit].
+         */
+        fun above(limit: Int) = After(Tri(Int.MIN_VALUE, Int.MIN_VALUE, limit.inc()))
+
+        /**
+         * Returns the element directly above [tri].
+         */
+        fun above(tri: Tri) = At(Tri(tri.x, tri.y, tri.z.inc()))
+
+        /**
+         * Creates a query that returns all items within the cube, performs orientation checks and picks the minimum
+         * and maximum coordinates from [first] and [second] accordingly. The endpoint is inclusive.
+         */
+        fun within(first: Tri, second: Tri) =
+            Between(
+                Tri(minOf(first.x, second.x), minOf(first.y, second.y), minOf(first.z, second.z)),
+                Tri(maxOf(first.x, second.x), maxOf(first.y, second.y), maxOf(first.z, second.z))
+            )
+
+        /**
+         * Creates a cube around the given coordinates collecting the immediate neighbours.
+         */
+        fun around(at: Tri) =
+            Between(
+                Tri(at.x.dec(), at.y.dec(), at.z.dec()),
+                Tri(at.x.inc(), at.y.inc(), at.z.inc())
+            )
+
+        /**
+         * Creates a cube around the given coordinates collecting the immediate neighbours.
+         */
+        fun around(x: Int, y: Int, z: Int) =
+            Between(
+                Tri(x.dec(), y.dec(), z.dec()),
+                Tri(x.inc(), y.inc(), z.inc())
+            )
+
+        /**
+         * Creates a cube around the given coordinates with the given dimensions.
+         */
+        fun around(at: Tri, size: Tri) =
+            Between(
+                Tri(at.x - size.x, at.y - size.y, at.z - size.z),
+                Tri(at.x + size.x, at.y + size.y, at.z + size.z)
+            )
+
+        /**
+         * Creates a cube around the given coordinates with the given dimensions.
+         */
+        fun around(x: Int, y: Int, z: Int, sx: Int, sy: Int = sx, sz: Int = sx) =
+            Between(
+                Tri(x - sx, y - sy, z - sz),
+                Tri(x + sx, y + sy, z + sz)
+            )
+    }
 
     /**
      * Local sparse chunk.
@@ -69,7 +141,7 @@ class IndexVolume<V>(val dimension: Int = 32) : BaseIndex<Tri, V>() {
          * True if index is assigned.
          */
         operator fun contains(index: Int) =
-            0 <= index && index < limit && assigned[index]
+            index in elements.indices && assigned[index]
 
         /**
          * Gets the item at the index, does not check assignedness.
@@ -138,6 +210,8 @@ class IndexVolume<V>(val dimension: Int = 32) : BaseIndex<Tri, V>() {
      */
     private val chunks = TreeMap<Int, TreeMap<Int, TreeMap<Int, Chunk<V>>>>()
 
+    private var hash: Int? = null
+
     override fun put(key: Tri, value: V): V? {
         // Get upper indices.
         val ux = key.x / dimension
@@ -156,12 +230,16 @@ class IndexVolume<V>(val dimension: Int = 32) : BaseIndex<Tri, V>() {
         // Check if assigned in chunk.
         return if (li in chunk)
             chunk.set(li, value).also {
-                // Was assigned, publish as change.
-                publish(key, DeltaChange(it as V, value))
+                // Was assigned, publish as change if actually changed.
+                if (it != value) {
+                    hash = null
+                    publish(key, DeltaChange(it as V, value))
+                }
             }
         else
             chunk.set(li, value).also {
                 // Not assigned, publish as add.
+                hash = null
                 publish(key, DeltaAdd(value))
             }
 
@@ -204,6 +282,7 @@ class IndexVolume<V>(val dimension: Int = 32) : BaseIndex<Tri, V>() {
             chunks.remove(uz)
 
         // Publish change.
+        hash = null
         publish(key, DeltaRemove(result as V))
 
         // Return old value.
@@ -216,80 +295,212 @@ class IndexVolume<V>(val dimension: Int = 32) : BaseIndex<Tri, V>() {
     fun remove(x: Int, y: Int, z: Int) =
         remove(Tri(x, y, z))
 
-    override fun find(query: Query<Tri>): Sequence<Pair<Tri, V>> {
-        // Convert query to absolute indices.
-        val qx: IntRange
-        val qy: IntRange
-        val qz: IntRange
-
+    override fun find(query: Query<Tri>): Sequence<Pair<Tri, V>> =
         when (query) {
-            is Always -> {
-                qx = Int.MIN_VALUE until Int.MAX_VALUE
-                qy = Int.MIN_VALUE until Int.MAX_VALUE
-                qz = Int.MIN_VALUE until Int.MAX_VALUE
-            }
-            is Never -> {
-                qx = 0 until 0
-                qy = 0 until 0
-                qz = 0 until 0
-            }
-            is At -> {
-                qx = query.key.x..query.key.x
-                qy = query.key.y..query.key.y
-                qz = query.key.z..query.key.z
-            }
-            is After -> {
-                qx = query.key.x until Int.MAX_VALUE
-                qy = query.key.y until Int.MAX_VALUE
-                qz = query.key.z until Int.MAX_VALUE
-            }
-            is Before -> {
-                qx = Int.MIN_VALUE until query.key.x
-                qy = Int.MIN_VALUE until query.key.y
-                qz = Int.MIN_VALUE until query.key.z
-            }
-            is Between -> {
-                qx = query.keyLower.x until query.keyUpper.x
-                qy = query.keyLower.y until query.keyUpper.y
-                qz = query.keyLower.z until query.keyUpper.z
-            }
+            is Always -> findAlways()
+            is Never -> findNever()
+            is At -> findAt(query)
+            is After -> findAfter(query)
+            is Before -> findBefore(query)
+            is Between -> findBetween(query)
         }
 
-        // Map to chunk index.
-        val rx = qx.first / dimension..qx.last / dimension
-        val ry = qy.first / dimension..qy.last / dimension
-        val rz = qz.first / dimension..qz.last / dimension
+    /**
+     * Finds all elements.
+     */
+    private fun findAlways(): Sequence<Pair<Tri, V>> {
+        // All inner indices.
+        val innerIndices = (0 until dimension).asSequence()
 
-        // Iterate z-chunks.
-        return chunks.subMap(rz.first, true, rz.last, true).asSequence().flatMap { (uz, zs) ->
+        // Iterate chunks and their elements.
+        return chunks.asSequence().flatMap { (uz, zs) ->
+            val oz = uz * dimension
+            zs.asSequence().flatMap { (uy, ys) ->
+                val oy = uy * dimension
+                ys.asSequence().flatMap { (ux, xs) ->
+                    val ox = ux * dimension
+                    var index = 0
+                    innerIndices.flatMap { z ->
+                        innerIndices.flatMap { y ->
+                            innerIndices.mapNotNull { x ->
+                                val ci = index++
+                                if (ci in xs)
+                                    Tri(ox + x, oy + y, oz + z) to xs[ci]
+                                else
+                                    null
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Finds no elements, returning empty sequence.
+     */
+    private fun findNever(): Sequence<Pair<Tri, V>> =
+        emptySequence()
+
+    /**
+     * Finds exact match.
+     */
+    private fun findAt(query: At<Tri>): Sequence<Pair<Tri, V>> {
+        // Get upper indices.
+        val ux = query.key.x / dimension
+        val uy = query.key.y / dimension
+        val uz = query.key.z / dimension
+
+        // Load or create chunk.
+        val chunk = ((chunks[uz] ?: return emptySequence())[uy] ?: return emptySequence())[ux] ?: return emptySequence()
+
+        // Get lower index.
+        val lx = query.key.x - ux * dimension
+        val ly = query.key.y - uy * dimension
+        val lz = query.key.z - uz * dimension
+        val li = lz * dimension * dimension + ly * dimension + lx
+
+        // Check if assigned in chunk, return sequence of assignment if present.
+        return if (li in chunk)
+            sequenceOf(query.key to chunk[li])
+        else
+            emptySequence()
+    }
+
+    /**
+     * Finds lower bounded elements.
+     */
+    private fun findAfter(query: After<Tri>): Sequence<Pair<Tri, V>> {
+        val chunkLimitZ = query.key.z / dimension
+        val chunkLimitY = query.key.y / dimension
+        val chunkLimitX = query.key.x / dimension
+
+        return chunks.tailMap(chunkLimitZ, true).asSequence().flatMap { (uz, zs) ->
             // z-coordinate to chunk base and chunk indices.
             val oz = uz * dimension
-            val iz = maxOf(0, qz.first - oz) until minOf(dimension, qz.last - oz)
+            val iz = maxOf(0, query.key.z - oz) until dimension
 
             // Iterate y-chunks.
-            zs.subMap(ry.first, true, ry.last, true).asSequence().flatMap { (uy, ys) ->
+            zs.tailMap(chunkLimitY, true).asSequence().flatMap { (uy, ys) ->
                 // y-coordinate to chunk base and chunk indices.
                 val oy = uy * dimension
-                val iy = maxOf(0, qy.first - oy) until minOf(dimension, qy.last - oy)
+                val iy = maxOf(0, query.key.y - oy) until dimension
 
                 // Iterate x-chunks.
-                ys.subMap(rx.first, true, rx.last, true).asSequence().flatMap { (ux, xs) ->
+                ys.tailMap(chunkLimitX, true).asSequence().flatMap { (ux, xs) ->
                     // x-coordinate to chunk base and chunk indices.
                     val ox = ux * dimension
-                    val ix = maxOf(0, qx.first - ox) until minOf(dimension, qx.last - ox)
+                    val ix = maxOf(0, query.key.x - ox) until dimension
 
                     // Iterate chunk elements themselves.
                     iz.asSequence().flatMap { z ->
-                        val a = z * dimension * dimension
+                        val ioz = z * dimension * dimension
                         iy.asSequence().flatMap { y ->
-                            val b = a + y * dimension
+                            val ioy = ioz + y * dimension
                             ix.asSequence().mapNotNull { x ->
                                 // Compute carried index.
-                                val index = b + x
+                                val iox = ioy + x
 
                                 // If index is assigned, return item, otherwise return null.
-                                if (index in xs)
-                                    Tri(ox + x, oy + y, oz + z) to xs[index]
+                                if (iox in xs)
+                                    Tri(ox + x, oy + y, oz + z) to xs[iox]
+                                else
+                                    null
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Finds upper bounded elements.
+     */
+    private fun findBefore(query: Before<Tri>): Sequence<Pair<Tri, V>> {
+        val chunkLimitZ = query.key.z / dimension
+        val chunkLimitY = query.key.y / dimension
+        val chunkLimitX = query.key.x / dimension
+
+        return chunks.headMap(chunkLimitZ, true).asSequence().flatMap { (uz, zs) ->
+            // z-coordinate to chunk base and chunk indices.
+            val oz = uz * dimension
+            val iz = 0..minOf(dimension.dec(), query.key.z - oz)
+
+            // Iterate y-chunks.
+            zs.headMap(chunkLimitY, true).asSequence().flatMap { (uy, ys) ->
+                // y-coordinate to chunk base and chunk indices.
+                val oy = uy * dimension
+                val iy = 0..minOf(dimension.dec(), query.key.y - oy)
+
+                // Iterate x-chunks.
+                ys.headMap(chunkLimitX, true).asSequence().flatMap { (ux, xs) ->
+                    // x-coordinate to chunk base and chunk indices.
+                    val ox = ux * dimension
+                    val ix = 0..minOf(dimension.dec(), query.key.x - ox)
+
+                    // Iterate chunk elements themselves.
+                    iz.asSequence().flatMap { z ->
+                        val ioz = z * dimension * dimension
+                        iy.asSequence().flatMap { y ->
+                            val ioy = ioz + y * dimension
+                            ix.asSequence().mapNotNull { x ->
+                                // Compute carried index.
+                                val iox = ioy + x
+
+                                // If index is assigned, return item, otherwise return null.
+                                if (iox in xs)
+                                    Tri(ox + x, oy + y, oz + z) to xs[iox]
+                                else
+                                    null
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Finds bounded elements.
+     */
+    private fun findBetween(query: Between<Tri>): Sequence<Pair<Tri, V>> {
+        val chunkLimitLowerZ = query.keyLower.z / dimension
+        val chunkLimitLowerY = query.keyLower.y / dimension
+        val chunkLimitLowerX = query.keyLower.x / dimension
+        val chunkLimitUpperZ = query.keyUpper.z / dimension
+        val chunkLimitUpperY = query.keyUpper.y / dimension
+        val chunkLimitUpperX = query.keyUpper.x / dimension
+
+        return chunks.subMap(chunkLimitLowerZ, true, chunkLimitUpperZ, true).asSequence().flatMap { (uz, zs) ->
+            // z-coordinate to chunk base and chunk indices.
+            val oz = uz * dimension
+            val iz = maxOf(0, query.keyLower.z - oz)..minOf(dimension.dec(), query.keyUpper.z - oz)
+
+            // Iterate y-chunks.
+            zs.subMap(chunkLimitLowerY, true, chunkLimitUpperY, true).asSequence().flatMap { (uy, ys) ->
+                // y-coordinate to chunk base and chunk indices.
+                val oy = uy * dimension
+                val iy = maxOf(0, query.keyLower.y - oy)..minOf(dimension.dec(), query.keyUpper.y - oy)
+
+                // subMap x-chunks.
+                ys.subMap(chunkLimitLowerX, true, chunkLimitUpperX, true).asSequence().flatMap { (ux, xs) ->
+                    // x-coordinate to chunk base and chunk indices.
+                    val ox = ux * dimension
+                    val ix = maxOf(0, query.keyLower.x - ox)..minOf(dimension.dec(), query.keyUpper.x - ox)
+
+                    // Iterate chunk elements themselves.
+                    iz.asSequence().flatMap { z ->
+                        val ioz = z * dimension * dimension
+                        iy.asSequence().flatMap { y ->
+                            val ioy = ioz + y * dimension
+                            ix.asSequence().mapNotNull { x ->
+                                // Compute carried index.
+                                val iox = ioy + x
+
+                                // If index is assigned, return item, otherwise return null.
+                                if (iox in xs)
+                                    Tri(ox + x, oy + y, oz + z) to xs[iox]
                                 else
                                     null
                             }
@@ -313,27 +524,31 @@ class IndexVolume<V>(val dimension: Int = 32) : BaseIndex<Tri, V>() {
     }
 
     override fun hashCode(): Int {
-        var result = dimension
-        result = 31 * result + chunks.hashCode()
-        return result
+        // Try returning existing hash.
+        val existing = hash
+        if (existing != null)
+            return existing
+
+        // Compute new hash.
+        var new = dimension
+        new = 31 * new + chunks.hashCode()
+
+        // Assign and return new hash.
+        hash = new
+        return new
     }
 
 
 }
 
 fun main() {
-    val gs = IndexVolume<String>(4)
-    println(After(Tri(5, 0, 0))(Tri(6, 4, 0)))
-    gs.register(After(Tri(5, 0, 0))) { k, d ->
-        println("L: $k $d")
+    val gs = IndexVolume<List<Int>>()
+    val f = gs.flatten()
+    f.register(Always()) { k, d ->
+        println("$k: $d")
     }
-    gs.put(2, 0, 0, "x")
-    gs.put(6, 0, 0, "y")
-    gs.put(6, 4, 0, "z")
-    gs.put(6, 6, 0, "w")
-    gs.put(6, 9, 0, "u")
-    gs.find(Always()).forEach { println("A: $it") }
-    gs.find(After(Tri(3, 4, 0))).forEach { println("Q: $it") }
-    gs.put(6, 9, 0, "a")
-    gs.remove(6, 9, 0)
+
+    gs.put(0, 0, 0, listOf(1, 2))
+
+    println(gs.find(Before(Tri(10, 10, 10))).toList())
 }

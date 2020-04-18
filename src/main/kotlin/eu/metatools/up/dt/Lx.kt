@@ -17,8 +17,9 @@ sealed class Local {
  * Object that is less then every other.
  */
 object Inf : Local() {
-
     override val isAbstract = true
+
+    override fun toString() = "inf"
 }
 
 /**
@@ -26,6 +27,8 @@ object Inf : Local() {
  */
 object Sup : Local() {
     override val isAbstract = true
+
+    override fun toString() = "sup"
 }
 
 /**
@@ -44,7 +47,7 @@ fun Local.requireValue() = requireNotNull(this as? At<*>).value
 /**
  * Lexicographic hierarchy supporting [Inf] and [Sup] queries.
  */
-data class Lx(val nodes: List<Local>) : Comparable<Lx> {
+class Lx(val nodes: List<Local>) : Comparable<Lx>, List<Local> by nodes {
     /**
      * If true, any of the [nodes] is a conceptual boundary ([Local.isAbstract]).
      */
@@ -96,8 +99,23 @@ data class Lx(val nodes: List<Local>) : Comparable<Lx> {
         return nodes.size.compareTo(other.nodes.size)
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Lx
+
+        if (nodes != other.nodes) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return nodes.hashCode()
+    }
+
     override fun toString() =
-        nodes.joinToString("/")
+        joinToString("/")
 }
 
 /**
@@ -178,3 +196,15 @@ val inf = Lx(listOf(Inf))
  * An initial [Sup] lexicographic index.
  */
 val sup = Lx(listOf(Sup))
+
+/**
+ * The last node value of the [Lx].
+ */
+fun Lx.lastValue() = last().requireValue()
+
+/**
+ * Repeats the entries of the [Lx].
+ */
+fun Lx.repeat(n: Int) = Lx(List(n * nodes.size) {
+    nodes[it % nodes.size]
+})

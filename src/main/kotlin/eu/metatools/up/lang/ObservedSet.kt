@@ -1,13 +1,15 @@
 package eu.metatools.up.lang
 
+import eu.metatools.up.dt.Box
 import java.util.*
+
 
 /**
  * Delegates to a [NavigableSet] [actual] to implement the behavior. All adds and removes are tracked to [notify].
  * @property actual The actual implementation.
  * @property notify The listener.
  */
-class ObservedSet<E : Comparable<E>>(
+class ObservedSet<E>(
     val actual: NavigableSet<E>,
     val notify: (SortedSet<E>, SortedSet<E>) -> Unit
 ) : NavigableSet<E> {
@@ -33,7 +35,7 @@ class ObservedSet<E : Comparable<E>>(
             return false
 
         // Change occurred, notify and return true.
-        notify(sortedSetOf(element), sortedSetOf())
+        notify(actual.aligned(element), actual.aligned())
         return true
     }
 
@@ -43,7 +45,7 @@ class ObservedSet<E : Comparable<E>>(
             return false
 
         // Track adds and if mutated.
-        val added = TreeSet<E>()
+        val added = actual.aligned()
 
         // Iterate all elements, track if actually adding changed the set.
         for (element in elements)
@@ -55,18 +57,18 @@ class ObservedSet<E : Comparable<E>>(
             return false
 
         // Notify, return true.
-        notify(added, sortedSetOf())
+        notify(added, actual.aligned())
         return true
     }
 
     override fun clear() {
         // Copy this set as the set of removed items, clear the actual set.
-        val removed = actual.toSortedSet()
+        val removed = TreeSet(actual)
         actual.clear()
 
         // If actually removed, notify.
         if (removed.isNotEmpty())
-            notify(sortedSetOf(), removed)
+            notify(actual.aligned(), removed)
     }
 
     override fun tailSet(fromElement: E, inclusive: Boolean) =
@@ -83,7 +85,7 @@ class ObservedSet<E : Comparable<E>>(
             return false
 
         // Notify removal and return true.
-        notify(sortedSetOf(), sortedSetOf(element))
+        notify(actual.aligned(), actual.aligned(element))
         return true
     }
 
@@ -93,7 +95,7 @@ class ObservedSet<E : Comparable<E>>(
             return false
 
         // Track removals.
-        val removed = TreeSet<E>()
+        val removed = actual.aligned()
         actual.iterator().let {
             while (it.hasNext()) {
                 val current = it.next()
@@ -109,7 +111,7 @@ class ObservedSet<E : Comparable<E>>(
             return false
 
         // Notify changed and return true.
-        notify(sortedSetOf(), removed)
+        notify(actual.aligned(), removed)
         return true
     }
 
@@ -154,7 +156,7 @@ class ObservedSet<E : Comparable<E>>(
         }
 
         // Track removals.
-        val removed = TreeSet<E>()
+        val removed = actual.aligned()
 
         actual.iterator().let {
             while (it.hasNext()) {
@@ -171,7 +173,7 @@ class ObservedSet<E : Comparable<E>>(
             return false
 
         // Notify changed and return true.
-        notify(sortedSetOf(), removed)
+        notify(actual.aligned(), removed)
         return true
     }
 
@@ -202,7 +204,7 @@ class ObservedSet<E : Comparable<E>>(
 
         // If result was not null, notify.
         if (result != null)
-            notify(sortedSetOf(), sortedSetOf(result))
+            notify(actual.aligned(), actual.aligned(result))
 
         // Return the polled result.
         return result
@@ -218,7 +220,7 @@ class ObservedSet<E : Comparable<E>>(
 
         // If result was not null, notify.
         if (result != null)
-            notify(sortedSetOf(), sortedSetOf(result))
+            notify(actual.aligned(), actual.aligned(result))
 
         // Return the polled result.
         return result
@@ -244,7 +246,7 @@ class ObservedSet<E : Comparable<E>>(
         /**
          * The currently iterated element.
          */
-        lateinit var current: E
+        lateinit var current: Box<E>
 
         override fun hasNext() =
             // Has next if base also has next.
@@ -253,7 +255,7 @@ class ObservedSet<E : Comparable<E>>(
         override fun next() =
             // Get base next value, remember it.
             iterator.next().also {
-                current = it
+                current = Box(it)
             }
 
         override fun remove() {
@@ -261,7 +263,7 @@ class ObservedSet<E : Comparable<E>>(
             iterator.remove()
 
             // Notify removal.
-            notify(sortedSetOf(), sortedSetOf(current))
+            notify(actual.aligned(), actual.aligned(current.value))
         }
     }
 }

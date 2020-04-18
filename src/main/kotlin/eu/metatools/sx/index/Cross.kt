@@ -1,7 +1,7 @@
 package eu.metatools.sx.index
 
-import eu.metatools.sx.util.ComparablePair
-import eu.metatools.sx.util.toComparable
+import eu.metatools.sx.util.Then
+import eu.metatools.sx.util.then
 
 /**
  * Computes the cross product of the indices [left] and [right].
@@ -11,10 +11,10 @@ import eu.metatools.sx.util.toComparable
 data class Cross<K1 : Comparable<K1>, V1, K2 : Comparable<K2>, V2>(
     val left: Index<K1, V1>,
     val right: Index<K2, V2>
-) : Index<ComparablePair<K1, K2>, Pair<V1, V2>>() {
+) : Index<Then<K1, K2>, Pair<V1, V2>>() {
     override fun register(
-        query: Query<ComparablePair<K1, K2>>,
-        block: (ComparablePair<K1, K2>, Delta<Pair<V1, V2>>) -> Unit
+        query: Query<Then<K1, K2>>,
+        block: (Then<K1, K2>, Delta<Pair<V1, V2>>) -> Unit
     ): AutoCloseable {
         // Split query.
         val (queryLeft, queryRight) = split(query)
@@ -23,7 +23,7 @@ data class Cross<K1 : Comparable<K1>, V1, K2 : Comparable<K2>, V2>(
         val leftListener = left.register(queryLeft) { k1, d ->
             // For all changes on left, pair with matching right elements.
             right.find(queryRight).forEach { (k2, v2) ->
-                block(k1 toComparable k2, d.map { it to v2 })
+                block(k1 then k2, d.map { it to v2 })
             }
         }
 
@@ -31,7 +31,7 @@ data class Cross<K1 : Comparable<K1>, V1, K2 : Comparable<K2>, V2>(
         val rightListener = right.register(queryRight) { k2, d ->
             // For all changes on right, pair with matching left elements.
             left.find(queryLeft).forEach { (k1, v1) ->
-                block(k1 toComparable k2, d.map { v1 to it })
+                block(k1 then k2, d.map { v1 to it })
             }
         }
 
@@ -42,7 +42,7 @@ data class Cross<K1 : Comparable<K1>, V1, K2 : Comparable<K2>, V2>(
         }
     }
 
-    override fun put(key: ComparablePair<K1, K2>, value: Pair<V1, V2>): Pair<V1, V2>? {
+    override fun put(key: Then<K1, K2>, value: Pair<V1, V2>): Pair<V1, V2>? {
         // Split and put respectively.
         val previousLeft = left.put(key.first, value.first)
         val previousRight = right.put(key.second, value.second)
@@ -51,7 +51,7 @@ data class Cross<K1 : Comparable<K1>, V1, K2 : Comparable<K2>, V2>(
         return (previousLeft ?: return null) to (previousRight ?: return null)
     }
 
-    override fun remove(key: ComparablePair<K1, K2>): Pair<V1, V2>? {
+    override fun remove(key: Then<K1, K2>): Pair<V1, V2>? {
         // Split and remove respectively
         val previousLeft = left.remove(key.first)
             ?: return null
@@ -65,7 +65,7 @@ data class Cross<K1 : Comparable<K1>, V1, K2 : Comparable<K2>, V2>(
         return previousLeft to previousRight
     }
 
-    override fun find(query: Query<ComparablePair<K1, K2>>): Sequence<Pair<ComparablePair<K1, K2>, Pair<V1, V2>>> {
+    override fun find(query: Query<Then<K1, K2>>): Sequence<Pair<Then<K1, K2>, Pair<V1, V2>>> {
         // Split query.
         val (queryLeft, queryRight) = split(query)
 
@@ -76,7 +76,7 @@ data class Cross<K1 : Comparable<K1>, V1, K2 : Comparable<K2>, V2>(
         // Return from left and right via cross product.
         return fromLeft.flatMap { (k1, v1) ->
             fromRight.map { (k2, v2) ->
-                (k1 toComparable k2) to (v1 to v2)
+                (k1 then k2) to (v1 to v2)
             }
         }
     }
