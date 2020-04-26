@@ -1,6 +1,8 @@
 package eu.metatools.fio.context
 
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
@@ -24,12 +26,19 @@ class StandardContext(
     /**
      * Modes of the context.
      */
-    private enum class Mode {
-        NONE,
-        SPRITE_BATCH,
-        POLYGON_SPRITE_BATCH,
-        SHAPE_RENDERER
+    private sealed class Mode {
+        object None : Mode()
+        object SpriteBatch : Mode()
+        object PolygonSpriteBatch : Mode()
+        object ShapeRenderer : Mode()
+        data class Shader(
+            val shaderProgram: ShaderProgram,
+            val transform: String?,
+            val projection: String?,
+            val color: String?
+        ) : Mode()
     }
+
 
     /**
      * True if [spriteBatch] is initialized.
@@ -81,15 +90,20 @@ class StandardContext(
         }
     }
 
+    private var shaderProgram: ShaderProgram? = null
+    private var locationTransform: Int? = null
+    private var locationProjection: Int? = null
+    private var locationColor: Int? = null
+
     /**
      * Active mode.
      */
-    private var mode = Mode.NONE
+    private var mode: Mode = Mode.None
 
     /**
      * Color set on mode none.
      */
-    private var colorValue: Color = Color.WHITE
+    private var colorValue: Color = Color.WHITE.cpy() // TODO: GDX color system is super fucked.
 
     /**
      * Blend set on mode none or shapes.
@@ -106,62 +120,86 @@ class StandardContext(
      */
     private var projectionValue: Matrix4 = Matrix4().idt()
 
+
     override var color: Color
         get() = when (mode) {
-            Mode.NONE -> colorValue.cpy()
-            Mode.SPRITE_BATCH -> spriteBatch.color.cpy()
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.color.cpy()
-            Mode.SHAPE_RENDERER -> shapeRenderer.color.cpy()
+            Mode.None -> colorValue.cpy()
+            Mode.SpriteBatch -> spriteBatch.color.cpy()
+            Mode.PolygonSpriteBatch -> polygonSpriteBatch.color.cpy()
+            Mode.ShapeRenderer -> shapeRenderer.color.cpy()
+            is Mode.Shader -> colorValue.cpy()
         }
         set(value) {
             when (mode) {
-                Mode.NONE -> colorValue.set(value)
-                Mode.SPRITE_BATCH -> spriteBatch.color = value
-                Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.color = value
-                Mode.SHAPE_RENDERER -> shapeRenderer.color = value
+                Mode.None -> colorValue.set(value)
+                Mode.SpriteBatch -> spriteBatch.color = value
+                Mode.PolygonSpriteBatch -> polygonSpriteBatch.color = value
+                Mode.ShapeRenderer -> shapeRenderer.color = value
+                is Mode.Shader -> {
+                    colorValue.set(value)
+                    shaderProgram?.setUniformf(locationColor ?: return, value)
+                }
             }
         }
 
     override var blend: Blend
         get() = when (mode) {
-            Mode.NONE -> blendValue
-            Mode.SPRITE_BATCH -> spriteBatch.blend
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.blend
-            Mode.SHAPE_RENDERER -> blendValue
+            Mode.None -> blendValue
+            Mode.SpriteBatch -> spriteBatch.blend
+            Mode.PolygonSpriteBatch -> polygonSpriteBatch.blend
+            Mode.ShapeRenderer -> blendValue
+            is Mode.Shader -> blendValue
         }
-        set(value) = when (mode) {
-            Mode.NONE -> blendValue = value
-            Mode.SPRITE_BATCH -> spriteBatch.blend = value
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.blend = value
-            Mode.SHAPE_RENDERER -> blendValue = value
+        set(value) {
+            when (mode) {
+                Mode.None -> blendValue = value
+                Mode.SpriteBatch -> spriteBatch.blend = value
+                Mode.PolygonSpriteBatch -> polygonSpriteBatch.blend = value
+                Mode.ShapeRenderer -> blendValue = value
+                is Mode.Shader -> blendValue = value
+            }
         }
 
     override var transform: Matrix4
         get() = when (mode) {
-            Mode.NONE -> transformValue
-            Mode.SPRITE_BATCH -> spriteBatch.transformMatrix
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.transformMatrix
-            Mode.SHAPE_RENDERER -> shapeRenderer.transformMatrix
+            Mode.None -> transformValue
+            Mode.SpriteBatch -> spriteBatch.transformMatrix
+            Mode.PolygonSpriteBatch -> polygonSpriteBatch.transformMatrix
+            Mode.ShapeRenderer -> shapeRenderer.transformMatrix
+            is Mode.Shader -> transformValue
         }
-        set(value) = when (mode) {
-            Mode.NONE -> transformValue = value
-            Mode.SPRITE_BATCH -> spriteBatch.transformMatrix = value
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.transformMatrix = value
-            Mode.SHAPE_RENDERER -> shapeRenderer.transformMatrix = value
+        set(value) {
+            when (mode) {
+                Mode.None -> transformValue = value
+                Mode.SpriteBatch -> spriteBatch.transformMatrix = value
+                Mode.PolygonSpriteBatch -> polygonSpriteBatch.transformMatrix = value
+                Mode.ShapeRenderer -> shapeRenderer.transformMatrix = value
+                is Mode.Shader -> {
+                    transformValue = value
+                    shaderProgram?.setUniformMatrix(locationTransform ?: return, value)
+                }
+            }
         }
 
     override var projection: Matrix4
         get() = when (mode) {
-            Mode.NONE -> projectionValue
-            Mode.SPRITE_BATCH -> spriteBatch.projectionMatrix
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.projectionMatrix
-            Mode.SHAPE_RENDERER -> shapeRenderer.projectionMatrix
+            Mode.None -> projectionValue
+            Mode.SpriteBatch -> spriteBatch.projectionMatrix
+            Mode.PolygonSpriteBatch -> polygonSpriteBatch.projectionMatrix
+            Mode.ShapeRenderer -> shapeRenderer.projectionMatrix
+            is Mode.Shader -> projectionValue
         }
-        set(value) = when (mode) {
-            Mode.NONE -> projectionValue = value
-            Mode.SPRITE_BATCH -> spriteBatch.projectionMatrix = value
-            Mode.POLYGON_SPRITE_BATCH -> polygonSpriteBatch.projectionMatrix = value
-            Mode.SHAPE_RENDERER -> shapeRenderer.projectionMatrix = value
+        set(value) {
+            when (mode) {
+                Mode.None -> projectionValue = value
+                Mode.SpriteBatch -> spriteBatch.projectionMatrix = value
+                Mode.PolygonSpriteBatch -> polygonSpriteBatch.projectionMatrix = value
+                Mode.ShapeRenderer -> shapeRenderer.projectionMatrix = value
+                is Mode.Shader -> {
+                    projectionValue = value
+                    shaderProgram?.setUniformMatrix(locationProjection ?: return, value)
+                }
+            }
         }
 
     override fun sprites(): SpriteBatch {
@@ -172,8 +210,8 @@ class StandardContext(
         val activeProjection = projection
 
         // End any active mode, switch over or keep running.
-        when (mode.also { mode = Mode.SPRITE_BATCH }) {
-            Mode.NONE -> {
+        when (mode.also { mode = Mode.SpriteBatch }) {
+            Mode.None -> {
                 spriteBatch.color = activeColor
                 spriteBatch.blend = activeBlend
                 spriteBatch.transformMatrix = activeTransform
@@ -181,7 +219,7 @@ class StandardContext(
                 spriteBatch.begin()
                 return spriteBatch
             }
-            Mode.POLYGON_SPRITE_BATCH -> {
+            Mode.PolygonSpriteBatch -> {
                 polygonSpriteBatch.end()
                 spriteBatch.color = activeColor
                 spriteBatch.blend = activeBlend
@@ -190,7 +228,7 @@ class StandardContext(
                 spriteBatch.begin()
                 return spriteBatch
             }
-            Mode.SHAPE_RENDERER -> {
+            Mode.ShapeRenderer -> {
                 shapeRenderer.end()
                 spriteBatch.color = activeColor
                 spriteBatch.blend = activeBlend
@@ -199,7 +237,17 @@ class StandardContext(
                 spriteBatch.begin()
                 return spriteBatch
             }
-            Mode.SPRITE_BATCH -> {
+            is Mode.Shader -> {
+                shaderProgram?.end()
+                shaderProgram = null
+                spriteBatch.color = activeColor
+                spriteBatch.blend = activeBlend
+                spriteBatch.transformMatrix = activeTransform
+                spriteBatch.projectionMatrix = activeProjection
+                spriteBatch.begin()
+                return spriteBatch
+            }
+            Mode.SpriteBatch -> {
                 return spriteBatch
             }
         }
@@ -213,8 +261,8 @@ class StandardContext(
         val activeProjection = projection
 
         // End any active mode, switch over or keep running.
-        when (mode.also { mode = Mode.POLYGON_SPRITE_BATCH }) {
-            Mode.NONE -> {
+        when (mode.also { mode = Mode.PolygonSpriteBatch }) {
+            Mode.None -> {
                 polygonSpriteBatch.color = activeColor
                 polygonSpriteBatch.blend = activeBlend
                 polygonSpriteBatch.transformMatrix = activeTransform
@@ -222,7 +270,7 @@ class StandardContext(
                 polygonSpriteBatch.begin()
                 return polygonSpriteBatch
             }
-            Mode.SHAPE_RENDERER -> {
+            Mode.ShapeRenderer -> {
                 shapeRenderer.end()
                 polygonSpriteBatch.color = activeColor
                 polygonSpriteBatch.blend = activeBlend
@@ -231,7 +279,7 @@ class StandardContext(
                 polygonSpriteBatch.begin()
                 return polygonSpriteBatch
             }
-            Mode.SPRITE_BATCH -> {
+            Mode.SpriteBatch -> {
                 spriteBatch.end()
                 polygonSpriteBatch.color = activeColor
                 polygonSpriteBatch.blend = activeBlend
@@ -240,7 +288,17 @@ class StandardContext(
                 polygonSpriteBatch.begin()
                 return polygonSpriteBatch
             }
-            Mode.POLYGON_SPRITE_BATCH -> {
+            is Mode.Shader -> {
+                shaderProgram?.end()
+                shaderProgram = null
+                polygonSpriteBatch.color = activeColor
+                polygonSpriteBatch.blend = activeBlend
+                polygonSpriteBatch.transformMatrix = activeTransform
+                polygonSpriteBatch.projectionMatrix = activeProjection
+                polygonSpriteBatch.begin()
+                return polygonSpriteBatch
+            }
+            Mode.PolygonSpriteBatch -> {
                 return polygonSpriteBatch
             }
         }
@@ -254,8 +312,8 @@ class StandardContext(
         val activeProjection = projection
 
         // End any active mode, switch over or keep running.
-        when (mode.also { mode = Mode.SHAPE_RENDERER }) {
-            Mode.NONE -> {
+        when (mode.also { mode = Mode.ShapeRenderer }) {
+            Mode.None -> {
                 shapeRenderer.color = activeColor
                 blendValue = activeBlend
                 shapeRenderer.transformMatrix = activeTransform
@@ -263,7 +321,7 @@ class StandardContext(
                 shapeRenderer.begin(shapeType)
                 return shapeRenderer
             }
-            Mode.SPRITE_BATCH -> {
+            Mode.SpriteBatch -> {
                 spriteBatch.end()
                 shapeRenderer.color = activeColor
                 blendValue = activeBlend
@@ -272,7 +330,7 @@ class StandardContext(
                 shapeRenderer.begin(shapeType)
                 return shapeRenderer
             }
-            Mode.POLYGON_SPRITE_BATCH -> {
+            Mode.PolygonSpriteBatch -> {
                 polygonSpriteBatch.end()
                 shapeRenderer.color = activeColor
                 blendValue = activeBlend
@@ -281,7 +339,17 @@ class StandardContext(
                 shapeRenderer.begin(shapeType)
                 return shapeRenderer
             }
-            Mode.SHAPE_RENDERER -> {
+            is Mode.Shader -> {
+                shaderProgram?.end()
+                shaderProgram = null
+                shapeRenderer.color = activeColor
+                blendValue = activeBlend
+                shapeRenderer.transformMatrix = activeTransform
+                shapeRenderer.projectionMatrix = activeProjection
+                shapeRenderer.begin(shapeType)
+                return shapeRenderer
+            }
+            Mode.ShapeRenderer -> {
                 if (shapeRenderer.currentType != shapeType) {
                     shapeRenderer.end()
                     shapeRenderer.begin(shapeType)
@@ -299,32 +367,102 @@ class StandardContext(
         val activeProjection = projection
 
         // End any active mode.
-        when (mode.also { mode = Mode.NONE }) {
-            Mode.SPRITE_BATCH -> {
+        when (mode.also { mode = Mode.None }) {
+            Mode.SpriteBatch -> {
                 spriteBatch.end()
                 colorValue = activeColor
                 blendValue = activeBlend
                 transformValue = activeTransform
                 projectionValue = activeProjection
             }
-            Mode.POLYGON_SPRITE_BATCH -> {
+            Mode.PolygonSpriteBatch -> {
                 polygonSpriteBatch.end()
                 colorValue = activeColor
                 blendValue = activeBlend
                 transformValue = activeTransform
                 projectionValue = activeProjection
             }
-            Mode.SHAPE_RENDERER -> {
+            Mode.ShapeRenderer -> {
                 shapeRenderer.end()
                 colorValue = activeColor
                 blendValue = activeBlend
                 transformValue = activeTransform
                 projectionValue = activeProjection
             }
-            Mode.NONE -> {
+            is Mode.Shader -> {
+                shaderProgram?.end()
+                shaderProgram = null
+                colorValue = activeColor
+                blendValue = activeBlend
+                transformValue = activeTransform
+                projectionValue = activeProjection
+            }
+            Mode.None -> {
             }
         }
     }
+
+    override fun shader(
+        activate: ShaderProgram,
+        uniformTransform: String?,
+        uniformProjection: String?,
+        uniformColor: String?
+    ) {
+        // Memorize active color and blend for switch-over.
+        val activeColor = color
+        val activeBlend = blend
+        val activeTransform = transform
+        val activeProjection = projection
+
+        // Replace with shader mode.
+        when (mode.also { mode = Mode.Shader(activate, uniformTransform, uniformProjection, uniformColor) }) {
+            Mode.SpriteBatch -> {
+                spriteBatch.end()
+                locationColor = uniformColor?.let { activate.getUniformLocation(uniformColor) } ?: -1
+                locationTransform = uniformTransform?.let { activate.getUniformLocation(uniformTransform) } ?: -1
+                locationProjection = uniformProjection?.let { activate.getUniformLocation(uniformProjection) } ?: -1
+            }
+            Mode.PolygonSpriteBatch -> {
+                polygonSpriteBatch.end()
+                locationColor = uniformColor?.let { activate.getUniformLocation(uniformColor) } ?: -1
+                locationTransform = uniformTransform?.let { activate.getUniformLocation(uniformTransform) } ?: -1
+                locationProjection = uniformProjection?.let { activate.getUniformLocation(uniformProjection) } ?: -1
+            }
+            Mode.ShapeRenderer -> {
+                shapeRenderer.end()
+                locationColor = uniformColor?.let { activate.getUniformLocation(uniformColor) } ?: -1
+                locationTransform = uniformTransform?.let { activate.getUniformLocation(uniformTransform) } ?: -1
+                locationProjection = uniformProjection?.let { activate.getUniformLocation(uniformProjection) } ?: -1
+            }
+            is Mode.Shader -> {
+                if (shaderProgram != activate) {
+                    shaderProgram?.end()
+                    locationColor = uniformColor?.let { activate.getUniformLocation(uniformColor) } ?: -1
+                    locationTransform = uniformTransform?.let { activate.getUniformLocation(uniformTransform) } ?: -1
+                    locationProjection = uniformProjection?.let { activate.getUniformLocation(uniformProjection) } ?: -1
+                }
+            }
+            Mode.None -> {
+                locationColor = uniformColor?.let { activate.getUniformLocation(uniformColor) } ?: -1
+                locationTransform = uniformTransform?.let { activate.getUniformLocation(uniformTransform) } ?: -1
+                locationProjection = uniformProjection?.let { activate.getUniformLocation(uniformProjection) } ?: -1
+            }
+        }
+
+        shaderProgram = activate
+        activate.begin()
+        locationColor?.let { activate.setUniformf(it, activeColor) }
+        Gdx.gl.glEnable(GL20.GL_BLEND)
+        Gdx.gl.glBlendFuncSeparate(activeBlend.src, activeBlend.dst, activeBlend.srcAlpha, activeBlend.dstAlpha)
+        locationTransform?.let { activate.setUniformMatrix(it, activeTransform) }
+        locationProjection?.let { activate.setUniformMatrix(it, activeProjection) }
+
+        colorValue = activeColor
+        blendValue = activeBlend
+        transformValue = activeTransform
+        projectionValue = activeProjection
+    }
+
 
     override fun dispose() {
         // Dispose only initialized components.

@@ -6,7 +6,7 @@ import eu.metatools.fio.playable.Playable
 
 /**
  * Standard implementation of [Immediate].
- * @property trimExcess How far outside of the view a center must lie for the subject to be ignored.
+ * @property radiusLimit How far outside of the view a center must lie for the subject to be ignored.
  */
 class StandardPlay(trimExcess: Float) : ProjectionTrimmed(trimExcess), Play {
     /**

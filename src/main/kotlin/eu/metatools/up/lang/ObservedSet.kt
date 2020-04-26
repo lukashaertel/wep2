@@ -11,7 +11,7 @@ import java.util.*
  */
 class ObservedSet<E>(
     val actual: NavigableSet<E>,
-    val notify: (SortedSet<E>, SortedSet<E>) -> Unit
+    val notify: (add: SortedSet<E>, remove: SortedSet<E>) -> Unit
 ) : NavigableSet<E> {
     override fun contains(element: E) =
         // Check if actual contains value.

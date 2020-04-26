@@ -10,7 +10,7 @@ import java.util.*
  */
 class ObservedMap<K, V>(
     val actual: NavigableMap<K, V>,
-    val notify: (SortedMap<K, V>, SortedMap<K, V>) -> Unit
+    val notify: (add: SortedMap<K, V>, remove: SortedMap<K, V>) -> Unit
 ) : NavigableMap<K, V> {
     override fun containsValue(value: V) =
         // Check if actual contains value.

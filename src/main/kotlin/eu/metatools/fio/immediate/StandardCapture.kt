@@ -1,16 +1,17 @@
 package eu.metatools.fio.immediate
 
 import eu.metatools.fio.capturable.Capturable
-import eu.metatools.fio.end
 import eu.metatools.fio.data.Mat
 import eu.metatools.fio.data.Vec
+import eu.metatools.fio.data.Vecs
+import eu.metatools.fio.end
 import java.util.*
 
 /**
- * Standard implementation of [Immediate].
- * @property trimExcess How far outside of the view a center must lie for the subject to be ignored.
+ * Standard implementation of [Capture].
+ * @property radiusLimit How far outside of the view a center must lie for the subject to be ignored.
  */
-class StandardCapture(trimExcess: Float ) : ProjectionTrimmed(trimExcess), Capture {
+class StandardCapture(radiusLimit: Float) : ProjectionTrimmed(radiusLimit), Capture {
     /**
      * Capture in the current [begin]/[end] block.
      */
@@ -38,13 +39,13 @@ class StandardCapture(trimExcess: Float ) : ProjectionTrimmed(trimExcess), Captu
     /**
      * Captures input on negative Z axis and projection space coordinates [x] and [y].
      */
-    fun collect(time: Double, x: Float, y: Float): Pair<Any?, Vec> {
+    fun collect(time: Double, down: Boolean, x: Float, y: Float): Pair<Any?, Vec> {
         // Create ray in inverted projection space.
-        val origin = projection.inv * Vec(x, y, 1f)
-        val direction = projection.inv.rotate(-Vec.Z)
+        val (origin, target) = projection.inv.project(Vecs(x, y, 1f, x, y, -1f))
+        val direction = target - origin
 
-        // Create tree map from captures.
-        val sortedCaptures = TreeMap(captures)
+        // Create tree map from captures. Flip if iterating down.
+        val sortedCaptures = TreeMap(captures).let { if (down) it.descendingMap() else it }
 
         // Iterate all Z-layers and all capture calls.
         for ((_, captures) in sortedCaptures)

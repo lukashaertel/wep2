@@ -3,6 +3,7 @@ package eu.metatools.fio.context
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.g2d.PolygonSpriteBatch
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType
 import com.badlogic.gdx.math.Matrix4
@@ -47,6 +48,16 @@ interface Context : Disposable {
      * Get or activate [ShapeRenderer].
      */
     fun shapes(shapeType: ShapeType): ShapeRenderer
+
+    /**
+     * Get or activate [ShaderProgram].
+     */
+    fun shader(
+        activate: ShaderProgram,
+        uniformTransform: String? = null,
+        uniformProjection: String? = null,
+        uniformColor: String? = null
+    )
 
     /**
      * Deactivate active contexts.

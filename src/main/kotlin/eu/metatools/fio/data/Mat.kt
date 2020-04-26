@@ -1,10 +1,7 @@
 package eu.metatools.fio.data
 
 import com.badlogic.gdx.math.Matrix4
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.sin
-import kotlin.math.sqrt
+import kotlin.math.*
 
 /**
  * Four by four matrix, non-self mutating.
@@ -219,6 +216,38 @@ class Mat(val values: FloatArray) {
                 0f, y, 0f, ty,
                 0f, 0f, z, tz,
                 0f, 0f, 0f, 1f
+            )
+        }
+
+        /**
+         * Creates a look-at matrix.
+         */
+        fun lookAt(from: Vec, at: Vec, up: Vec): Mat {
+            val dir = at - from
+            val z = dir.nor
+            val x = (z cross up).nor
+            val y = (x cross z).nor
+            return Mat(
+                x.x, x.y, x.z, 0f,
+                y.x, y.y, y.z, 0f,
+                -z.x, -z.y, -z.z, 0f,
+                0f, 0f, 0f, 1f
+            ).translate(-from.x, -from.y, -from.z)
+        }
+
+        /**
+         * Creates a perspective camera.
+         */
+        fun perspective(near: Float, far: Float, verticalFOV: Float, aspect: Float): Mat {
+            val fd = (1.0 / tan(verticalFOV * (Math.PI / 180) / 2.0)).toFloat()
+            val a1 = (far + near) / (near - far)
+            val a2 = 2f * far * near / (near - far)
+
+            return Mat(
+                fd / aspect, 0f, 0f, 0f,
+                0f, fd, 0f, 0f,
+                0f, 0f, a1, a2,
+                0f, 0f, -1f, 0f
             )
         }
 
@@ -468,7 +497,7 @@ class Mat(val values: FloatArray) {
     /**
      * The origin of the matrix.
      */
-    val center by lazy { Vec(values, 12) }
+    val center by lazy { Vec(values, 12) / values[15] }
 
     /**
      * The length of the longest component.
@@ -481,6 +510,11 @@ class Mat(val values: FloatArray) {
     val det by lazy {
         Matrix4.det(values)
     }
+
+    /**
+     * Creates a [Matrix4] on the values.
+     */
+    fun asMatrix() = Matrix4(values)
 
     /**
      * Creates a [Matrix4] on a copy of the values.
@@ -509,7 +543,7 @@ class Mat(val values: FloatArray) {
         append(", ")
         append(roundForPrint(values[9]))
         append(", ")
-        append(roundForPrint(values[3]))
+        append(roundForPrint(values[13]))
         append(", \r\n  ")
         append(roundForPrint(values[2]))
         append(", ")
@@ -523,7 +557,7 @@ class Mat(val values: FloatArray) {
         append(", ")
         append(roundForPrint(values[7]))
         append(", ")
-        append(roundForPrint(values[13]))
+        append(roundForPrint(values[11]))
         append(", ")
         append(roundForPrint(values[15]))
         append("}")
@@ -534,6 +568,7 @@ class Mat(val values: FloatArray) {
  * Returns the radians for the degrees.
  */
 val Number.deg get() = toFloat() * 0.017453292519943295f
+
 /**
  * Returns the radians for the degrees.
  */

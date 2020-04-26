@@ -4,7 +4,6 @@ import com.esotericsoftware.kryo.Kryo
 import eu.metatools.ex.sec
 import eu.metatools.ex.toNextFullSecond
 import eu.metatools.fio.Fio
-import eu.metatools.fio.FioListener
 import eu.metatools.up.StandardShell
 import eu.metatools.up.dt.Instruction
 import eu.metatools.up.dt.Lx
@@ -25,11 +24,10 @@ import kotlin.reflect.full.isSubtypeOf
 
 /**
  * Basic game infrasturcture.
- * @param near Near plane of the [FioListener], less than [far].
- * @param far Far plane of the [FioListener], greater than [near].
+ * @property radiusLimit The largest object radius. Specified to drop all objects outside of the view frustum.
  * @param machineID The machine ID or empty, if no locally unique player ID is needed.
  */
-abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUUID()) : FioListener(near, far) {
+abstract class BaseGame(radiusLimit: Float = 1f, machineID: UUID = UUID.randomUUID()) : Fio(radiusLimit) {
     companion object {
         /**
          * Type of the [Fio] interface.
@@ -37,9 +35,9 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
         private val fioType = Fio::class.createType()
 
         /**
-         * Type of the [FioListener] class.
+         * Type of the [Fio] class.
          */
-        private val fioListenerType = FioListener::class.createType()
+        private val fioListenerType = Fio::class.createType()
 
         /**
          * Type of the [BaseGame] class.
@@ -187,7 +185,7 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
     protected open fun Bind<Time>.shellAlways() = Unit
 
     /**
-     * Critically renders the [FioListener]s [FioListener.render] method.
+     * Critically renders the [Fio]s [Fio.render] method.
      */
     final override fun render() {
         // Block network on all rendering, including sending via Once.
@@ -231,10 +229,7 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
         }
 
         // Output shell relevant data.
-        outputShell(time, delta)
-
-        // Output rest. (TODO: Not really necessary, same phase).
-        outputOther(time, delta)
+        output(time, delta)
     }
 
     /**
@@ -244,15 +239,9 @@ abstract class BaseGame(near: Float, far: Float, machineID: UUID = UUID.randomUU
     protected open fun signOff(it: Long) = Unit
 
     /**
-     * Generates the output of the shell, i.e., how entities are displayed.
+     * Generates the rendering and capturing calls..
      */
-    protected open fun outputShell(time: Double, delta: Double) = Unit
-
-    /**
-     * Generates extra output. This method might be merged with [outputShell].
-     */
-    protected open fun outputOther(time: Double, delta: Double) = Unit
-
+    protected open fun output(time: Double, delta: Double) = Unit
 
     /**
      * Handles non-shell-critical input, i.e., UI movement.

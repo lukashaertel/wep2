@@ -10,7 +10,7 @@ import java.util.*
 
 /**
  * Standard implementation of [Immediate].
- * @property trimExcess How far outside of the view a center must lie for the subject to be ignored.
+ * @property radiusLimit How far outside of the view a center must lie for the subject to be ignored.
  */
 class StandardDraw(trimExcess: Float) : ProjectionTrimmed(trimExcess), Draw {
     /**
@@ -41,14 +41,14 @@ class StandardDraw(trimExcess: Float) : ProjectionTrimmed(trimExcess), Draw {
     /**
      * Renders all draw calls in this block.
      */
-    fun render(time: Double, context: Context) {
+    fun render(time: Double, down: Boolean, context: Context) {
         context.color = Color.WHITE
         context.blend = Blend.DEFAULT
         context.transform = context.transform.idt()
         context.projection = context.projection.set(projection.values)
 
-        // Create tree map from draws.
-        val sortedDraws = TreeMap(draws).descendingMap()
+        // Create tree map from draws. Flip if iterating down.
+        val sortedDraws = TreeMap(draws).let { if (down) it.descendingMap() else it }
 
         // Iterate all Z-layers and all draw calls.
         for ((_, draws) in sortedDraws)

@@ -13,18 +13,15 @@ import eu.metatools.ex.ents.*
 import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.hero.*
-import eu.metatools.ex.geom.forEach
 import eu.metatools.ex.input.KeyStick
 import eu.metatools.ex.input.Look
 import eu.metatools.ex.input.Mouse
 import eu.metatools.fio.InOut
 import eu.metatools.fio.data.Mat
 import eu.metatools.fio.data.Pt
-import eu.metatools.fio.data.Pts
 import eu.metatools.fio.data.Vec
 import eu.metatools.fio.drawable.Drawable
 import eu.metatools.fio.drawable.tint
-import eu.metatools.fio.tools.ShapePoly
 import eu.metatools.ugs.BaseGame
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
@@ -62,6 +59,7 @@ fun Long.toNextFullSecond() =
  * Z-value for sub-UI.
  */
 const val subUiZ = -40f
+
 /**
  * Z-value for UI.
  */
@@ -75,16 +73,15 @@ fun InOut.shadowText(on: Drawable<String>, text: String, time: Double, x: Float,
     submit(on, text, time, Mat.translation(x, y, uiZ).scale(size, size))
 }
 
-class EX : BaseGame(-100f, 100f) {
+class EX : BaseGame(64f) {
     override fun configureNet(kryo: Kryo) {
         configureKryo(kryo)
     }
 
 
-
     override fun outputInit() {
         // Set model scaling to display scaled up.
-        view = Mat.scaling(scaling)
+        world.view = Mat.scaling(scaling)
 
         // Set title.
         Gdx.graphics.setTitle("Joined, player: ${shell.player}")
@@ -135,6 +132,10 @@ class EX : BaseGame(-100f, 100f) {
      */
     private var scaling = 4f
 
+    val world = addLayer(0, layerOrthographic(true))
+
+    val ui = addLayer(1, layerOrthographic(true))
+
     override fun Bind<Time>.inputShell(time: Double, delta: Double) {
         // Get own mover (might be non-existent).
         val hero = ownMover()
@@ -142,7 +143,7 @@ class EX : BaseGame(-100f, 100f) {
         // Check if mover is there.
         if (hero == null) {
             // Set to scaling.
-            view = Mat.scaling(scaling)
+            world.view = Mat.scaling(scaling)
 
             // If key just pressed, create a new mover.
             if (Gdx.input.isKeyJustPressed(Keys.F1))
@@ -153,7 +154,7 @@ class EX : BaseGame(-100f, 100f) {
             val (x, y, z) = pos
 
             // Center on it.
-            view = Mat
+            world.view = Mat
                 .translation(Gdx.graphics.width / 2f, Gdx.graphics.height / 2f)
                 .scale(scaling, scaling)
                 .translate(x = -x * tileWidth, y = -y * tileHeight)
@@ -206,32 +207,21 @@ class EX : BaseGame(-100f, 100f) {
         root.worldUpdate(timeMs)
     }
 
-    override fun outputShell(time: Double, delta: Double) {
-        // Submit described elements.
-        ui.submitDescribed(capture?.first as? Described, time)
-
+    override fun output(time: Double, delta: Double) {
         // Render everything.
+        world.begin()
         shell.list<Rendered>().forEach { it.render(Mat.ID, time) }
-    }
+        world.end()
 
-    override fun outputOther(time: Double, delta: Double) {
-        // Draw ping.
+        // Submit described elements.
+        ui.begin()
+        ui.submitDescribed(capture?.first as? Described, time)
         ui.submitPing(netClock, time)
 
         // Display all hashes if debugging.
         if (debug) ui.submitHashes(shellHashes, time)
+        ui.end()
 
-        fun toPt(vec: Vec) = Pt(vec.x * tileWidth, (vec.y + vec.z) * tileHeight)
-        (capture?.first as? BlockCapture)?.let {
-            root.meshes[it.tri]?.let { mesh ->
-                mesh.forEach { v1, v2, v3 ->
-                    world.submit(
-                        ShapePoly, Pts(toPt(v1), toPt(v2), toPt(v3)),
-                        time, Mat.translation(z = uiZ)
-                    )
-                }
-            }
-        }
     }
 
     /**
@@ -280,9 +270,11 @@ class EX : BaseGame(-100f, 100f) {
     fun isSelected(any: Any) =
         capture?.first == any
 
-    override fun capture(result: Any?, intersection: Vec) {
+    override fun capture(layer: Layer, result: Any?, relative: Vec, absolute: Vec) {
+        if (layer !== world) return
+
         // Get actual coordinates.
-        val (x, y, z) = view.inv * intersection
+        val (x, y, z) = absolute
 
         // Memorize result, convert to world space.
         capture = (result ?: root) to Vec(x / tileWidth, y / tileHeight, -z)
