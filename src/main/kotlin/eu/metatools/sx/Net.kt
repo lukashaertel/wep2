@@ -6,44 +6,44 @@ import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
 import eu.metatools.fio.up.kryo.registerF2DSerializers
 import eu.metatools.fio.up.kryo.registerGDXSerializers
-import eu.metatools.sx.ents.Fluid
+import eu.metatools.sx.ents.Flow
+import eu.metatools.sx.lang.FP
 import eu.metatools.up.kryo.registerKotlinSerializers
 import eu.metatools.up.kryo.registerUpSerializers
 import eu.metatools.up.kryo.setDefaults
 
 
-object FluidSerializer : Serializer<Fluid>(false, true) {
-    override fun write(kryo: Kryo, output: Output, item: Fluid) {
+object FluidSerializer : Serializer<Flow>(false, true) {
+    override fun write(kryo: Kryo, output: Output, item: Flow) {
 
-        output.writeInt(item.mass)
-        output.writeInt(item.left)
-        output.writeInt(item.right)
-        output.writeInt(item.front)
-        output.writeInt(item.back)
-        output.writeInt(item.above)
-        output.writeInt(item.below)
+        output.writeShort(item.mass.value.toInt())
+        output.writeShort(item.left.value.toInt())
+        output.writeShort(item.right.value.toInt())
+        output.writeShort(item.front.value.toInt())
+        output.writeShort(item.back.value.toInt())
+        output.writeShort(item.above.value.toInt())
+        output.writeShort(item.below.value.toInt())
     }
 
-    override fun read(kryo: Kryo, input: Input, type: Class<out Fluid>): Fluid {
-        val mass = input.readInt()
-        val left = input.readInt()
-        val right = input.readInt()
-        val front = input.readInt()
-        val back = input.readInt()
-        val above = input.readInt()
-        val below = input.readInt()
+    override fun read(kryo: Kryo, input: Input, type: Class<out Flow>): Flow {
+        val mass = input.readShort()
+        val left = input.readShort()
+        val right = input.readShort()
+        val front = input.readShort()
+        val back = input.readShort()
+        val above = input.readShort()
+        val below = input.readShort()
 
-        return Fluid(
-            mass,
-            left,
-            right,
-            front,
-            back,
-            above,
-            below
+        return Flow(
+            FP(mass),
+            FP(left),
+            FP(right),
+            FP(front),
+            FP(back),
+            FP(above),
+            FP(below)
         )
     }
-
 }
 
 
@@ -58,5 +58,5 @@ fun configureKryo(kryo: Kryo) {
     registerF2DSerializers(kryo)
 
     // Register data objects.
-    kryo.register(Fluid::class.java, FluidSerializer)
+    kryo.register(Flow::class.java, FluidSerializer)
 }

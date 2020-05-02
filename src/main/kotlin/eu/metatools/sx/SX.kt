@@ -13,8 +13,10 @@ import eu.metatools.fio.data.Vec
 import eu.metatools.fio.drawable.tint
 import eu.metatools.fio.resource.get
 import eu.metatools.fio.tools.*
-import eu.metatools.sx.ents.Fluid
+import eu.metatools.sx.ents.FP
 import eu.metatools.sx.ents.World
+import eu.metatools.sx.ents.one
+//import eu.metatools.sx.lang.FP
 import eu.metatools.ugs.BaseGame
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
@@ -75,42 +77,58 @@ class SX : BaseGame(radiusLimit = 16f) {
         root = World(shell, lx / "root", this)
             .also(shell.engine::add)
 
-        for (x in 0..10)
-            for (y in 0..10) {
-                root.solid[x, y, 0] = World.maxMass
-                root.solid[x, y, -6] = World.maxMass
+        val f0 = """
+            XxxxxxxxX
+            XxxxxxxxX
+            XxxxxxxxX
+            XxxxxxxxX
+            XxxxxxxxX
+        """.trimIndent()
+        val f1 = """
+            X  X    X
+            X  X    X
+            XX XXXX X
+            XX      X
+            XXXXXXXXX""".trimIndent()
+        val f2 = """
+            XxxxxxxxX
+            XxxxX XxX
+            XxxxXXXxX
+            XxxxxxxxX
+            XxxxxxxxX
+        """.trimIndent()
+
+        fun atc(y: Int, s: String) =
+            s.lineSequence().forEachIndexed { z, vs ->
+                vs.forEachIndexed { x, v ->
+                    if (v.isLowerCase() && v.isLetter())
+                        root.hidden[x, y, -z] = true
+                    if (v.toLowerCase() == 'x')
+                        root.cells[x, y, -z] = Unit
+                    if (v.toLowerCase() == 'w')
+                        root.flows[x, y, -z] = FP.one
+                }
             }
-        for (y in 1..9) {
-            root.solid[6, y, 1] = World.maxMass
-            root.solid[4, y, 1] = World.maxMass
-        }
 
-        root.solid.remove(6, 5, 1)
-        root.solid.remove(4, 5, 1)
-        root.viscosity[6, 5, 1] = 1000
-
-
-        for (i in 0..10) {
-            root.solid[i, 0, 1] = World.maxMass
-            root.solid[i, 10, 1] = World.maxMass
-            root.solid[0, i, 1] = World.maxMass
-            root.solid[10, i, 1] = World.maxMass
-            root.solid[i, 0, -5] = World.maxMass
-            root.solid[i, 10, -5] = World.maxMass
-            root.solid[0, i, -5] = World.maxMass
-            root.solid[10, i, -5] = World.maxMass
-        }
-        root.solid.remove(8, 5, 0)
-        root.solid.remove(2, 5, 0)
-
-        root.fluid[8, 1, 1] = Fluid(World.maxMass)
+        atc(-1, f0)
+        atc(0, f1)
+        atc(1, f0)
     }
 
     override fun Bind<Time>.inputShell(time: Double, delta: Double) {
-        if (Gdx.input.isButtonPressed(Input.Buttons.LEFT))
-            (location as? Tri)?.let {
-                root.add(it)
+
+        (location as? Tri)?.let {
+            val ct = Gdx.input.isButtonPressed(Input.Buttons.LEFT) && !Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+            val os =
+                Gdx.input.isButtonJustPressed(Input.Buttons.LEFT) && Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+
+            if (ct || os) {
+                if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT))
+                    root.add(it.copy(z = it.z.inc()))
+                else
+                    root.add(it)
             }
+        }
 
         if (Gdx.input.isButtonPressed(Input.Buttons.RIGHT)) {
             val x = world.view.inv.x
@@ -173,43 +191,43 @@ class SX : BaseGame(radiusLimit = 16f) {
         world.end()
 
 
-        val a = root.fluid[6, 5, 1] ?: return
-        val b = root.fluid[4, 5, 1] ?: return
+//        val a = root.flows[6, 5, 1] ?: return
+//        val b = root.flows[4, 5, 1] ?: return
 
-        ui.begin()
-        ui.submit(
-            res.infoText, "Visc: ${a.mass}", time,
-            Mat.translation(20f, 20f).scale(12f, 12f)
-        )
-        ui.submit(
-            res.infoText, "In: ${a.inFlow}", time,
-            Mat.translation(100f, 20f).scale(12f, 12f)
-        )
-        ui.submit(
-            res.infoText, "Out: ${a.outFlow}", time,
-            Mat.translation(180f, 20f).scale(12f, 12f)
-        )
-
-        ui.submit(
-            res.infoText, "Non-visc: ${b.mass}", time,
-            Mat.translation(20f, 60f).scale(12f, 12f)
-        )
-        ui.submit(
-            res.infoText, "In: ${b.inFlow}", time,
-            Mat.translation(100f, 60f).scale(12f, 12f)
-        )
-        ui.submit(
-            res.infoText, "Out: ${b.outFlow}", time,
-            Mat.translation(180f, 60f).scale(12f, 12f)
-        )
-        ui.end()
+//        ui.begin()
+//        ui.submit(
+//            res.infoText, "Visc: ${a.mass}", time,
+//            Mat.translation(20f, 20f).scale(12f, 12f)
+//        )
+//        ui.submit(
+//            res.infoText, "In: ${a.inFlow}", time,
+//            Mat.translation(100f, 20f).scale(12f, 12f)
+//        )
+//        ui.submit(
+//            res.infoText, "Out: ${a.outFlow}", time,
+//            Mat.translation(180f, 20f).scale(12f, 12f)
+//        )
+//
+//        ui.submit(
+//            res.infoText, "Non-visc: ${b.mass}", time,
+//            Mat.translation(20f, 60f).scale(12f, 12f)
+//        )
+//        ui.submit(
+//            res.infoText, "In: ${b.inFlow}", time,
+//            Mat.translation(100f, 60f).scale(12f, 12f)
+//        )
+//        ui.submit(
+//            res.infoText, "Out: ${b.outFlow}", time,
+//            Mat.translation(180f, 60f).scale(12f, 12f)
+//        )
+//        ui.end()
     }
 
     private var location: Any? = null
     override fun capture(layer: Layer, result: Any?, relative: Vec, absolute: Vec) {
         result?.let {
             location = (it as? Pair<Tri, Tri>)?.first
-            //Gdx.graphics.setTitle(it.toString())
+            Gdx.graphics.setTitle(it.toString())
         }
     }
 }

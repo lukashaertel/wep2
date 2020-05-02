@@ -81,6 +81,31 @@ interface Volume<V : Any> {
 }
 
 /**
+ * [Volume.set] with [Tri] coordinate.
+ */
+operator fun <V : Any> Volume<V>.set(at: Tri, value: V) =
+    set(at.x, at.y, at.z, value)
+
+/**
+ * [Volume.remove] with [Tri] coordinate.
+ */
+fun <V : Any> Volume<V>.remove(at: Tri) =
+    remove(at.x, at.y, at.z)
+
+/**
+ * [Volume.get] with [Tri] coordinate.
+ */
+operator fun <V : Any> Volume<V>.get(at: Tri) =
+    get(at.x, at.y, at.z)
+
+
+/**
+ * [Volume.contains] with [Tri] coordinate.
+ */
+operator fun <V : Any> Volume<V>.contains(at: Tri) =
+    contains(at.x, at.y, at.z)
+
+/**
  * Assigns with a merge operation applied.
  * @param from The value source.
  * @param computeThe merge operation. If the location in [from] has no assignment in the receiver, it will be passed
