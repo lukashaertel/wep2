@@ -3,6 +3,7 @@ package eu.metatools.sx.data
 import eu.metatools.fio.data.Tri
 import java.util.*
 
+// TODO: Re-abstraction
 interface Volume<V : Any> {
     /**
      * Puts the value at the coordinate.

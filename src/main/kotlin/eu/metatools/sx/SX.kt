@@ -13,10 +13,7 @@ import eu.metatools.fio.data.Vec
 import eu.metatools.fio.drawable.tint
 import eu.metatools.fio.resource.get
 import eu.metatools.fio.tools.*
-import eu.metatools.sx.ents.FP
 import eu.metatools.sx.ents.World
-import eu.metatools.sx.ents.one
-//import eu.metatools.sx.lang.FP
 import eu.metatools.ugs.BaseGame
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
@@ -104,11 +101,16 @@ class SX : BaseGame(radiusLimit = 16f) {
                     if (v.isLowerCase() && v.isLetter())
                         root.hidden[x, y, -z] = true
                     if (v.toLowerCase() == 'x')
-                        root.cells[x, y, -z] = Unit
+                        root.solid[x, y, -z] = Unit
                     if (v.toLowerCase() == 'w')
-                        root.flows[x, y, -z] = FP.one
+                        root.density[x, y, -z] = 1f
                 }
             }
+
+        for (i in -10..10)
+            for (j in -10..10)
+                for (k in -10..10)
+                    root.density[i, j, k] = 0f
 
         atc(-1, f0)
         atc(0, f1)

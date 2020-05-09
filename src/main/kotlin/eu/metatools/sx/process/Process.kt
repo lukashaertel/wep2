@@ -133,7 +133,29 @@ abstract class ProcessParallel<V : Any, R : Any>(
 /**
  * Processes point-wise.
  */
-abstract class ProcessAt<V : Any, R : Any>(
+abstract class ProcessOne<V : Any, R : Any>(
+    executor: ExecutorService = DEFAULT_EXECUTOR,
+    minSize: Int = DEFAULT_MIN_SIZE,
+    putBatch: Int = DEFAULT_PUT_BATCH
+) : ProcessParallel<V, R>(executor, minSize, putBatch) {
+    /**
+     * Computes the value for a single point.
+     */
+    protected abstract fun computeAt(volume: Volume<V>, x: Int, y: Int, z: Int, value: V): R?
+
+    override fun computeSegment(volume: Volume<V>, xs: IntRange, ys: IntRange, zs: IntRange) =
+        // Get sequence of values in source.
+        volume[xs, ys, zs].mapNotNull { (at, value) ->
+            // Compute new value and associate.
+            computeAt(volume, at.x, at.y, at.z, value)?.let { at to it }
+        }
+}
+
+
+/**
+ * Processes point-wise.
+ */
+abstract class ProcessSome<V : Any, R : Any>(
     executor: ExecutorService = DEFAULT_EXECUTOR,
     minSize: Int = DEFAULT_MIN_SIZE,
     putBatch: Int = DEFAULT_PUT_BATCH

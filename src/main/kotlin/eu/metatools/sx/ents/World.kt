@@ -3,58 +3,214 @@ package eu.metatools.sx.ents
 import com.badlogic.gdx.graphics.Color
 import eu.metatools.fio.data.Mat
 import eu.metatools.fio.data.Tri
+import eu.metatools.fio.data.Vec
+import eu.metatools.fio.data.isNotEmpty
 import eu.metatools.sx.SX
-import eu.metatools.sx.data.*
-//import eu.metatools.sx.lang.FP
-//import eu.metatools.sx.lang.coerceIn
-//import eu.metatools.sx.lang.fp
-import eu.metatools.sx.process.ProcessAt
+import eu.metatools.sx.data.Volume
+import eu.metatools.sx.data.merge
+import eu.metatools.sx.data.volume
+import eu.metatools.sx.process.ProcessOne
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
 import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.Lx
-import java.util.*
+import kotlin.math.nextDown
+import kotlin.math.nextUp
 
-typealias FP = Float
-
-val Float.Companion.one get() = 1f
-val Float.Companion.zero get() = 0f
-fun Float.isNotZero() = this != 0f
-val Number.fp get() = toFloat()
-
-/**
- * Performs a breadth-first search from [start] via [out], includes nodes in the result if [isResult] is true.
- */
-inline fun <N : Comparable<N>> bfs(start: N, isResult: (N) -> Boolean, out: (N) -> Sequence<N>): NavigableSet<N> {
-    // Result set and set of seen nodes..
-    val result = TreeSet<N>()
-    val seen = hashSetOf<N>()
-
-    // Deque of next choices.
-    val next = LinkedList<N>().apply { add(start) }
-
-    // While nodes are available.
-    while (next.isNotEmpty()) {
-        // Get node from deque.
-        val at: N = next.removeFirst()
-
-        // Add to seen nodes.
-        seen.add(at)
-
-        // Include node if it's a result.
-        if (isResult(at))
-            result.add(at)
-
-        // Add all out nodes that are not yet seen to the deque.
-        for (to in out(at))
-            if (to !in seen)
-                next.add(to)
-    }
-
-    return result
+data class Flow(val v: Vec, val d: Float) {
+    fun isEmpty() = d == 0.0f
+    operator fun plus(other: Flow) =
+        Flow(v + other.v, d + other.d)
 }
 
-// TODO: Flow direction of fluids.
+fun Flow.isNotEmpty() = !isEmpty()
+
+inline fun laplace(x: Int, y: Int, z: Int, value: Float, f: (Int, Int, Int) -> Float?): Float {
+    val a0 = f(x.dec(), y, z) ?: 0f
+    val a1 = f(x.inc(), y, z) ?: 0f
+    val a2 = f(x, y.dec(), z) ?: 0f
+    val a3 = f(x, y.inc(), z) ?: 0f
+    val a4 = f(x, y, z.dec()) ?: 0f
+    val a5 = f(x, y, z.inc()) ?: 0f
+
+    return a0 + a1 + a2 + a3 + a4 + a5 - value * 6f
+}
+
+//inline fun ddx(x: Int, y: Int, z: Int, f: (Int, Int, Int) -> Float?): Float {
+//    val a0 = f(x.dec(), y, z) ?: 0f
+//    val a1 = f(x.inc(), y, z) ?: 0f
+//    return (a1 - a0) * 0.5f
+//}
+//
+//inline fun ddy(x: Int, y: Int, z: Int, f: (Int, Int, Int) -> Float?): Float {
+//    val a0 = f(x, y.dec(), z) ?: 0f
+//    val a1 = f(x, y.inc(), z) ?: 0f
+//    return (a1 - a0) * 0.5f
+//}
+//
+//inline fun ddz(x: Int, y: Int, z: Int, f: (Int, Int, Int) -> Float?): Float {
+//    val a0 = f(x, y, z.dec()) ?: 0f
+//    val a1 = f(x, y, z.inc()) ?: 0f
+//    return (a1 - a0) * 0.5f
+//}
+
+inline fun grad(x: Int, y: Int, z: Int, f: (Int, Int, Int) -> Float?): Vec {
+    val a0 = f(x.dec(), y, z) ?: 0f
+    val a1 = f(x.inc(), y, z) ?: 0f
+    val a2 = f(x, y.dec(), z) ?: 0f
+    val a3 = f(x, y.inc(), z) ?: 0f
+    val a4 = f(x, y, z.dec()) ?: 0f
+    val a5 = f(x, y, z.inc()) ?: 0f
+
+    return Vec((a1 - a0) * 0.5f, (a3 - a2) * 0.5f, (a5 - a4) * 0.5f)
+}
+
+inline fun div(x: Int, y: Int, z: Int, f: (Int, Int, Int) -> Vec?): Float {
+    val a0 = f(x.dec(), y, z)?.x ?: 0f
+    val a1 = f(x.inc(), y, z)?.x ?: 0f
+    val a2 = f(x, y.dec(), z)?.y ?: 0f
+    val a3 = f(x, y.inc(), z)?.y ?: 0f
+    val a4 = f(x, y, z.dec())?.z ?: 0f
+    val a5 = f(x, y, z.inc())?.z ?: 0f
+
+    return (a1 - a0 + a3 - a2 + a5 - a4) * 0.5f
+}
+
+class AddSource(val source: Volume<Vec>, val dt: Float) : ProcessOne<Vec, Vec>() {
+    override fun merge(first: Vec, second: Vec) =
+        first + second
+
+    override fun computeAt(volume: Volume<Vec>, x: Int, y: Int, z: Int, value: Vec): Vec? {
+        val add = source[x, y, z]
+        val result = if (add == null) value else value + add * dt
+        return result.takeIf(Vec::isNotEmpty)
+    }
+}
+
+class DiffuseFloat(val viscosity: Float, val dt: Float, val selfBind: Boolean) : ProcessOne<Float, Float>() {
+    override fun merge(first: Float, second: Float) =
+        first + second
+
+    override fun computeAt(volume: Volume<Float>, x: Int, y: Int, z: Int, value: Float): Float? {
+        val laplace = if (selfBind)
+            laplace(x, y, z, value) { i, j, k -> volume[i, j, k] ?: value }
+        else
+            laplace(x, y, z, value) { i, j, k -> volume[i, j, k] ?: 0f }
+
+        return dt * viscosity * laplace
+        // TODO: return outside.
+    }
+}
+
+class DiffuseVec(val viscosity: Float, val dt: Float, val selfBind: Boolean) : ProcessOne<Vec, Vec>() {
+    override fun merge(first: Vec, second: Vec) =
+        first + second
+
+    override fun computeAt(volume: Volume<Vec>, x: Int, y: Int, z: Int, value: Vec): Vec? {
+        val laplaceX = if (selfBind)
+            laplace(x, y, z, value.x) { i, j, k -> volume[i, j, k]?.x ?: value.x }
+        else
+            laplace(x, y, z, value.x) { i, j, k -> volume[i, j, k]?.x ?: 0f }
+
+        val laplaceY = if (selfBind)
+            laplace(x, y, z, value.y) { i, j, k -> volume[i, j, k]?.y ?: value.y }
+        else
+            laplace(x, y, z, value.y) { i, j, k -> volume[i, j, k]?.y ?: 0f }
+
+        val laplaceZ = if (selfBind)
+            laplace(x, y, z, value.z) { i, j, k -> volume[i, j, k]?.z ?: value.z }
+        else
+            laplace(x, y, z, value.z) { i, j, k -> volume[i, j, k]?.z ?: 0f }
+
+        val resultX = dt * viscosity * laplaceX
+        val resultY = dt * viscosity * laplaceY
+        val resultZ = dt * viscosity * laplaceZ
+
+        return Vec(resultX, resultY, resultZ).takeIf(Vec::isNotEmpty)
+        // TODO: return outside.
+    }
+}
+
+class ProjectVec : ProcessOne<Vec, Vec>() {
+    override fun merge(first: Vec, second: Vec) =
+        first + second
+
+    override fun computeAt(volume: Volume<Vec>, x: Int, y: Int, z: Int, value: Vec): Vec? {
+        val change = grad(x, y, z) { i, j, k ->
+            -div(i, j, k, volume::get)
+        }
+
+        return value - change
+    }
+}
+
+class AdvectFloat(val dt: Float, val velocity: Volume<Vec>) : ProcessOne<Float, Float>() {
+    override fun merge(first: Float, second: Float) =
+        first + second
+
+    override fun computeAt(volume: Volume<Float>, x: Int, y: Int, z: Int, value: Float): Float? {
+        val vel = velocity[x, y, z]
+        val pos = Vec(x.toFloat(), y.toFloat(), z.toFloat())
+        val target = if (vel == null) pos else pos - vel * dt
+
+        val x0 = target.x.nextDown().toInt()
+        val x1 = target.x.nextUp().toInt()
+        val y0 = target.y.nextDown().toInt()
+        val y1 = target.y.nextUp().toInt()
+        val z0 = target.z.nextDown().toInt()
+        val z1 = target.z.nextUp().toInt()
+
+        val xf = target.x - x0
+        val yf = target.y - y0
+        val zf = target.z - z0
+
+        val a0 = volume[x0, y0, z0] ?: 0f
+        val a1 = volume[x1, y0, z0] ?: 0f
+        val a2 = volume[x0, y1, z0] ?: 0f
+        val a3 = volume[x1, y1, z0] ?: 0f
+        val a4 = volume[x0, y0, z1] ?: 0f
+        val a5 = volume[x1, y0, z1] ?: 0f
+        val a6 = volume[x0, y1, z1] ?: 0f
+        val a7 = volume[x1, y1, z1] ?: 0f
+
+        return ((a0 * (1f - xf) + a1 * xf) * (1f - yf) + (a2 * (1f - xf) + a3 * xf) * yf) * (1f - zf) +
+                ((a4 * (1f - xf) + a5 * xf) * (1f - yf) + (a6 * (1f - xf) + a7 * xf) * yf) * zf
+    }
+}
+
+class AdvectVec(val dt: Float, val velocity: Volume<Vec>) : ProcessOne<Vec, Vec>() {
+    override fun merge(first: Vec, second: Vec) =
+        first + second
+
+    override fun computeAt(volume: Volume<Vec>, x: Int, y: Int, z: Int, value: Vec): Vec? {
+        val vel = velocity[x, y, z]
+        val pos = Vec(x.toFloat(), y.toFloat(), z.toFloat())
+        val target = if (vel == null) pos else pos - vel * dt
+
+        val x0 = target.x.nextDown().toInt()
+        val x1 = target.x.nextUp().toInt()
+        val y0 = target.y.nextDown().toInt()
+        val y1 = target.y.nextUp().toInt()
+        val z0 = target.z.nextDown().toInt()
+        val z1 = target.z.nextUp().toInt()
+
+        val xf = target.x - x0
+        val yf = target.y - y0
+        val zf = target.z - z0
+
+        val a0 = volume[x0, y0, z0] ?: Vec.Zero
+        val a1 = volume[x1, y0, z0] ?: Vec.Zero
+        val a2 = volume[x0, y1, z0] ?: Vec.Zero
+        val a3 = volume[x1, y1, z0] ?: Vec.Zero
+        val a4 = volume[x0, y0, z1] ?: Vec.Zero
+        val a5 = volume[x1, y0, z1] ?: Vec.Zero
+        val a6 = volume[x0, y1, z1] ?: Vec.Zero
+        val a7 = volume[x1, y1, z1] ?: Vec.Zero
+
+        return ((a0 * (1f - xf) + a1 * xf) * (1f - yf) + (a2 * (1f - xf) + a3 * xf) * yf) * (1f - zf) +
+                ((a4 * (1f - xf) + a5 * xf) * (1f - yf) + (a6 * (1f - xf) + a7 * xf) * yf) * zf
+    }
+}
 
 class World(
     shell: Shell, id: Lx, val sx: SX
@@ -63,271 +219,83 @@ class World(
 
     val hidden by volume<Boolean>()
 
-    val cells by volume<Unit>()
+    val solid by volume<Unit>()
 
-    val flows by volume<FP>()
+    val velocity by volume<Vec>()
+
+    val density by volume<Float>()
 
     companion object {
-        private fun isTeleport(value: FP?) =
-            value != null && 0.9f <= value
+        const val diffusion = 0.1f // TODO
 
-        private fun isOutlet(value: FP?) = !isTeleport(value)
+        const val viscosity = 0.1f // TODO
+
+
+        /**
+         * Milliseconds for update.
+         */
+        const val millis = 100L
+
+        /**
+         * Delta-time for the update.
+         */
+        val dt = millis / 1000f
     }
 
-    // TODO: Is connectedness of processes needed?
+    private fun mergeFlow(first: Flow?, second: Flow) =
+        (first?.plus(second) ?: second).takeIf(Flow::isNotEmpty)
 
-    val fall = object : ProcessAt<FP, FP>() {
-        override fun merge(first: FP, second: FP) =
-            first + second
+    private fun merge(first: Float?, second: Float) =
+        (first?.plus(second) ?: second).takeIf { it != 0f }
 
-        // Verfified no overflow.
-        override fun computeAt(volume: Volume<FP>, x: Int, y: Int, z: Int, value: FP) = sequence {
-            // Not over open cell, skip.
-            if (cells.contains(x, y, z.dec()))
-                return@sequence
+    private fun merge(first: Vec?, second: Vec) =
+        (first?.plus(second) ?: second).takeIf(Vec::isNotEmpty)
 
-            // If cell below is filled, skip.
-            if (volume[x, y, z.dec()] == FP.one)
-                return@sequence
-
-            val capacity = FP.one - (volume[x, y, z.dec()] ?: FP.zero)
-            val flow = capacity.coerceIn(FP.zero, value.coerceAtLeast(FP.zero))
-
-            // If flow is not zero, yield it.
-            if (flow.isNotZero()) {
-                yield(Tri(x, y, z) to -flow)
-                yield(Tri(x, y, z.dec()) to flow)
-            }
-        }
-    }
-
-    /**
-     * // TODO: Allow extension upwards in teleport determination.
-     *
-     * Select the one with the greatest value, if that is not unique, order uniquely by location.
-     */
-    private val equalizationAuthority = compareByDescending<Map.Entry<Tri, FP>> {
-        it.value
-    }.thenBy {
-        it.key
-    }
-
-    fun equalize(volume: Volume<FP>, local: Tri, targets: SortedSet<Tri>): Sequence<Pair<Tri, FP>> {
-        // No targets, skip.
-        if (targets.isEmpty())
-            return emptySequence()
-
-        // Associate to values for checks and lookups.
-        val associated = targets.associateWith { volume[it] ?: FP.zero }
-
-        // If local is not the authority, skip.
-        if (associated.maxBy { (_, value) -> value }?.key != local)
-            return emptySequence()
-
-        // Get sum for distribution.
-        val sum = targets.fold(FP.zero) { sum, at -> sum + associated.getValue(at) }
-
-        // Start building sequence, this is where it's getting serious.
-        return sequence {
-            // Get per-instance value and initialize remaining values.
-            val perInstance = sum / targets.size
-            var remaining = sum
-
-            // Yield de-setting, values distributed are absolute.
-            for ((at, value) in associated)
-                yield(at to -value)
-
-            // Create round-robin iterator.
-            var rri = targets.iterator()
-
-            // Repeat while values are to be distributed.
-            while (remaining > 0) {
-                // If end reached of target iterator, re-create.
-                if (!rri.hasNext()) rri = targets.iterator()
-
-                // Get current location.
-                val current = rri.next()
-
-                // Get update for this cell. Limit to remaining to not distribute more than available.
-                val update = perInstance.coerceAtMost(remaining)
-
-                // Decrease remaining by exactly this value.
-                remaining -= update
-
-                // Yield the update.
-                yield(current to update)
-            }
-        }
-    }
-
-    val teleport = object : ProcessAt<FP, FP>() {
-        override fun merge(first: FP, second: FP) =
-            first + second
-
-        override fun computeAt(volume: Volume<FP>, x: Int, y: Int, z: Int, value: FP): Sequence<Pair<Tri, FP>> {
-            // http://www.bay12forums.com/smf/index.php?topic=32453.0
-
-            // If not over open cell, skip.
-            if (cells.contains(x, y, z.dec()))
-                return emptySequence()
-
-            // If cell below is not filled, skip.
-            if (!isTeleport(volume[x, y, z.dec()]))
-                return emptySequence()
-
-            // Compute out nodes.
-            val teleport = bfs(Tri(x, y, z), {
-                // TODO: Add all where below is filled.
-                it.x == x && it.y == y && it.z == z || it.z <= z && isOutlet(volume[it])
-            }) {
-                sequence {
-                    if (it.x == x && it.y == y && it.z == z)
-                        yield(Tri(it.x, it.y, it.z.dec()))
-                    // If the cell in question is valid for teleport, continue on it's neigbours.
-                    else if (isTeleport(volume[it])) {
-                        yield(Tri(it.x.dec(), it.y, it.z))
-                        yield(Tri(it.x.inc(), it.y, it.z))
-                        yield(Tri(it.x, it.y.dec(), it.z))
-                        yield(Tri(it.x, it.y.inc(), it.z))
-                        yield(Tri(it.x, it.y, it.z.dec()))
-                        yield(Tri(it.x, it.y, it.z.inc()))
-                    }
-                }.filter {
-                    // Cells may not be occupied by solid.
-                    !cells.contains(it)
-                }
-            }
-
-            return equalize(volume, Tri(x, y, z), teleport)
-        }
-    }
-
-    val distribute = object : ProcessAt<FP, FP>() {
-        override fun merge(first: FP, second: FP) =
-            first + second
-
-        override fun computeAt(volume: Volume<FP>, x: Int, y: Int, z: Int, value: FP) = sequence {
-            // Not over closed or filled cell, skip.
-            if (!cells.contains(x, y, z.dec()) && volume[x, y, z.dec()] != FP.one)
-                return@sequence
-            val freeLeft = !cells.contains(x.dec(), y, z)
-            val freeRight = !cells.contains(x.inc(), y, z)
-            val freeFront = !cells.contains(x, y.inc(), z)
-            val freeBack = !cells.contains(x, y.dec(), z)
-
-            val targets = (if (freeLeft) 1 else 0) +
-                    (if (freeRight) 1 else 0) +
-                    (if (freeFront) 1 else 0) +
-                    (if (freeBack) 1 else 0)
-
-            if (targets == 0)
-                return@sequence
-
-            val atLeft = (volume[x.dec(), y, z] ?: FP.zero)
-            val atRight = (volume[x.inc(), y, z] ?: FP.zero)
-            val atFront = (volume[x, y.inc(), z] ?: FP.zero)
-            val atBack = (volume[x, y.dec(), z] ?: FP.zero)
-
-            val sumOther = atLeft + atRight + atFront + atBack
-            val sumTotal = value + sumOther
-            val distributeOther = sumTotal / targets.inc().fp
-            val distributeSelf = sumTotal - distributeOther * targets.fp
-
-            // Do not fill inward, only push out.
-            if (distributeSelf >= value)
-                return@sequence
-
-            // Get flow of own cell, update to new value.
-            val flowSelf = distributeSelf - value
-            yield(Tri(x, y, z) to flowSelf)
-
-            if (freeLeft) {
-                val flowLeft = distributeOther - atLeft
-                if (flowLeft.isNotZero())
-                    yield(Tri(x.dec(), y, z) to flowLeft)
-            }
-
-            if (freeRight) {
-                val flowRight = distributeOther - atRight
-                if (flowRight.isNotZero())
-                    yield(Tri(x.inc(), y, z) to flowRight)
-            }
-
-            if (freeFront) {
-                val flowFront = distributeOther - atFront
-                if (flowFront.isNotZero())
-                    yield(Tri(x, y.inc(), z) to flowFront)
-            }
-
-            if (freeBack) {
-                val flowBack = distributeOther - atBack
-                if (flowBack.isNotZero())
-                    yield(Tri(x, y.dec(), z) to flowBack)
-            }
-        }
-    }
-
-    private fun mergeFlows(first: FP?, second: FP) =
-        (if (first == null) second else first + second).takeIf(FP::isNotZero)
-
-    private fun checkNonExceed(updates: SortedMap<Tri, FP>) {
-        val exceed = updates.filter { (at, delta) -> (flows[at] ?: FP.zero) + delta < FP.zero }
-        check(exceed.isEmpty()) {
-            "$exceed exceed boundaries."
-        }
-
-    }
 
     /**
      * Periodic world update.
      */
-    val worldUpdate = repeating(Short.MAX_VALUE, 40, shell::initializedTime) {
+    val worldUpdate = repeating(Short.MAX_VALUE, millis, shell::initializedTime) {
+        val vel0 = DiffuseVec(viscosity, dt, false)
+        val vel1 = ProjectVec()
+        val vel2 = AdvectVec(dt, velocity)
+        val vel3 = ProjectVec()
+        val den0 = DiffuseFloat(diffusion, dt, true)
+        val den1 = AdvectFloat(dt, velocity)
 
-        val distributeFlow = distribute.compute(flows)
-        flows.merge(distributeFlow, ::mergeFlows)
+        velocity.merge(vel0.compute(velocity), ::merge)
+        velocity.merge(vel1.compute(velocity), ::merge)
+        velocity.merge(vel2.compute(velocity), ::merge)
+        velocity.merge(vel3.compute(velocity), ::merge)
 
-        val fallFLow = fall.compute(flows)
-        flows.merge(fallFLow, ::mergeFlows)
-
-        val teleportFlow = teleport.compute(flows)
-        flows.merge(teleportFlow, ::mergeFlows)
-
-
-//        flows.merge(legacyProc.compute(flows)) { ex, delta ->
-//            ((ex ?: defaultFlow) + delta).takeIf { it.mass.isNotZero() }
-//        }
-
-
-        // flows.getAll().toMap().let(::println)
-        // fluid.getAll().sumBy { it.second.mass }.let(::println)
+        density.merge(den0.compute(density), ::merge)
+        density.merge(den1.compute(density), ::merge)
 
         // Remove outside of bounds.
-        val oob = flows[Int.MIN_VALUE..Int.MAX_VALUE, Int.MIN_VALUE..Int.MAX_VALUE, Int.MIN_VALUE..-20].associate {
-            it.first to null
-        }
-        flows.assign(oob)
+        val oob = density[Int.MIN_VALUE..Int.MAX_VALUE, Int.MIN_VALUE..Int.MAX_VALUE, Int.MIN_VALUE..-20]
+            .associate { it.first to null }
+        density.assign(oob)
     }
 
     val add = exchange(::doAdd)
 
     private fun doAdd(coord: Tri) {
-        if (coord !in cells)
-            flows[coord.x, coord.y, coord.z] = FP.one
+        density[coord.x, coord.y, coord.z] = 1f
     }
 
     /**
      * Renders all actors.
      */
     fun render(time: Double, delta: Double) {
-        cells.getAll().forEach { (at, _) ->
+        solid.getAll().forEach { (at, _) ->
             if (hidden[at.x, at.y, at.z] != true) // TODO
                 sx.cube(
                     at.copy(z = at.z.inc()) to Tri.Zero, Color.WHITE,
                     Mat.translation(at.x * 4f, at.z * 4f, at.y * 4f).scale(4f, 4f, 4f)
                 )
         }
-        flows.getAll().forEach { (at, value) ->
-            if (0.01.fp < value) {
+        density.getAll().forEach { (at, value) ->
+            if (0.01 < value) {
                 sx.cube(
                     at to value,
                     Color(0f, 1f, 1f, 0.4f),
@@ -341,3 +309,55 @@ class World(
         }
     }
 }
+
+
+/*
+def 1:
+vel_step ( N, u, v, u_prev, v_prev, visc, dt );
+dens_step ( N, dens, dens_prev, u, v, diff, dt );
+
+def 2;
+void vel_step ( int N, float * u, float * v, float * u0, float * v0,float visc, float dt )
+u += u0 * dt
+v += v0 * dt
+
+-- swap
+u0' := u, u' := u0
+v0' := v, v' := v0
+
+u' = u0' + dt * visc * laplace(u0')
+v' = v0' + dt * visc * laplace(v0')
+
+v0' = -dx(u') - dy(v')
+u0' = laplace(v0')
+u' -= dx(u0')/2
+v' -= dy(u0')/2
+
+-- swap
+u":=u0', u0":=u'
+v":=v0', v0":=v'
+
+(xx) = locations - dt * (u, v)
+(xd, xu) = xx nextDown, xx nextUp
+(xf) = (xx) - (xd)
+u" = lerp(u0", xd, xu, xf)
+v" = lerp(v0", xd, xu, xf)
+
+v0" = -dx(u") - dy(v")
+u0" = laplace(v0")
+u" -= dx(u0")/2
+v" -= dy(u0")/2
+
+
+def 3:
+void dens_step ( int N, float * x, float * x0, float * u, float * v, float diff,float dt )
+add_source ( N, x, x0, dt );
+x0':=x, x':=x0
+diffuse ( N, 0, x', x0', diff, dt );
+x"=x0', x0"=x'
+advect ( N, 0, x", x0", u, v, dt );
+
+def 4:
+void diffuse ( int N, int b, float * x, float * x0, float diff, float dt )
+void advect ( int N, int b, float * d, float * d0, float * u, float * v, float dt )
+ */
