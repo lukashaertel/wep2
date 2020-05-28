@@ -7,18 +7,19 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.Color
 import com.esotericsoftware.kryo.Kryo
 import eu.metatools.fio.Fio
-import eu.metatools.fio.data.Mat
-import eu.metatools.fio.data.Tri
-import eu.metatools.fio.data.Vec
+import eu.metatools.fio.data.*
+import eu.metatools.fio.drawable.Drawable
+import eu.metatools.fio.drawable.color
 import eu.metatools.fio.drawable.tint
-import eu.metatools.fio.resource.get
 import eu.metatools.fio.tools.*
+import eu.metatools.sx.ents.CellTypes
 import eu.metatools.sx.ents.World
 import eu.metatools.ugs.BaseGame
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.Bind
+import kotlin.collections.set
 
 class SXRes(val fio: Fio) {
     val solid by lazy { fio.use(SolidResource()) }
@@ -44,12 +45,54 @@ class SXRes(val fio: Fio) {
     val brick by lazy {
         fio.use(RawTextureResource { Gdx.files.internal("brick.png") })
     }
+    val dirt by lazy {
+        fio.use(RawTextureResource { Gdx.files.internal("dirt.png") })
+    }
+
+    val water by lazy {
+        fio.use(RawTextureResource { Gdx.files.internal("water.png") })
+    }
+
+
+    val white by lazy {
+        fio.use(RawTextureResource { Gdx.files.internal("white.png") })
+    }
 
     val shader by lazy { fio.use(StandardShaderResource()) }
 
-    val mesh by lazy {
+    val rock by lazy {
         ObjectResource(
             box, brick, shader,
+            transform = "u_transform",
+            projection = "u_projection",
+            color = "u_color",
+            material = "u_texture"
+        )
+    }
+
+    val soil by lazy {
+        ObjectResource(
+            box, dirt, shader,
+            transform = "u_transform",
+            projection = "u_projection",
+            color = "u_color",
+            material = "u_texture"
+        )
+    }
+
+    val fluid by lazy {
+        ObjectResource(
+            box, water, shader,
+            transform = "u_transform",
+            projection = "u_projection",
+            color = "u_color",
+            material = "u_texture"
+        )
+    }
+
+    val highlight by lazy {
+        ObjectResource(
+            box, white, shader,
             transform = "u_transform",
             projection = "u_projection",
             color = "u_color",
@@ -75,46 +118,58 @@ class SX : BaseGame(radiusLimit = 16f) {
             .also(shell.engine::add)
 
         val f0 = """
-            XxxxxxxxX
-            XxxxxxxxX
-            XxxxxxxxX
-            XxxxxxxxX
-            XxxxxxxxX
-        """.trimIndent()
+XxxxxxxxX
+XxxxxxxxXxx
+XxxxxxxxXXX
+XxxxxxxxX
+XxxxxxxxX
+        """
         val f1 = """
-            X  X    X
-            X  X    X
-            XX XXXX X
-            XX      X
-            XXXXXXXXX""".trimIndent()
+X  X    X
+X  X    S X
+XXWXXXXWXXX
+XXWWWWWWX
+XXXXXXXXX"""
         val f2 = """
-            XxxxxxxxX
-            XxxxX XxX
-            XxxxXXXxX
-            XxxxxxxxX
-            XxxxxxxxX
-        """.trimIndent()
+XxxxxxxxX
+XxxxX XxXxx
+XxxxXXXxXXX
+XxxxxxxxX
+XxxxxxxxX
+        """
+        val f3 = """
+         
+    X X  
+    XXX  
+         
+         
+        """
 
         fun atc(y: Int, s: String) =
             s.lineSequence().forEachIndexed { z, vs ->
                 vs.forEachIndexed { x, v ->
+                    val at = Tri(x, y, -z)
                     if (v.isLowerCase() && v.isLetter())
-                        root.hidden[x, y, -z] = true
+                        root.hidden.add(at)
                     if (v.toLowerCase() == 'x')
-                        root.solid[x, y, -z] = Unit
+                        root.types[at] = CellTypes.Rock
+                    if (v.toLowerCase() == 's')
+                        root.types[at] = CellTypes.Soil
+                    if (v.toLowerCase() == 'o')
+                        root.types[at] = CellTypes.PipeY
+                    if (v.toLowerCase() == '=')
+                        root.types[at] = CellTypes.PipeX
+                    if (v.toLowerCase() == '|')
+                        root.types[at] = CellTypes.PipeZ
                     if (v.toLowerCase() == 'w')
-                        root.density[x, y, -z] = 1f
+                        root.level[at] = 1f
                 }
             }
 
-        for (i in -10..10)
-            for (j in -10..10)
-                for (k in -10..10)
-                    root.density[i, j, k] = 0f
-
         atc(-1, f0)
         atc(0, f1)
-        atc(1, f0)
+        atc(1, f2)
+        atc(2, f3)
     }
 
     override fun Bind<Time>.inputShell(time: Double, delta: Double) {
@@ -126,7 +181,7 @@ class SX : BaseGame(radiusLimit = 16f) {
 
             if (ct || os) {
                 if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT))
-                    root.add(it.copy(z = it.z.inc()))
+                    root.add(it.over())
                 else
                     root.add(it)
             }
@@ -182,54 +237,63 @@ class SX : BaseGame(radiusLimit = 16f) {
         it.view = Mat.scaling(2f)
     }
 
-    fun cube(result: Any, color: Color, mat: Mat) {
-        world.submit(res.mesh.get().tint(color), Unit, time, mat)
+    fun cube(cube: Drawable<Unit>, result: Any, color: Color, mat: Mat) {
+        world.submit(cube.tint(color), Unit, time, mat)
         world.submit(CaptureCube, Unit, result, time, mat)
     }
+
+    private fun Float.formatFlow() = if (this < 0f) "out ${roundForPrint(-this)}" else "in ${roundForPrint(this)}"
 
     override fun output(time: Double, delta: Double) {
         world.begin()
         root.render(time, delta)
         world.end()
 
+        root.highlight = location as? Tri
 
-//        val a = root.flows[6, 5, 1] ?: return
-//        val b = root.flows[4, 5, 1] ?: return
+        val (left, right, back, front, under, over) = (location as? Tri)?.let(root::flow) ?: return
 
-//        ui.begin()
-//        ui.submit(
-//            res.infoText, "Visc: ${a.mass}", time,
-//            Mat.translation(20f, 20f).scale(12f, 12f)
-//        )
-//        ui.submit(
-//            res.infoText, "In: ${a.inFlow}", time,
-//            Mat.translation(100f, 20f).scale(12f, 12f)
-//        )
-//        ui.submit(
-//            res.infoText, "Out: ${a.outFlow}", time,
-//            Mat.translation(180f, 20f).scale(12f, 12f)
-//        )
-//
-//        ui.submit(
-//            res.infoText, "Non-visc: ${b.mass}", time,
-//            Mat.translation(20f, 60f).scale(12f, 12f)
-//        )
-//        ui.submit(
-//            res.infoText, "In: ${b.inFlow}", time,
-//            Mat.translation(100f, 60f).scale(12f, 12f)
-//        )
-//        ui.submit(
-//            res.infoText, "Out: ${b.outFlow}", time,
-//            Mat.translation(180f, 60f).scale(12f, 12f)
-//        )
-//        ui.end()
+        ui.begin()
+        if (right != 0f)
+            ui.submit(
+                res.infoText.color(Color.RED), "Right: ${right.formatFlow()}", time,
+                Mat.translation(20f, 60f).scale(12f, 12f)
+            )
+        if (front != 0f)
+            ui.submit(
+                res.infoText.color(Color.GREEN), "Front: ${front.formatFlow()}", time,
+                Mat.translation(120f, 60f).scale(12f, 12f)
+            )
+
+        if (over != 0f)
+            ui.submit(
+                res.infoText.color(Color.BLUE), "Over: ${over.formatFlow()}", time,
+                Mat.translation(220f, 60f).scale(12f, 12f)
+            )
+
+        if (left != 0f)
+            ui.submit(
+                res.infoText.color(Color.RED), "Left: ${left.formatFlow()}", time,
+                Mat.translation(20f, 20f).scale(12f, 12f)
+            )
+        if (back != 0f)
+            ui.submit(
+                res.infoText.color(Color.GREEN), "Back: ${back.formatFlow()}", time,
+                Mat.translation(120f, 20f).scale(12f, 12f)
+            )
+
+        if (under != 0f)
+            ui.submit(
+                res.infoText.color(Color.BLUE), "Under: ${under.formatFlow()}", time,
+                Mat.translation(220f, 20f).scale(12f, 12f)
+            )
+        ui.end()
     }
 
     private var location: Any? = null
     override fun capture(layer: Layer, result: Any?, relative: Vec, absolute: Vec) {
         result?.let {
             location = (it as? Pair<Tri, Tri>)?.first
-            Gdx.graphics.setTitle(it.toString())
         }
     }
 }

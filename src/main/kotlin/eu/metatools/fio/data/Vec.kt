@@ -2,9 +2,7 @@ package eu.metatools.fio.data
 
 import com.badlogic.gdx.math.Vector3
 import eu.metatools.up.lang.never
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
+import kotlin.math.*
 
 /**
  * A vector.
@@ -255,6 +253,18 @@ fun Vec.isNotEmpty() =
  */
 fun Vec.roundToInt() =
     Tri(x.roundToInt(), y.roundToInt(), z.roundToInt())
+
+/**
+ * Returns a [Tri] with the components mapped by [Float.nextDown].
+ */
+fun Vec.nextDown() =
+    Tri(x.nextDown().toInt(), y.nextDown().toInt(), z.nextDown().toInt())
+
+/**
+ * Returns a [Tri] with the components mapped by [Float.nextUp].
+ */
+fun Vec.nextUp() =
+    Tri(x.nextUp().toInt(), y.nextUp().toInt(), z.nextUp().toInt())
 
 
 /**

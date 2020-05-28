@@ -24,6 +24,7 @@ dependencies {
     compile("com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion")
     compile("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
     implementation("com.esotericsoftware:kryo:5.0.0-RC4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.6")
     testImplementation("junit:junit:4.12")
 }
 

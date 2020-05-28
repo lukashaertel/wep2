@@ -26,7 +26,10 @@ fun registerGDXSerializers(kryo: Kryo) {
 fun registerF2DSerializers(kryo: Kryo) {
     kryo.register(Blend::class.java, BlendSerializer)
     kryo.register(Cell::class.java, CellSerializer)
-    kryo.register(Tri::class.java, TriSerializer)
+    kryo.register(Tri::class.java, TriSerializers)
+    kryo.register(UTri::class.java, UTriSerializers)
+    kryo.register(Hex::class.java, HexSerializers)
+    kryo.register(UHex::class.java, UHexSerializers)
     kryo.register(Mat::class.java, MatSerializer)
     kryo.register(Pt::class.java, PtSerializer)
     kryo.register(Pts::class.java, PtsSerializer)

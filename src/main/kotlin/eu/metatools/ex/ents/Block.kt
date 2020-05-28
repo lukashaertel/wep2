@@ -14,7 +14,7 @@ interface Block {
     val body: Drawable<Unit?>? get() = null
 
     /**
-     * The cap (drawable for floor above).
+     * The cap (drawable for floor over).
      */
     val cap: Drawable<Unit?>? get() = null
 

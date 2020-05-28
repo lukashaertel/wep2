@@ -25,7 +25,7 @@ private val xpBarDrawable by lazy {
  */
 private const val xpBarHeight = 10f
 /**
- * Inset of the text above the XP bar.
+ * Inset of the text over the XP bar.
  */
 private const val xpBarInset = 2f
 /**

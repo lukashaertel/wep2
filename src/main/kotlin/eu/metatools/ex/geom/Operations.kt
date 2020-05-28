@@ -9,7 +9,7 @@ import kotlin.math.abs
  * Returns true if the point is inside the mesh. The mesh must be convex.
  */
 fun Sequence<Vecs>.inside(pos: Vec, radius: Float): Boolean {
-    // If above any triangle, return false.
+    // If over any triangle, return false.
     forEach { (v1, v2, v3) ->
         val n = (v3 - v1 cross v2 - v1).nor
         val d = (pos - v1) dot n
@@ -29,7 +29,7 @@ fun Sequence<Vecs>.depth(pos: Vec, radius: Float): Pair<Vec, Float>? {
     var closest = Float.MAX_VALUE
     var normal = Vec.Zero
 
-    // If above any triangle, return false.
+    // If over any triangle, return false.
     for ((v1, v2, v3) in this) {
         // Get components
         val v1toPos = pos - v1
