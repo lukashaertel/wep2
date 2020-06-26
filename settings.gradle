@@ -1,2 +1,6 @@
-rootProject.name = 'superkontor'
-
+rootProject.name = 'sk2'
+include 'ex'
+include 'fio'
+include 'sx'
+include 'fig'
+include 'up'
