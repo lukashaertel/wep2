@@ -19,7 +19,76 @@ import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.Bind
-import kotlin.collections.set
+import java.util.*
+import kotlin.math.nextDown
+import kotlin.math.nextUp
+
+class Perlin(val dimension: Int, val seed: Long, val scale: Float = 1f) {
+    companion object {
+        private const val offset = Int.MIN_VALUE.toLong()
+        private const val divisor = (Int.MAX_VALUE.toLong() - Int.MIN_VALUE.toLong()) * 0.5
+    }
+
+    private fun Random.nextUniform() =
+        ((nextInt().toLong() - offset).toDouble() / divisor - 1.0).toFloat()
+
+    private val gradient by lazy {
+        val random = Random(seed)
+        Array(dimension * dimension * dimension) {
+            val vx = random.nextUniform()
+            val vy = random.nextUniform()
+            val vz = random.nextUniform()
+            Vec(vx, vy, vz)
+        }
+    }
+
+    private fun getGradient(x: Int, y: Int, z: Int): Vec {
+        val ax = ((x % dimension) + dimension) % dimension
+        val ay = ((y % dimension) + dimension) % dimension
+        val az = ((z % dimension) + dimension) % dimension
+
+        return gradient[az * dimension * dimension + ay * dimension + ax]
+    }
+
+    private fun dotGridGradient(ix: Int, iy: Int, iz: Int, vec: Vec): Float {
+        val dVec = Vec(vec.x - ix, vec.y - iy, vec.z - iz)
+        val gVec = getGradient(ix, iy, iz)
+
+        return dVec dot gVec
+    }
+
+    operator fun invoke(at: Vec): Float {
+        val vec = at / scale
+        val x0 = vec.x.nextDown().toInt()
+        val x1 = vec.x.nextUp().toInt()
+        val y0 = vec.y.nextDown().toInt()
+        val y1 = vec.y.nextUp().toInt()
+        val z0 = vec.z.nextDown().toInt()
+        val z1 = vec.z.nextUp().toInt()
+
+        val sx = vec.x - x0
+        val isx = 1f - sx
+        val sy = vec.y - y0
+        val isy = 1f - sy
+        val sz = vec.z - z0
+        val isz = 1f - sz
+
+        val n0 = dotGridGradient(x0, y0, z0, vec)
+        val n1 = dotGridGradient(x1, y0, z0, vec)
+        val n2 = dotGridGradient(x0, y1, z0, vec)
+        val n3 = dotGridGradient(x1, y1, z0, vec)
+        val n4 = dotGridGradient(x0, y0, z1, vec)
+        val n5 = dotGridGradient(x1, y0, z1, vec)
+        val n6 = dotGridGradient(x0, y1, z1, vec)
+        val n7 = dotGridGradient(x1, y1, z1, vec)
+
+        return ((n0 * isx + n1 * sx) * isy + (n2 * isx + n3 * sx) * sy) * isz +
+                ((n4 * isx + n5 * sx) * isy + (n6 * isx + n7 * sx) * sy) * sz
+    }
+
+    operator fun invoke(x: Float, y: Float, z: Float) =
+        invoke(Vec(x, y, z))
+}
 
 class SXRes(val fio: Fio) {
     val solid by lazy { fio.use(SolidResource()) }
@@ -117,59 +186,22 @@ class SX : BaseGame(radiusLimit = 16f) {
         root = World(shell, lx / "root", this)
             .also(shell.engine::add)
 
-        val f0 = """
-XxxxxxxxX
-XxxxxxxxXxx
-XxxxxxxxXXX
-XxxxxxxxX
-XxxxxxxxX
-        """
-        val f1 = """
-X  X    X
-X  X    S X
-XXWXXXXWXXX
-XXWWWWWWX
-XXXXXXXXX"""
-        val f2 = """
-XxxxxxxxX
-XxxxX XxXxx
-XxxxXXXxXXX
-XxxxxxxxX
-XxxxxxxxX
-        """
-        val f3 = """
-         
-    X X  
-    XXX  
-         
-         
-        """
+        val p = Perlin(100, 0L, 8f)
+        val dh = 20
+        for (x in -dh..dh) for (y in -dh..dh) {
 
-        fun atc(y: Int, s: String) =
-            s.lineSequence().forEachIndexed { z, vs ->
-                vs.forEachIndexed { x, v ->
-                    val at = Tri(x, y, -z)
-                    if (v.isLowerCase() && v.isLetter())
-                        root.hidden.add(at)
-                    if (v.toLowerCase() == 'x')
-                        root.types[at] = CellTypes.Rock
-                    if (v.toLowerCase() == 's')
-                        root.types[at] = CellTypes.Soil
-                    if (v.toLowerCase() == 'o')
-                        root.types[at] = CellTypes.PipeY
-                    if (v.toLowerCase() == '=')
-                        root.types[at] = CellTypes.PipeX
-                    if (v.toLowerCase() == '|')
-                        root.types[at] = CellTypes.PipeZ
-                    if (v.toLowerCase() == 'w')
-                        root.level[at] = 1f
-                }
-            }
+            val v = p(x.toFloat(), y.toFloat(), 0f)
+            val tz = (v * 3f).toInt()
+            for (z in -5 until tz)
+                root.types[Tri(x, y, z)] = CellTypes.Rock
 
-        atc(-1, f0)
-        atc(0, f1)
-        atc(1, f2)
-        atc(2, f3)
+            val v2 = p(x.toFloat(), y.toFloat(), 1f)
+            val tz2 = 3 + (v2 * 3f).toInt()
+
+            for (z in tz until tz2)
+                root.types[Tri(x, y, z)] = CellTypes.Soil
+        }
+
     }
 
     override fun Bind<Time>.inputShell(time: Double, delta: Double) {

@@ -207,6 +207,7 @@ class World(
         flows.clear()
     }
 
+    // TODO: Unified process fall/distribute/teleport
     private suspend fun fall() {
         // Compute flows.
         val fromFall = level.flex().flatAssociate(::plusPairs) { (at, l) ->
