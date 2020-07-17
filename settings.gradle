@@ -1,4 +1,4 @@
-rootProject.name = 'sk2'
+rootProject.name = 'superkontor'
 include 'ex'
 include 'fio'
 include 'sx'

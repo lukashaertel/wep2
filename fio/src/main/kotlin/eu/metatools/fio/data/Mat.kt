@@ -22,17 +22,17 @@ class Mat(val values: FloatArray) {
      * Constructs the array from the given values.
      */
     constructor(
-        m00: Float, m01: Float, m02: Float, m03: Float,
-        m10: Float, m11: Float, m12: Float, m13: Float,
-        m20: Float, m21: Float, m22: Float, m23: Float,
-        m30: Float, m31: Float, m32: Float, m33: Float
+            m00: Float, m01: Float, m02: Float, m03: Float,
+            m10: Float, m11: Float, m12: Float, m13: Float,
+            m20: Float, m21: Float, m22: Float, m23: Float,
+            m30: Float, m31: Float, m32: Float, m33: Float
     ) : this(
-        floatArrayOf(
-            m00, m10, m20, m30,
-            m01, m11, m21, m31,
-            m02, m12, m22, m32,
-            m03, m13, m23, m33
-        )
+            floatArrayOf(
+                    m00, m10, m20, m30,
+                    m01, m11, m21, m31,
+                    m02, m12, m22, m32,
+                    m03, m13, m23, m33
+            )
     )
 
     companion object {
@@ -40,37 +40,37 @@ class Mat(val values: FloatArray) {
          * The identity matrix.
          */
         val ID = Mat(
-            1f, 0f, 0f, 0f,
-            0f, 1f, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            0f, 0f, 0f, 1f
+                1f, 0f, 0f, 0f,
+                0f, 1f, 0f, 0f,
+                0f, 0f, 1f, 0f,
+                0f, 0f, 0f, 1f
         )
 
         /**
          * The NaN matrix.
          */
         val NAN = Mat(
-            Float.NaN, Float.NaN, Float.NaN, Float.NaN,
-            Float.NaN, Float.NaN, Float.NaN, Float.NaN,
-            Float.NaN, Float.NaN, Float.NaN, Float.NaN,
-            Float.NaN, Float.NaN, Float.NaN, Float.NaN
+                Float.NaN, Float.NaN, Float.NaN, Float.NaN,
+                Float.NaN, Float.NaN, Float.NaN, Float.NaN,
+                Float.NaN, Float.NaN, Float.NaN, Float.NaN,
+                Float.NaN, Float.NaN, Float.NaN, Float.NaN
         )
 
         /**
          * Creates a translation matrix.
          */
         fun translation(x: Float = 0f, y: Float = 0f, z: Float = 0f) = Mat(
-            1f, 0f, 0f, x,
-            0f, 1f, 0f, y,
-            0f, 0f, 1f, z,
-            0f, 0f, 0f, 1f
+                1f, 0f, 0f, x,
+                0f, 1f, 0f, y,
+                0f, 0f, 1f, z,
+                0f, 0f, 0f, 1f
         )
 
         /**
          * Creates a translation matrix.
          */
         fun translation(vec: Vec) =
-            translation(vec.x, vec.y, vec.z)
+                translation(vec.x, vec.y, vec.z)
 
         /**
          * Creates a rotation matrix around the axis.
@@ -99,10 +99,10 @@ class Mat(val values: FloatArray) {
 
             // Return result value.
             return Mat(
-                c + xx * oc, x * y * oc - z * s, x * z * oc + y * s, 0f,
-                y * x * oc + z * s, c + yy * oc, y * z * oc - x * s, 0f,
-                z * x * oc - y * s, z * y * oc + x * s, c + zz * oc, 0f,
-                0f, 0f, 0f, 1f
+                    c + xx * oc, x * y * oc - z * s, x * z * oc + y * s, 0f,
+                    y * x * oc + z * s, c + yy * oc, y * z * oc - x * s, 0f,
+                    z * x * oc - y * s, z * y * oc + x * s, c + zz * oc, 0f,
+                    0f, 0f, 0f, 1f
             )
         }
 
@@ -110,7 +110,7 @@ class Mat(val values: FloatArray) {
          * Creates a rotation matrix around the axis.
          */
         fun rotation(vec: Vec, rad: Float) =
-            rotation(vec.x, vec.y, vec.z, rad)
+                rotation(vec.x, vec.y, vec.z, rad)
 
         /**
          * Creates a rotation matrix around the x-axis.
@@ -125,10 +125,10 @@ class Mat(val values: FloatArray) {
 
             // Return result value.
             return Mat(
-                1f, 0f, 0f, 0f,
-                0f, c, -s, 0f,
-                0f, s, c, 0f,
-                0f, 0f, 0f, 1f
+                    1f, 0f, 0f, 0f,
+                    0f, c, -s, 0f,
+                    0f, s, c, 0f,
+                    0f, 0f, 0f, 1f
             )
         }
 
@@ -145,10 +145,10 @@ class Mat(val values: FloatArray) {
 
             // Return result value.
             return Mat(
-                c, 0f, s, 0f,
-                0f, 1f, 0f, 0f,
-                -s, 0f, c, 0f,
-                0f, 0f, 0f, 1f
+                    c, 0f, s, 0f,
+                    0f, 1f, 0f, 0f,
+                    -s, 0f, c, 0f,
+                    0f, 0f, 0f, 1f
             )
         }
 
@@ -165,10 +165,10 @@ class Mat(val values: FloatArray) {
 
             // Return result value.
             return Mat(
-                c, -s, 0f, 0f,
-                s, c, 0f, 0f,
-                0f, 0f, 1f, 0f,
-                0f, 0f, 0f, 1f
+                    c, -s, 0f, 0f,
+                    s, c, 0f, 0f,
+                    0f, 0f, 1f, 0f,
+                    0f, 0f, 0f, 1f
             )
         }
 
@@ -176,30 +176,30 @@ class Mat(val values: FloatArray) {
          * Creates a scaling matrix.
          */
         fun scaling(sx: Float = 1f, sy: Float = 1f, sz: Float = 1f) = Mat(
-            sx, 0f, 0f, 0f,
-            0f, sy, 0f, 0f,
-            0f, 0f, sz, 0f,
-            0f, 0f, 0f, 1f
+                sx, 0f, 0f, 0f,
+                0f, sy, 0f, 0f,
+                0f, 0f, sz, 0f,
+                0f, 0f, 0f, 1f
         )
 
         /**
          * Creates a scaling matrix.
          */
         fun scaling(s: Float) = Mat(
-            s, 0f, 0f, 0f,
-            0f, s, 0f, 0f,
-            0f, 0f, s, 0f,
-            0f, 0f, 0f, 1f
+                s, 0f, 0f, 0f,
+                0f, s, 0f, 0f,
+                0f, 0f, s, 0f,
+                0f, 0f, 0f, 1f
         )
 
         /**
          * Creates a scaling matrix.
          */
         fun scaling(vec: Vec) =
-            scaling(vec.x, vec.y, vec.z)
+                scaling(vec.x, vec.y, vec.z)
 
         fun ortho2D(x: Float, y: Float, width: Float, height: Float, near: Float, far: Float) =
-            ortho(x, x + width, y, y + height, near, far)
+                ortho(x, x + width, y, y + height, near, far)
 
         fun ortho(left: Float, right: Float, bottom: Float, top: Float, near: Float, far: Float): Mat {
 
@@ -212,10 +212,10 @@ class Mat(val values: FloatArray) {
             val tz = -(far + near) / (far - near)
 
             return Mat(
-                x, 0f, 0f, tx,
-                0f, y, 0f, ty,
-                0f, 0f, z, tz,
-                0f, 0f, 0f, 1f
+                    x, 0f, 0f, tx,
+                    0f, y, 0f, ty,
+                    0f, 0f, z, tz,
+                    0f, 0f, 0f, 1f
             )
         }
 
@@ -228,10 +228,10 @@ class Mat(val values: FloatArray) {
             val x = (z cross up).nor
             val y = (x cross z).nor
             return Mat(
-                x.x, x.y, x.z, 0f,
-                y.x, y.y, y.z, 0f,
-                -z.x, -z.y, -z.z, 0f,
-                0f, 0f, 0f, 1f
+                    x.x, x.y, x.z, 0f,
+                    y.x, y.y, y.z, 0f,
+                    -z.x, -z.y, -z.z, 0f,
+                    0f, 0f, 0f, 1f
             ).translate(-from.x, -from.y, -from.z)
         }
 
@@ -244,10 +244,10 @@ class Mat(val values: FloatArray) {
             val a2 = 2f * far * near / (near - far)
 
             return Mat(
-                fd / aspect, 0f, 0f, 0f,
-                0f, fd, 0f, 0f,
-                0f, 0f, a1, a2,
-                0f, 0f, -1f, 0f
+                    fd / aspect, 0f, 0f, 0f,
+                    0f, fd, 0f, 0f,
+                    0f, 0f, a1, a2,
+                    0f, 0f, -1f, 0f
             )
         }
 
@@ -255,12 +255,40 @@ class Mat(val values: FloatArray) {
          * Creates the matrix from the given axis.
          */
         fun from(x: Vec, y: Vec, z: Vec, pos: Vec = Vec.Zero) =
-            Mat(
-                x.x, x.y, x.z, pos.x,
-                y.x, y.y, y.z, pos.y,
-                z.x, z.y, z.z, pos.x,
-                0f, 0f, 0f, 1f
-            )
+                Mat(
+                        x.x, x.y, x.z, pos.x,
+                        y.x, y.y, y.z, pos.y,
+                        z.x, z.y, z.z, pos.x,
+                        0f, 0f, 0f, 1f
+                )
+    }
+
+    /**
+     * Inline multiplies the given coordinates as [times] would do.
+     */
+    inline fun times(x: Float, y: Float, z: Float, block: (Float, Float, Float) -> Unit) {
+        block(x * values[0] + y * values[1] + z * values[2] + values[3],
+                x * values[4] + y * values[5] + z * values[6] + values[7],
+                x * values[8] + y * values[9] + z * values[10] + values[11])
+    }
+
+    /**
+     * Inline multiplies the given coordinates as [rotate] would do.
+     */
+    inline fun rotate(x: Float, y: Float, z: Float, block: (Float, Float, Float) -> Unit) {
+        block(x * values[0] + y * values[1] + z * values[2],
+                x * values[4] + y * values[5] + z * values[6],
+                x * values[8] + y * values[9] + z * values[10])
+    }
+
+    /**
+     * Inline multiplies the given coordinates as [project] would do.
+     */
+    inline fun project(x: Float, y: Float, z: Float, block: (Float, Float, Float) -> Unit) {
+        val w = x * values[12] + y * values[13] + z * values[14] + values[15]
+        block((x * values[0] + y * values[1] + z * values[2] + values[3]) / w,
+                (x * values[4] + y * values[5] + z * values[6] + values[7]) / w,
+                (x * values[8] + y * values[9] + z * values[10] + values[11]) / w)
     }
 
     /**
@@ -414,61 +442,61 @@ class Mat(val values: FloatArray) {
      * Post-multiplies the matrix with the given translation.
      */
     fun translate(x: Float = 0f, y: Float = 0f, z: Float = 0f) =
-        times(translation(x, y, z))
+            times(translation(x, y, z))
 
     /**
      * Post-multiplies the matrix with the given translation.
      */
     fun translate(vec: Vec) =
-        times(translation(vec))
+            times(translation(vec))
 
     /**
      * Post-multiplies the matrix with the given rotation.
      */
     fun rotate(ax: Float = 0f, ay: Float = 0f, az: Float = 0f, rad: Float = 0f) =
-        times(rotation(ax, ay, az, rad))
+            times(rotation(ax, ay, az, rad))
 
     /**
      * Post-multiplies the matrix with the given rotation.
      */
     fun rotate(vec: Vec, rad: Float) =
-        times(rotation(vec, rad))
+            times(rotation(vec, rad))
 
     /**
      * Post-multiplies the matrix with the given rotation.
      */
     fun rotateX(rad: Float) =
-        times(rotationX(rad))
+            times(rotationX(rad))
 
     /**
      * Post-multiplies the matrix with the given rotation.
      */
     fun rotateY(rad: Float) =
-        times(rotationY(rad))
+            times(rotationY(rad))
 
     /**
      * Post-multiplies the matrix with the given rotation.
      */
     fun rotateZ(rad: Float) =
-        times(rotationZ(rad))
+            times(rotationZ(rad))
 
     /**
      * Post-multiplies the matrix with the given scaling.
      */
     fun scale(sx: Float = 1f, sy: Float = 1f, sz: Float = 1f) =
-        times(scaling(sx, sy, sz))
+            times(scaling(sx, sy, sz))
 
     /**
      * Post-multiplies the matrix with the given scaling.
      */
     fun scale(s: Float) =
-        times(scaling(s))
+            times(scaling(s))
 
     /**
      * Post-multiplies the matrix with the given scaling.
      */
     fun scale(vec: Vec) =
-        times(scaling(vec))
+            times(scaling(vec))
 
     /**
      * The inverse of the matrix.
@@ -522,10 +550,10 @@ class Mat(val values: FloatArray) {
     fun toMatrix() = Matrix4(values.clone())
 
     override fun equals(other: Any?) =
-        this === other || (other as? Mat)?.values?.contentEquals(values) ?: false
+            this === other || (other as? Mat)?.values?.contentEquals(values) ?: false
 
     override fun hashCode() =
-        values.contentHashCode()
+            values.contentHashCode()
 
     override fun toString() = buildString {
         append("{ ")
