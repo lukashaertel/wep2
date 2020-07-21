@@ -11,7 +11,9 @@ interface Bind {
 interface BindData : Bind, AutoCloseable {
     val buffer: ByteBuffer
 
-    fun commit() = Unit
+    fun position(element: Int)
+
+    fun commit(start: Int = 0, end: Int? = null) = Unit
 }
 
 interface BindVertices : BindData {

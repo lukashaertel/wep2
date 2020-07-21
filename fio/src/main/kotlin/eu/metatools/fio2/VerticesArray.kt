@@ -10,6 +10,10 @@ class VerticesArray(val attributes: VertexAttributes, val maxVertices: Int) : Bi
 
     override val buffer = BufferUtils.newUnsafeByteBuffer(attributes.vertexSize * maxVertices);
 
+    override fun position(element: Int) {
+        buffer.position(element * attributes.vertexSize)
+    }
+
     override fun close() {
         BufferUtils.disposeUnsafeByteBuffer(buffer)
     }

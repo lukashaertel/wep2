@@ -10,9 +10,9 @@ import java.util.*
 class VerticesVAO(val static: Boolean, val attributes: VertexAttributes, val maxVertices: Int) : BindVertices {
     private val attachments = WeakHashMap<ShaderProgram, Bind>()
 
-    override val buffer = BufferUtils.newUnsafeByteBuffer(attributes.vertexSize * maxVertices);
+    private val usage = if (static) GL20.GL_STATIC_DRAW else GL20.GL_DYNAMIC_DRAW
 
-    val usage = if (static) GL20.GL_STATIC_DRAW else GL20.GL_DYNAMIC_DRAW
+    override val buffer = BufferUtils.newUnsafeByteBuffer(attributes.vertexSize * maxVertices);
 
     val handle = Gdx.gl20.glGenBuffer().also {
         Gdx.gl20.glBindBuffer(GL20.GL_ELEMENT_ARRAY_BUFFER, it)
@@ -29,8 +29,14 @@ class VerticesVAO(val static: Boolean, val attributes: VertexAttributes, val max
         Gdx.gl.glBindBuffer(GL20.GL_ARRAY_BUFFER, handle)
     }
 
-    override fun commit() {
-        Gdx.gl.glBufferData(GL20.GL_ARRAY_BUFFER, buffer.limit(), buffer, usage)
+    override fun position(element: Int) {
+        buffer.position(element * attributes.vertexSize)
+    }
+
+    override fun commit(start: Int, end: Int?) {
+        val byteStart = start * attributes.vertexSize
+        val byteEnd = end?.times(attributes.vertexSize) ?: buffer.limit()
+        Gdx.gl.glBufferSubData(GL20.GL_ARRAY_BUFFER, byteStart, byteEnd - byteStart, buffer.position(byteStart))
     }
 
     override fun unbind() {

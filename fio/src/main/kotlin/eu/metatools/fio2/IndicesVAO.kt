@@ -19,8 +19,17 @@ class IndexVAO(val static: Boolean, val short: Boolean, val maxIndices: Int) : B
         Gdx.gl20.glBindBuffer(GL20.GL_ELEMENT_ARRAY_BUFFER, handle)
     }
 
-    override fun commit() {
-        Gdx.gl20.glBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, 0, buffer.limit(), buffer)
+    override fun position(element: Int) {
+        if (short)
+            buffer.position(element * 2)
+        else
+            buffer.position(element * 4)
+    }
+
+    override fun commit(start: Int, end: Int?) {
+        val byteStart = start * if (short) 2 else 4
+        val byteEnd = end?.times(if (short) 2 else 4) ?: buffer.limit()
+        Gdx.gl20.glBufferSubData(GL20.GL_ELEMENT_ARRAY_BUFFER, byteStart, byteEnd - byteStart, buffer.position(byteStart))
     }
 
     override fun unbind() {
