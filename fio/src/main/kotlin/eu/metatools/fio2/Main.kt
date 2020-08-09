@@ -1,237 +1,190 @@
 package eu.metatools.fio2
 
-import com.badlogic.gdx.ApplicationListener
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
-import com.badlogic.gdx.graphics.Camera
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.PerspectiveCamera
+import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.utils.NumberUtils
 import eu.metatools.fio.data.Col
 import eu.metatools.fio.data.Mat
 
-fun createDefaultShader(): ShaderProgram {
-    val vertexShader = """
-attribute vec4 ${ShaderProgram.POSITION_ATTRIBUTE};
-attribute vec4 ${ShaderProgram.COLOR_ATTRIBUTE};
-attribute vec2 ${ShaderProgram.TEXCOORD_ATTRIBUTE}0;
-uniform mat4 u_projectionViewMatrix;
-varying vec4 v_color;
-varying vec2 v_texCoords;
+//private val isBoundToBuffer = BufferUtils.newIntBuffer(16)
+//fun Texture.isBoundTo(unit: Int): Boolean {
+//    Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0 + unit)
+//    isBoundToBuffer.clear()
+//    Gdx.gl.glGetIntegerv(GL30.GL_TEXTURE_BINDING_2D, isBoundToBuffer)
+//    return glHandle == isBoundToBuffer.get()
+//}
 
-void main()
-{
-    v_color = ${ShaderProgram.COLOR_ATTRIBUTE};
-    v_color.a = v_color.a * (255.0/254.0);
-    v_texCoords = ${ShaderProgram.TEXCOORD_ATTRIBUTE}0;
-    gl_Position = u_projectionViewMatrix * ${ShaderProgram.POSITION_ATTRIBUTE};
-}
-"""
-    val fragmentShader = """
-#ifdef GL_ES
-precision mediump float;
-#endif
-varying vec4 v_color;
-varying vec2 v_texCoords;
-uniform sampler2D u_texture;
-void main()
-{
-    vec4 result = v_color * texture2D(u_texture, v_texCoords);
-    if(result.a < 0.001)
-        discard;
-    gl_FragColor = result;
-}"""
-    return ShaderProgram(vertexShader, fragmentShader).also {
-        require(it.isCompiled) { "couldn't compile shader: " + it.log }
-    }
-}
+class QuadLayer(val shader: ShaderProgram, val combined: () -> Mat, val limit: Int = 8192) : AutoCloseable {
+    private val quads = Quads(limit)
 
-/**
- * Todo: how necessary is this, how strongly coupled must this be.
- *
- * Generally, quads, cg and ag will be exposed to generate remote update request and to obtain locations in quad.
- */
-class CommitGenerator(val quads: Quads) {
-    private var currentMin = Int.MAX_VALUE
-    private var currentMax = Int.MIN_VALUE
+    private var currentCount = 0
 
-    fun touch(shape: Int) {
-        currentMin = minOf(shape, currentMin)
-        currentMax = maxOf(shape.inc(), currentMax)
+    private var currentTexture: Texture? = null
+
+    @Suppress("non_public_call_from_public_inline")
+    inline fun push(texture: Texture, push: Quads.() -> Unit) {
+
+        // Initial assign texture.
+        if (currentTexture == null)
+            currentTexture = texture
+
+        // Flush if limit reached.
+        if (currentCount == limit || currentTexture != texture) {
+            flush()
+            currentTexture = texture
+        }
+
+        // Run block on quads.
+        push(quads)
     }
 
-    fun commit() {
-        if (currentMax < currentMin)
+    fun flush() {
+        if (currentCount == 0)
             return
 
-        quads.commit(currentMin, currentMax)
+        currentTexture?.bind(0)
 
-        currentMin = Int.MAX_VALUE
-        currentMax = Int.MIN_VALUE
+        shader.begin()
+        shader.setUniformMatrix("u_projectionViewMatrix", combined().asMatrix())
+        shader.setUniformi("u_texture", 0)
+        quads.render(shader, currentCount)
+        shader.end()
+
+        currentCount = 0
     }
+
+    override fun close() {
+        quads.close()
+    }
+
 }
 
 fun main() {
-    LwjglApplication(
-            object : ApplicationListener {
-                private lateinit var cgs: ShaderProgram
-                private lateinit var cam: Camera
-                private lateinit var tex: TextureAtlas
-                private lateinit var region: TextureAtlas.AtlasRegion
+    LwjglApplication(host {
+        object : Controller {
+            private val atlas = use(TextureAtlas(Gdx.files.internal("ex/res/CTP.atlas"))).also {
+                it.textures.first().bind(0)
+            }
 
-                private lateinit var target: Quads
-                private lateinit var commitGenerator: CommitGenerator
-                private lateinit var addressGenerator: AddressGenerator
+            private val region = atlas.findRegion("pa_i_d")
 
-                private val start = System.currentTimeMillis()
-                private val seconds get() = (System.currentTimeMillis() - start) / 1000f
-                var lft = System.currentTimeMillis()
+            private val camera = PerspectiveCamera(45f,
+                    Gdx.graphics.width.toFloat(),
+                    Gdx.graphics.height.toFloat()).also {
+                val d = 16f
+                it.position.set(d, d, d)
+                it.lookAt(0f, 0f, 0f)
+                it.update()
+            }
 
-                override fun render() {
-                    val cft = System.currentTimeMillis()
-                    Gdx.graphics.setTitle("${cft - lft}")
-                    lft = cft
+            private val shader = use(createDefaultShader())
 
-                    Gdx.gl.glClearDepthf(1f)
-                    Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1.0f)
-                    Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
-                    Gdx.gl.glEnable(GL20.GL_DEPTH_TEST)
+            private val target = use(Quads(8000))
+
+            private val commitGenerator = CommitGenerator()
+
+            private val addressGenerator = AddressGenerator()
+
+            private val start = System.currentTimeMillis()
+
+            private val seconds get() = (System.currentTimeMillis() - start) / 1000f
+
+            private var lastFrameTime = System.currentTimeMillis()
+
+
+            override fun render() {
+                val cft = System.currentTimeMillis()
+                Gdx.graphics.setTitle("${cft - lastFrameTime}")
+                lastFrameTime = cft
+
+                Gdx.gl.glClearDepthf(1f)
+                Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1.0f)
+                Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
+                Gdx.gl.glEnable(GL20.GL_DEPTH_TEST)
 //                    Gdx.gl.glEnable(GL20.GL_BLEND)
 
-                    Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
+                Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
 
-                    if (Gdx.input.isKeyJustPressed(Input.Keys.A))
-                        addressGenerator.refer()
+                if (Gdx.input.isKeyJustPressed(Input.Keys.A))
+                    addressGenerator.refer()
 
-                    if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
-                        if (0 < addressGenerator.end) {
-                            val a = addressGenerator.references().random()
-                            addressGenerator.release(a)
+                if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+                    if (0 < addressGenerator.end) {
+                        val a = addressGenerator.references().random()
+                        addressGenerator.release(a)
 
-                            target.position(a)
-                            target.vertexEmpty()
-                            target.vertexEmpty()
-                            target.vertexEmpty()
-                            target.vertexEmpty()
-                            commitGenerator.touch(a)
-                        }
-                    }
-
-                    updateSprites()
-                    commitGenerator.commit()
-
-                    // DO NOT DO THIS WHEN USING MANAGED ADDRESSES, ONLY FOR PUSH AND SORT.
-                    // target.sortQuad(0, addressGenerator.end, 0f, 0f, 1f)
-                    // target.commit(0, addressGenerator.end)
-
-                    cgs.begin()
-                    cgs.setUniformMatrix("u_projectionViewMatrix", cam.combined)
-                    cgs.setUniformi("u_texture", 0)
-                    target.render(cgs, addressGenerator.end)
-                    cgs.end()
-
-                }
-
-                override fun pause() {
-                }
-
-                override fun resume() {
-                }
-
-                override fun resize(width: Int, height: Int) {
-                    cam.viewportWidth = width.toFloat()
-                    cam.viewportHeight = height.toFloat()
-                    cam.update()
-                }
-
-                fun updateSprites() {
-                    for (n in addressGenerator.references())
-                        updateSprite(n)
-                }
-
-                fun updateSprite(n: Int) {
-                    commitGenerator.touch(n)
-                    target.position(n)
-
-                    val f = n / 10f
-                    val mat = Mat.rotationZ(seconds + f)
-                    val packed = NumberUtils.intToFloatColor(Col.White.packed)
-                    mat.times(0f, 0f, f) { x, y, z ->
-                        target.vertex(x, y, z, packed, region.u, region.v)
-                    }
-                    mat.times(0f, 2f, f) { x, y, z ->
-                        target.vertex(x, y, z, packed, region.u, region.v2)
-                    }
-                    mat.times(2f, 2f, f) { x, y, z ->
-                        target.vertex(x, y, z, packed, region.u2, region.v2)
-                    }
-                    mat.times(2f, 0f, f) { x, y, z ->
-                        target.vertex(x, y, z, packed, region.u2, region.v)
+                        target.position(a)
+                        target.vertexEmpty()
+                        target.vertexEmpty()
+                        target.vertexEmpty()
+                        target.vertexEmpty()
+                        commitGenerator.touch(a)
                     }
                 }
 
-//                fun updateData(min: Int? = null, max: Int? = null) {
-//                    val min = min ?: -target.limit / 2
-//                    val max = max ?: target.limit / 2
-//
-//                    val base = min + target.limit / 2
-//                    target.position(base)
-//                    val rows = 4
-//                    val range = min until max
-//                    for (d in range.reversed()) {
-//                        val f = d / 200f
-//                        val mat = Mat.rotationZ(seconds + f)
-//                        val color = Col.hsv(d.toFloat(), 0.5f, 1f)
-//                        val packed = NumberUtils.intToFloatColor(color.packed)
-//                        val dx = (((d % rows) + rows) % rows) * 3f - 3f * rows / 2f
-//
-//                        mat.times(0f, 0f, f) { x, y, z ->
-//                            target.addVertex(dx + x, y, z, packed, region.u, region.v)
-//                        }
-//                        mat.times(0f, 2f, f) { x, y, z ->
-//                            target.addVertex(dx + x, y, z, packed, region.u, region.v2)
-//                        }
-//                        mat.times(2f, 2f, f) { x, y, z ->
-//                            target.addVertex(dx + x, y, z, packed, region.u2, region.v2)
-//                        }
-//                        mat.times(2f, 0f, f) { x, y, z ->
-//                            target.addVertex(dx + x, y, z, packed, region.u2, region.v)
-//                        }
-//                    }
-//                    target.commit(base, max - min)
-//                }
-
-                override fun create() {
-                    tex = use(TextureAtlas(Gdx.files.internal("ex/res/CTP.atlas")))
-                    tex.textures.first().bind(0)
-                    region = tex.findRegion("pa_i_d")
-
-                    cam = PerspectiveCamera(45f,
-                            Gdx.graphics.width.toFloat(),
-                            Gdx.graphics.height.toFloat())
-                    cgs = use(createDefaultShader())
-
-                    val d = 16f
-                    cam.position.set(d, d, d)
-                    cam.lookAt(0f, 0f, 0f)
-                    cam.update()
-
-                    target = use(Quads(8000))
-                    commitGenerator = CommitGenerator(target)
-                    addressGenerator = AddressGenerator()
-
-                    //updateData()
+                updateSprites()
+                if (commitGenerator.isNotEmpty()) {
+                    target.commit(commitGenerator.currentMin, commitGenerator.currentMax)
+                    commitGenerator.reset()
                 }
 
-                override fun dispose() {
-                    closeUsed()
-                }
+                // DO NOT DO THIS WHEN USING MANAGED ADDRESSES, ONLY FOR PUSH AND SORT.
+                // target.sortQuad(0, addressGenerator.end, 0f, 0f, 1f)
+                // target.commit(0, addressGenerator.end)
 
-            }, LwjglApplicationConfiguration().apply {
+                shader.begin()
+                shader.setUniformMatrix("u_projectionViewMatrix", camera.combined)
+                shader.setUniformi("u_texture", 0)
+                target.render(shader, addressGenerator.end)
+                shader.end()
+
+            }
+
+            override fun resize(width: Int, height: Int) {
+                camera.viewportWidth = width.toFloat()
+                camera.viewportHeight = height.toFloat()
+                camera.update()
+            }
+
+
+            fun updateSprites() {
+                for (n in addressGenerator.references())
+                    updateSprite(n)
+            }
+
+            fun updateSprite(n: Int) {
+                commitGenerator.touch(n)
+                target.position(n)
+
+                val f = n / 10f
+                val mat = Mat.rotationZ(seconds + f)
+                val packed = NumberUtils.intToFloatColor(Col.White.packed)
+                mat.times(0f, 0f, f) { x, y, z ->
+                    target.vertex(x, y, z, packed, region.u, region.v)
+                }
+                mat.times(0f, 2f, f) { x, y, z ->
+                    target.vertex(x, y, z, packed, region.u, region.v2)
+                }
+                mat.times(2f, 2f, f) { x, y, z ->
+                    target.vertex(x, y, z, packed, region.u2, region.v2)
+                }
+                mat.times(2f, 0f, f) { x, y, z ->
+                    target.vertex(x, y, z, packed, region.u2, region.v)
+                }
+            }
+
+            override fun dispose() {
+                closeUsed()
+            }
+        }
+    }, LwjglApplicationConfiguration().apply {
         useGL30 = true
     })
 
