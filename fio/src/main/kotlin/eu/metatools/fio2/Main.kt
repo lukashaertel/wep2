@@ -4,14 +4,18 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
-import com.badlogic.gdx.graphics.GL20
-import com.badlogic.gdx.graphics.PerspectiveCamera
-import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.*
+import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.utils.NumberUtils
+import com.maltaisn.msdfgdx.FontStyle
+import com.maltaisn.msdfgdx.MsdfFont
+import com.maltaisn.msdfgdx.MsdfShader
 import eu.metatools.fio.data.Col
 import eu.metatools.fio.data.Mat
+import eu.metatools.fio.data.asMat
 
 //private val isBoundToBuffer = BufferUtils.newIntBuffer(16)
 //fun Texture.isBoundTo(unit: Int): Boolean {
@@ -21,7 +25,60 @@ import eu.metatools.fio.data.Mat
 //    return glHandle == isBoundToBuffer.get()
 //}
 
-class QuadLayer(val shader: ShaderProgram, val combined: () -> Mat, val limit: Int = 8192) : AutoCloseable {
+interface Layer {
+    fun begin() = Unit
+    fun end() = Unit
+}
+
+inline fun Layer.runWith(block: () -> Unit) {
+    begin()
+    block()
+    end()
+}
+
+class TextLayer(val combined: () -> Mat) : Layer, AutoCloseable {
+    private val shader by lazy {
+        MsdfShader()
+    }
+
+    private val batch by lazy {
+        SpriteBatch().also {
+            it.shader = shader
+        }
+    }
+
+    override fun begin() {
+        batch.projectionMatrix = combined().asMatrix()
+        batch.begin()
+    }
+
+    @Suppress("non_public_call_from_public_inline")
+    inline fun push(font: MsdfFont, fontStyle: FontStyle, push: BitmapFont.(SpriteBatch) -> Unit) {
+        val data = font.font.data
+        val scaleX = data.scaleX
+        val scaleY = data.scaleY
+        data.setScale(fontStyle.size / font.glyphSize)
+        shader.updateForFont(font, fontStyle)
+        push(font.font, batch)
+        data.setScale(scaleX, scaleY)
+    }
+
+    fun flush() {
+        batch.flush()
+    }
+
+    override fun end() {
+        batch.end()
+    }
+
+    override fun close() {
+        shader.dispose()
+        batch.dispose()
+    }
+
+}
+
+class QuadLayer(val shader: ShaderProgram, val combined: () -> Mat, val limit: Int = 8192) : Layer, AutoCloseable {
     private val quads = Quads(limit)
 
     private var currentCount = 0
@@ -43,6 +100,7 @@ class QuadLayer(val shader: ShaderProgram, val combined: () -> Mat, val limit: I
 
         // Run block on quads.
         push(quads)
+        currentCount++
     }
 
     fun flush() {
@@ -51,6 +109,8 @@ class QuadLayer(val shader: ShaderProgram, val combined: () -> Mat, val limit: I
 
         currentTexture?.bind(0)
 
+        quads.commit(0, currentCount)
+
         shader.begin()
         shader.setUniformMatrix("u_projectionViewMatrix", combined().asMatrix())
         shader.setUniformi("u_texture", 0)
@@ -58,6 +118,10 @@ class QuadLayer(val shader: ShaderProgram, val combined: () -> Mat, val limit: I
         shader.end()
 
         currentCount = 0
+    }
+
+    override fun end() {
+        flush()
     }
 
     override fun close() {
@@ -75,6 +139,11 @@ fun main() {
 
             private val region = atlas.findRegion("pa_i_d")
 
+            private val cameraUi = OrthographicCamera(
+                    Gdx.graphics.width.toFloat(),
+                    Gdx.graphics.height.toFloat()
+            )
+
             private val camera = PerspectiveCamera(45f,
                     Gdx.graphics.width.toFloat(),
                     Gdx.graphics.height.toFloat()).also {
@@ -86,11 +155,20 @@ fun main() {
 
             private val shader = use(createDefaultShader())
 
-            private val target = use(Quads(8000))
+            private val quads = use(QuadLayer(shader, { camera.combined.asMat() }))
 
-            private val commitGenerator = CommitGenerator()
 
-            private val addressGenerator = AddressGenerator()
+            private val font = use(MsdfFont(Gdx.files.internal("fio/res/BarlowSemiCondensed-Regular.fnt"), 32f, 5f))
+
+            private val fontStyle = FontStyle()
+                    .setColor(Color.WHITE)
+                    .setSize(48f)
+                    .setShadowColor(Color.BLACK)
+
+            private val fontStyleBold = FontStyle(fontStyle)
+                    .setWeight(0.1f)
+
+            private val texts = use(TextLayer { cameraUi.combined.asMat() })
 
             private val start = System.currentTimeMillis()
 
@@ -98,6 +176,7 @@ fun main() {
 
             private var lastFrameTime = System.currentTimeMillis()
 
+            private val addresses = hashSetOf(1)
 
             override fun render() {
                 val cft = System.currentTimeMillis()
@@ -112,38 +191,38 @@ fun main() {
 
                 Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
 
+
+
                 if (Gdx.input.isKeyJustPressed(Input.Keys.A))
-                    addressGenerator.refer()
+                    addresses += (addresses.max() ?: 0).inc()
 
-                if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
-                    if (0 < addressGenerator.end) {
-                        val a = addressGenerator.references().random()
-                        addressGenerator.release(a)
+                if (Gdx.input.isKeyJustPressed(Input.Keys.D))
+                    if (addresses.isNotEmpty())
+                        addresses -= addresses.random()
 
-                        target.position(a)
-                        target.vertexEmpty()
-                        target.vertexEmpty()
-                        target.vertexEmpty()
-                        target.vertexEmpty()
-                        commitGenerator.touch(a)
+                quads.runWith {
+                    for (i in addresses)
+                        quads.push(region.texture) {
+                            writeSprite(i)
+                        }
+                }
+
+                texts.runWith {
+                    var posX = 50f
+                    var posY = 50f
+                    texts.push(font, fontStyle) {
+                        posX += draw(it, "Hello world.", posX, posY).width
+                    }
+                    texts.flush()
+                    texts.push(font, fontStyleBold) {
+                        posX += draw(it, " 4000", posX, posY).width
+                    }
+                    texts.flush()
+                    texts.push(font, fontStyle) {
+                        posX += draw(it, " gold.", posX, posY).width
                     }
                 }
 
-                updateSprites()
-                if (commitGenerator.isNotEmpty()) {
-                    target.commit(commitGenerator.currentMin, commitGenerator.currentMax)
-                    commitGenerator.reset()
-                }
-
-                // DO NOT DO THIS WHEN USING MANAGED ADDRESSES, ONLY FOR PUSH AND SORT.
-                // target.sortQuad(0, addressGenerator.end, 0f, 0f, 1f)
-                // target.commit(0, addressGenerator.end)
-
-                shader.begin()
-                shader.setUniformMatrix("u_projectionViewMatrix", camera.combined)
-                shader.setUniformi("u_texture", 0)
-                target.render(shader, addressGenerator.end)
-                shader.end()
 
             }
 
@@ -151,32 +230,26 @@ fun main() {
                 camera.viewportWidth = width.toFloat()
                 camera.viewportHeight = height.toFloat()
                 camera.update()
+                cameraUi.viewportWidth = width.toFloat()
+                cameraUi.viewportHeight = height.toFloat()
+                cameraUi.update()
             }
 
-
-            fun updateSprites() {
-                for (n in addressGenerator.references())
-                    updateSprite(n)
-            }
-
-            fun updateSprite(n: Int) {
-                commitGenerator.touch(n)
-                target.position(n)
-
+            fun Quads.writeSprite(n: Int) {
                 val f = n / 10f
                 val mat = Mat.rotationZ(seconds + f)
                 val packed = NumberUtils.intToFloatColor(Col.White.packed)
                 mat.times(0f, 0f, f) { x, y, z ->
-                    target.vertex(x, y, z, packed, region.u, region.v)
+                    vertex(x, y, z, packed, region.u, region.v)
                 }
                 mat.times(0f, 2f, f) { x, y, z ->
-                    target.vertex(x, y, z, packed, region.u, region.v2)
+                    vertex(x, y, z, packed, region.u, region.v2)
                 }
                 mat.times(2f, 2f, f) { x, y, z ->
-                    target.vertex(x, y, z, packed, region.u2, region.v2)
+                    vertex(x, y, z, packed, region.u2, region.v2)
                 }
                 mat.times(2f, 0f, f) { x, y, z ->
-                    target.vertex(x, y, z, packed, region.u2, region.v)
+                    vertex(x, y, z, packed, region.u2, region.v)
                 }
             }
 

@@ -601,3 +601,8 @@ val Number.deg get() = toFloat() * 0.017453292519943295f
  * Returns the radians for the degrees.
  */
 val Float.deg get() = times(0.017453292519943295f)
+
+/**
+ * Returns a non-locked view of the receiver.
+ */
+fun Matrix4.asMat() = Mat(values)

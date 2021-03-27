@@ -1,109 +1,30 @@
 package eu.metatools.sx
 
 import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.Input
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
+import com.badlogic.gdx.graphics.GL20
+import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.esotericsoftware.kryo.Kryo
-import eu.metatools.fio.Fio
-import eu.metatools.fio.data.Mat
-import eu.metatools.fio.data.Vec
-import eu.metatools.fio.tools.*
-import eu.metatools.sx.ents.World
 import eu.metatools.fig.BaseGame
+import eu.metatools.fio.data.Vec
+import eu.metatools.reaktor.ex.hostRoot
+import eu.metatools.reaktor.gdx.VStage
+import eu.metatools.reaktor.reconcileNode
+import eu.metatools.sx.ents.Reakted
+import eu.metatools.sx.ents.World
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.Bind
-
-
-class SXRes(val fio: Fio) {
-    val solid by lazy { fio.use(SolidResource()) }
-
-    val data by lazy { fio.use(DataResource()) }
-
-    val segoe by lazy {
-        fio.use(TextResource { findDefinitions(Gdx.files.internal("segoe_ui")) })
-    }
-
-    val infoText by lazy {
-        segoe[ReferText(
-            horizontal = Location.Start,
-            vertical = Location.Start,
-            bold = true
-        )]
-    }
-
-    val box by lazy {
-        fio.use(BoxResource())
-    }
-
-    val brick by lazy {
-        fio.use(RawTextureResource { Gdx.files.internal("brick.png") })
-    }
-    val dirt by lazy {
-        fio.use(RawTextureResource { Gdx.files.internal("dirt.png") })
-    }
-
-    val water by lazy {
-        fio.use(RawTextureResource { Gdx.files.internal("water.png") })
-    }
-
-
-    val white by lazy {
-        fio.use(RawTextureResource { Gdx.files.internal("white.png") })
-    }
-
-    val shader by lazy { fio.use(StandardShaderResource()) }
-
-    val rock by lazy {
-        ObjectResource(
-            box, brick, shader,
-            transform = "u_transform",
-            projection = "u_projection",
-            color = "u_color",
-            material = "u_texture"
-        )
-    }
-
-    val soil by lazy {
-        ObjectResource(
-            box, dirt, shader,
-            transform = "u_transform",
-            projection = "u_projection",
-            color = "u_color",
-            material = "u_texture"
-        )
-    }
-
-    val fluid by lazy {
-        ObjectResource(
-            box, water, shader,
-            transform = "u_transform",
-            projection = "u_projection",
-            color = "u_color",
-            material = "u_texture"
-        )
-    }
-
-    val highlight by lazy {
-        ObjectResource(
-            box, white, shader,
-            transform = "u_transform",
-            projection = "u_projection",
-            color = "u_color",
-            material = "u_texture"
-        )
-    }
-}
+import eu.metatools.up.list
 
 class SX : BaseGame(radiusLimit = 16f) {
-    val res = SXRes(this)
-
     lateinit var root: World
 
     override fun configureNet(kryo: Kryo) =
-        configureKryo(kryo)
+            configureKryo(kryo)
 
     override fun shellResolve() {
         root = shell.resolve(lx / "root") as? World ?: error("Unsatisfied, root does not exist")
@@ -111,7 +32,11 @@ class SX : BaseGame(radiusLimit = 16f) {
 
     override fun shellCreate() {
         root = World(shell, lx / "root", this)
-            .also(shell.engine::add)
+                .also(shell.engine::add)
+    }
+
+    override fun Bind<Time>.shellAlways() {
+        updateUi()
     }
 
     override fun Bind<Time>.inputShell(time: Double, delta: Double) {
@@ -123,41 +48,35 @@ class SX : BaseGame(radiusLimit = 16f) {
         root.worldUpdate(timeMs)
     }
 
-    override fun outputInit() {
-        world.view = Mat.lookAt(Vec(50f, 50f, 50f), Vec.Zero, Vec.Y)
+    private var ui: Stage? = null
+
+    private var uiNode by reconcileNode {
+        ui = it as Stage
+        Gdx.input.inputProcessor = ui
+    }
+
+    val updateUi = hostRoot({ uiNode = it }) {
+        VStage(viewport = ScreenViewport().also { it.unitsPerPixel = 1f / (Gdx.graphics.density * 1.5f) }) {
+            shell.list<Reakted>().forEach {
+                receive(it.render())
+            }
+        }
+    }
+
+    override fun resize(width: Int, height: Int) {
+        ui?.viewport?.update(width, height, true)
     }
 
     override fun inputOther(time: Double, delta: Double) {
-        val x = world.view.inv.x
-        val y = world.view.inv.y
-        val z = world.view.inv.z
 
-        val speed = 30f
-        if (Gdx.input.isKeyPressed(Input.Keys.D))
-            world.view = world.view.translate(-x * delta.toFloat() * speed)
-        if (Gdx.input.isKeyPressed(Input.Keys.A))
-            world.view = world.view.translate(x * delta.toFloat() * speed)
-        if (Gdx.input.isKeyPressed(Input.Keys.S))
-            world.view = world.view.translate(-z * delta.toFloat() * speed)
-        if (Gdx.input.isKeyPressed(Input.Keys.W))
-            world.view = world.view.translate(z * delta.toFloat() * speed)
-
-        if (Gdx.input.isKeyPressed(Input.Keys.Z))
-            world.view = world.view.translate(y * delta.toFloat() * speed)
-        if (Gdx.input.isKeyPressed(Input.Keys.Q))
-            world.view = world.view.translate(-y * delta.toFloat() * speed)
     }
 
-    val world = addLayer(0, layerPerspective(invertedSorting = true, zFar = 1000f))
-
-    val ui = addLayer(1, layerOrthographic(true)).also {
-        it.view = Mat.scaling(2f)
-    }
 
     override fun output(time: Double, delta: Double) {
-        world.begin()
-        root.render(time, delta)
-        world.end()
+        Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1f)
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+        ui?.act(Gdx.graphics.deltaTime)
+        ui?.draw()
     }
 
     private var location: Any? = null
@@ -169,7 +88,9 @@ class SX : BaseGame(radiusLimit = 16f) {
 fun main() {
     // Set config values.
     val config = LwjglApplicationConfiguration()
-    config.height = config.width
+    config.samples = 16
+    config.width = 1920
+    config.height = 1080
 
     // Start application.
     LwjglApplication(SX(), config)

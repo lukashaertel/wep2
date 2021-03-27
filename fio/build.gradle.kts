@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 val gdxVersion = "1.9.10"
 
 plugins {
-    kotlin("jvm") version "1.3.72"
+    kotlin("jvm") version "1.4.31"
 }
 
 repositories {
@@ -20,6 +20,7 @@ dependencies {
     implementation("com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion")
     implementation("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
     implementation("com.esotericsoftware:kryo:5.0.0-RC4")
+    implementation("com.maltaisn:msdf-gdx:0.2.0")
 }
 
 tasks.withType<KotlinCompile> {
