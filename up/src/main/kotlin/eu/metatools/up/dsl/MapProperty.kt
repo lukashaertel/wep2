@@ -16,8 +16,8 @@ import kotlin.reflect.KProperty
  * @property removed The removed entries.
  */
 data class MapChange<K, V>(
-    val added: SortedMap<K, V>,
-    val removed: SortedMap<K, V>
+        val added: SortedMap<K, V>,
+        val removed: SortedMap<K, V>
 ) : Change<MapChange<K, V>> {
     /**
      * The comparator used for sorting.
@@ -29,18 +29,18 @@ data class MapChange<K, V>(
      * that are also mentioned as changes are ignored.
      */
     constructor(
-        inserted: SortedMap<K, V>,
-        changed: SortedMap<K, Pair<V, V>>,
-        deleted: SortedMap<K, V>
+            inserted: SortedMap<K, V>,
+            changed: SortedMap<K, Pair<V, V>>,
+            deleted: SortedMap<K, V>
     ) : this(
-        // Override inserted values with change ends.
-        changed.entries.associateTo(TreeMap(inserted)) {
-            it.key to it.value.second
-        },
-        // Override deleted values with change starts.
-        changed.entries.associateTo(TreeMap(deleted)) {
-            it.key to it.value.first
-        }
+            // Override inserted values with change ends.
+            changed.entries.associateTo(TreeMap(inserted)) {
+                it.key to it.value.second
+            },
+            // Override deleted values with change starts.
+            changed.entries.associateTo(TreeMap(deleted)) {
+                it.key to it.value.first
+            }
     )
 
     /**
@@ -74,33 +74,33 @@ data class MapChange<K, V>(
     }
 
     override fun merge(other: MapChange<K, V>) =
-        MapChange<K, V>(
-            // A' union (A subtract R')
-            added.filterTo(TreeMap<K, V>(comparator)) { (k, v) ->
-                other.removed[k] != v
-            }.also {
-                it.putAll(other.added)
-            },
-            // R union (R' subtract A)
-            other.removed.filterTo(TreeMap<K, V>(comparator)) { (k, v) ->
-                added[k] != v
-            }.also {
-                it.putAll(removed)
-            }
-        )
+            MapChange<K, V>(
+                    // A' union (A subtract R')
+                    added.filterTo(TreeMap<K, V>(comparator)) { (k, v) ->
+                        other.removed[k] != v
+                    }.also {
+                        it.putAll(other.added)
+                    },
+                    // R union (R' subtract A)
+                    other.removed.filterTo(TreeMap<K, V>(comparator)) { (k, v) ->
+                        added[k] != v
+                    }.also {
+                        it.putAll(removed)
+                    }
+            )
 
     override fun invert() =
-        MapChange(removed, added)
+            MapChange(removed, added)
 
     override fun isChange() =
-        removed.isNotEmpty() || added.isNotEmpty()
+            removed.isNotEmpty() || added.isNotEmpty()
 
     /**
      * Applies the change to a map.
      */
     fun apply(map: Map<K, V>) =
-        // Compose via set arithmetic.
-        (map - removed) + added
+            // Compose via set arithmetic.
+            (map - removed) + added
 
     /**
      * Applies the change to a map.
@@ -114,29 +114,29 @@ data class MapChange<K, V>(
     }
 
     override fun toString() =
-        if (added.isEmpty()) {
-            if (removed.isEmpty())
-                "unchanged"
-            else
-                "-$removed"
-        } else {
+            if (added.isEmpty()) {
+                if (removed.isEmpty())
+                    "unchanged"
+                else
+                    "-$removed"
+            } else {
 
-            if (removed.isEmpty())
-                "+$added"
-            else
-                "+$added, -$removed"
-        }
+                if (removed.isEmpty())
+                    "+$added"
+                else
+                    "+$added, -$removed"
+            }
 }
 
 /**
  * Map property, uses the full [name] and the given initial value assignment [init] on non-restore..
  */
 class MapProperty<K, V>(
-    override val name: String,
-    val comparator: Comparator<in K>?,
-    val ent: Ent,
-    val init: () -> Map<K, V>,
-    val changed: ((MapChange<K, V>) -> Unit)?
+        override val name: String,
+        val comparator: Comparator<in K>?,
+        val ent: Ent,
+        val init: () -> Map<K, V>,
+        val changed: ((MapChange<K, V>) -> Unit)?
 ) : Part, ReadOnlyProperty<Any?, NavigableMap<K, V>> {
     private val shell get() = ent.shell
 
@@ -146,23 +146,33 @@ class MapProperty<K, V>(
     private lateinit var current: ObservedMap<K, V>
 
     private fun createObservedMap(from: Map<K, V>) =
-        ObservedMap(TreeMap<K, V>(comparator).apply { putAll(from) }) { add, remove ->
-            // If listening, notify changed.
-            changed?.invoke(MapChange(add, remove))
+            ObservedMap(TreeMap<K, V>(comparator).apply { putAll(from) }) { add, remove ->
+                // Create change object.
+                val changeSet = MapChange(add, remove)
 
-            // Capture undo.
-            shell.engine.capture {
-                // Undo changes properly.
-                current.actual.entries.removeAll(add.entries)
-                current.actual.putAll(remove)
+                // If listening, notify changed.
+                changed?.invoke(changeSet)
+                notifyHandle(name, changeSet)
 
-                // If listening, notify changed back.
-                changed?.invoke(MapChange(remove, add))
+                // Capture undo.
+                shell.engine.capture {
+                    // Undo changes properly.
+                    current.actual.entries.removeAll(add.entries)
+                    current.actual.putAll(remove)
+
+                    // If listening, notify changed back.
+                    val changeReset = MapChange(remove, add)
+
+                    // If listening, notify changed back.
+                    changed?.invoke(changeReset)
+                    notifyHandle(name, changeReset)
+                }
             }
-        }
 
     override var isConnected = false
         private set
+
+    override lateinit var notifyHandle: (name: String, change: Change<*>) -> Unit
 
     override fun connect(partIn: PartIn?) {
         // Load from store and register saving if needed.
@@ -187,25 +197,29 @@ class MapProperty<K, V>(
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =
-        validate(ent.driver.isConnected) {
-            "Access to property in detached entity."
-        } ?: current
+            validate(ent.driver.isConnected) {
+                "Access to property in detached entity."
+            } ?: current
 
     override fun ready() {
+        // Create ready change.
+        val propReady = MapChange(TreeMap(current), current.aligned())
+
         // Invoke initial change.
-        changed?.invoke(MapChange(TreeMap(current), current.aligned()))
+        changed?.invoke(propReady)
+        notifyHandle(name, propReady)
     }
 
     override fun toString() =
-        if (isConnected) current.toString() else "<$name, detached>"
+            if (isConnected) current.toString() else "<$name, detached>"
 }
 
 /**
  * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
  */
 fun <K : Comparable<K>, V> map(
-    comparator: Comparator<in K>?,
-    init: () -> Map<K, V> = ::emptyMap
+        comparator: Comparator<in K>?,
+        init: () -> Map<K, V> = ::emptyMap
 ) = ReadOnlyPropertyProvider { ent: Ent, property ->
     // Perform optional type check.
     Types.performTypeCheck(ent, property, true)
@@ -221,15 +235,15 @@ fun <K : Comparable<K>, V> map(
  * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
  */
 fun <K : Comparable<K>, V> map(init: () -> Map<K, V> = ::emptyMap) =
-    map(null, init)
+        map(null, init)
 
 /**
  * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
  */
 fun <K : Comparable<K>, V> mapObserved(
-    comparator: Comparator<in K>?,
-    init: () -> Map<K, V> = ::emptyMap,
-    changed: (MapChange<K, V>) -> Unit
+        comparator: Comparator<in K>?,
+        init: () -> Map<K, V> = ::emptyMap,
+        changed: (MapChange<K, V>) -> Unit
 ) = ReadOnlyPropertyProvider { ent: Ent, property ->
     // Perform optional type check.
     Types.performTypeCheck(ent, property, true)
@@ -245,4 +259,4 @@ fun <K : Comparable<K>, V> mapObserved(
  * Creates a tracked property that represents a [NavigableMap] with keys which must be comparable.
  */
 fun <K : Comparable<K>, V> mapObserved(init: () -> Map<K, V> = ::emptyMap, changed: (MapChange<K, V>) -> Unit) =
-    mapObserved(null, init, changed)
+        mapObserved(null, init, changed)

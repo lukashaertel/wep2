@@ -11,6 +11,7 @@ import kotlin.reflect.KClass
 fun setDefaults(kryo: Kryo) {
     // Do not enforce registration.
     kryo.isRegistrationRequired = false
+    kryo.references = true
 }
 
 fun registerKotlinSerializers(kryo: Kryo) {

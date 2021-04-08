@@ -126,7 +126,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
                 currentUndo.clear()
 
                 // Resolve entity, perform operation.
-                resolve(it.instruction.target)?.driver?.perform(it.instruction)
+                resolve(it.instruction.target)?.driver?.perform(it.instruction.toValueWith(this))
 
                 // Compile undo.
                 val undos = currentUndo.asReversed().toList()
@@ -176,9 +176,11 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
 
         override fun exchange(instruction: Instruction) {
             runWithStateOf(instruction.time) {
-                // Add to register, transmit instruction with proxies.
-                insertToRegister(instruction)
-                send?.invoke(instruction.toProxyWith(shell))
+                instruction.toProxyWith(shell).let {
+                    // Add proxy to register and transmit.
+                    insertToRegister(it)
+                    send?.invoke(it)
+                }
             }
         }
 
@@ -190,7 +192,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
             runWithStateOf(limit) {
                 // Add all to register, assert was empty.
                 for (instruction in instructions)
-                    insertToRegister(instruction)
+                    insertToRegister(instruction.toProxyWith(shell))
             }
         }
 
@@ -292,7 +294,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
             (shellIn(bundleRoot / nameRegister) as List<Instruction>).let {
                 // Associate by time into register.
                 it.associateTo(register) { inst ->
-                    inst.time to Reg(inst.toValueWith(this)) {}
+                    inst.time to Reg(inst) {}
                 }
             }
 
@@ -334,7 +336,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
             // Save instruction register.
             register.values.map { it.instruction }.let {
                 // Save whole list under instruction replay table.
-                shellOut(bundleRoot / nameRegister, it.map { inst -> inst.toProxyWith(this) })
+                shellOut(bundleRoot / nameRegister, it)
             }
         }
     }
@@ -354,7 +356,7 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
         runWithStateOf(limit) {
             // Add all to register from proxies, assert was empty.
             for (instruction in instructions)
-                insertToRegister(instruction.toValueWith(this))
+                insertToRegister(instruction)
         }
     }
 

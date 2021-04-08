@@ -1,19 +1,23 @@
 package eu.metatools.sx
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
 import com.badlogic.gdx.graphics.GL20
+import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import com.esotericsoftware.kryo.Kryo
 import eu.metatools.fig.BaseGame
 import eu.metatools.fio.data.Vec
 import eu.metatools.reaktor.ex.hostRoot
-import eu.metatools.reaktor.gdx.VStage
+import eu.metatools.reaktor.gdx.stage
 import eu.metatools.reaktor.reconcileNode
 import eu.metatools.sx.ents.Reakted
 import eu.metatools.sx.ents.World
+import eu.metatools.sx.ents.deselect
+import eu.metatools.sx.ui.CaptureProcessor
 import eu.metatools.up.dt.Time
 import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
@@ -40,25 +44,43 @@ class SX : BaseGame(radiusLimit = 16f) {
     }
 
     override fun Bind<Time>.inputShell(time: Double, delta: Double) {
+        if (capturer?.handled == true) {
+            capturer?.reset()
+            return
+        }
 
+        ui?.viewport?.let {
+            val v = it.unproject(Vector2(Gdx.input.x.toFloat(), Gdx.input.y.toFloat()))
+
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT))
+                root.buildDome(v.x, v.y, Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT))
+
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT))
+                shell.deselect()
+        }
     }
+
 
     override fun inputRepeating(timeMs: Long) {
         // Update global time takers.
         root.worldUpdate(timeMs)
     }
 
+    private var capturer: CaptureProcessor? = null
     private var ui: Stage? = null
 
     private var uiNode by reconcileNode {
         ui = it as Stage
-        Gdx.input.inputProcessor = ui
+        capturer = CaptureProcessor(it)
+        Gdx.input.inputProcessor = capturer
     }
 
-    val updateUi = hostRoot({ uiNode = it }) {
-        VStage(viewport = ScreenViewport().also { it.unitsPerPixel = 1f / (Gdx.graphics.density * 1.5f) }) {
+    var updateUiRequested = false
+
+    private val updateUi = hostRoot({ uiNode = it }) {
+        stage(viewport = ScreenViewport().also { it.unitsPerPixel = 1f / (Gdx.graphics.density * 1.5f) }) {
             shell.list<Reakted>().forEach {
-                receive(it.render())
+                it.renderPrimary()
             }
         }
     }
@@ -73,6 +95,11 @@ class SX : BaseGame(radiusLimit = 16f) {
 
 
     override fun output(time: Double, delta: Double) {
+        if (updateUiRequested) {
+            updateUi()
+            updateUiRequested = false
+        }
+
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
         ui?.act(Gdx.graphics.deltaTime)

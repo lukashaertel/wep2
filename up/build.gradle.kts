@@ -15,7 +15,7 @@ dependencies {
     implementation("org.jgroups:jgroups:4.1.8.Final")
     implementation("com.google.guava:guava:28.1-jre")
 
-    implementation("com.esotericsoftware:kryo:5.0.0-RC4")
+    implementation("com.esotericsoftware:kryo:5.0.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.6")
 }
 

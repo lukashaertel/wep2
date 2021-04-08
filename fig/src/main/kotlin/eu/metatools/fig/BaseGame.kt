@@ -20,6 +20,7 @@ import kotlin.reflect.KParameter
 import kotlin.reflect.full.createType
 import kotlin.reflect.full.isSubtypeOf
 
+// TODO: Decoupling from FIO?
 /**
  * Basic game infrastructure.
  * @property radiusLimit The largest object radius. Specified to drop all objects outside of the view frustum.
@@ -192,6 +193,15 @@ abstract class BaseGame(radiusLimit: Float = 1f, machineID: UUID = UUID.randomUU
         }
     }
 
+
+    /**
+     * Gets a [Bind] with the network clock.
+     */
+    inline fun withTime(block: Bind<Time>.() -> Unit) =
+            @Suppress("protected_call_from_public_inline_error")
+            shell.withTime(netClock, block)
+
+    // TODO: Input processor
     /**
      * Creates for a render step the inputs to the shell from the user.
      */

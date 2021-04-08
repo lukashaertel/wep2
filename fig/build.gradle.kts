@@ -17,7 +17,7 @@ dependencies {
     implementation("com.badlogicgames.gdx:gdx:$gdxVersion")
     implementation("com.badlogicgames.gdx:gdx-backend-lwjgl:$gdxVersion")
     implementation("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
-    implementation("com.esotericsoftware:kryo:5.0.0-RC4")
+    implementation("com.esotericsoftware:kryo:5.0.4")
 
     implementation(project(":up"))
     implementation(project(":fio"))

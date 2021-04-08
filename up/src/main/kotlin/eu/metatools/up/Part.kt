@@ -1,5 +1,7 @@
 package eu.metatools.up
 
+import eu.metatools.up.dt.Change
+
 /**
  * A part of an [Ent]s [Driver].
  */
@@ -13,6 +15,11 @@ interface Part {
      * ID of the part.
      */
     val name: String // TODO: Investigate, replace with compact structure.
+
+    /**
+     * Handle to notify changes to.
+     */
+    var notifyHandle: (name: String, change: Change<*>) -> Unit
 
     /**
      * Invoked when parent [Ent] is connected or when inserting into a connected [Ent].

@@ -91,18 +91,29 @@ class SetProperty<E>(
     override var isConnected = false
         private set
 
+    override lateinit var notifyHandle: (name: String, change: Change<*>) -> Unit
+
     private fun createObservedSet(from: List<E>) =
         ObservedSet(TreeSet(comparator).apply { addAll(from) }) { add, remove ->
+            // Create change object.
+            val changeSet = SetChange(add, remove)
+
             // If listening, notify changed.
-            changed?.invoke(SetChange(add, remove))
+            changed?.invoke(changeSet)
+            notifyHandle(name, changeSet)
+
 
             shell.engine.capture {
                 // Undo changes properly.
                 current.actual.removeAll(add)
                 current.actual.addAll(remove)
 
+                // Create reset change object.
+                val changeReset = SetChange(remove, add)
+
                 // If listening, notify changed back.
-                changed?.invoke(SetChange(remove, add))
+                changed?.invoke(changeReset)
+                notifyHandle(name, changeReset)
             }
         }
 
@@ -129,8 +140,12 @@ class SetProperty<E>(
     }
 
     override fun ready() {
+        // Create ready change.
+        val propReady= SetChange(TreeSet(current), current.aligned())
+
         // Invoke initial change.
-        changed?.invoke(SetChange(TreeSet(current), current.aligned()))
+        changed?.invoke(propReady)
+        notifyHandle(name, propReady)
     }
 
     override operator fun getValue(thisRef: Any?, property: KProperty<*>) =

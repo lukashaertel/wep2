@@ -49,6 +49,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             requireUnconnected()
 
             parts[part.name] = part
+            part.notifyHandle = { name, change -> ent.partChanged(name, change) }
         }
 
         /**
@@ -165,7 +166,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * specialized by appending another node, i.e., by a number locally incrementing for the call.
      */
     protected fun newId() =
-        id / method / time
+            id / method / time
 
     /**
      * Gets the fractional seconds since the shell was initialized.
@@ -212,6 +213,8 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * Invoked before property disconnection.
      */
     protected open fun preDisconnect() = Unit
+
+    protected open fun partChanged(name: String, change: Change<*>) = Unit
 
     /**
      * Creates an exchanged send/perform wrapper for the function.
@@ -295,12 +298,12 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         // Return send invocation.
         return { time, arg1, arg2, arg3 ->
             shell.engine.exchange(
-                Instruction(
-                    id,
-                    name,
-                    time,
-                    listOf(arg1, arg2, arg3)
-                )
+                    Instruction(
+                            id,
+                            name,
+                            time,
+                            listOf(arg1, arg2, arg3)
+                    )
             )
         }
     }
@@ -326,12 +329,12 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         // Return send invocation.
         return { time, arg1, arg2, arg3, arg4 ->
             shell.engine.exchange(
-                Instruction(
-                    id,
-                    name,
-                    time,
-                    listOf(arg1, arg2, arg3, arg4)
-                )
+                    Instruction(
+                            id,
+                            name,
+                            time,
+                            listOf(arg1, arg2, arg3, arg4)
+                    )
             )
         }
     }
@@ -350,10 +353,10 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * @param function The function to run. Itself will have [time] properly assigned during it's invocation.
      */
     protected fun repeating(
-        player: Short,
-        frequency: Long,
-        init: () -> Long,
-        function: () -> Unit
+            player: Short,
+            frequency: Long,
+            init: () -> Long,
+            function: () -> Unit
     ): (Long) -> Unit {
         // Mark errors.
         require(!driver.isConnected) { "Marking repeating in connected entity, this is most likely an invalid call." }
@@ -380,6 +383,10 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
 
             override val name: String
                 get() = tickerId
+
+            override var notifyHandle: (String, Change<*>) -> Unit
+                get() = throw UnsupportedOperationException()
+                set(_) {}
 
             override fun connect(partIn: PartIn?) {
                 // Restore last value if loading.
@@ -408,7 +415,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             }
 
             override fun toString() =
-                "<repeating, ~$frequency - $initial>"
+                    "<repeating, ~$frequency - $initial>"
         })
 
         // Return non-exchanged local invocation.
@@ -436,15 +443,15 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     }
 
     override fun compareTo(other: Ent) =
-        id.compareTo(other.id)
+            id.compareTo(other.id)
 
     override fun toString() =
-        extraArgs.let {
-            if (it.isNullOrEmpty())
-                "${this::class.simpleName}#$id"
-            else
-                "${this::class.simpleName}#$id $it"
-        }
+            extraArgs.let {
+                if (it.isNullOrEmpty())
+                    "${this::class.simpleName}#$id"
+                else
+                    "${this::class.simpleName}#$id $it"
+            }
 }
 
 /**
@@ -453,4 +460,4 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
  * @since Entities might be deleted and still referred to in frontend. This will not be necessary in future revisions.
  */
 fun Any.isConnected() =
-    this !is Ent || driver.isConnected
+        this !is Ent || driver.isConnected
