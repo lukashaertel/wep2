@@ -17,7 +17,7 @@ fun easeInOutCubic(x: Float): Float {
     return 1f - u * u * u / 2f
 }
 
-val renderDome = component { xy: Pair<Float, Float>, radius: Float, selected: Boolean, select: () -> Unit ->
+val renderDome = component { x: Float, y: Float, radius: Float, selected: Boolean, select: () -> Unit ->
     val listener = inputListener {
         if (it.type == InputEvent.Type.touchDown)
             true.also { select() }
@@ -28,7 +28,7 @@ val renderDome = component { xy: Pair<Float, Float>, radius: Float, selected: Bo
     VSpriteActor(if (selected) WorldRes.roundDrawableRed else WorldRes.roundDrawable,
             width = radius * 2f,
             height = radius * 2f,
-            x = xy.first - radius, y = xy.second - radius,
+            x = x - radius, y = y - radius,
             listeners = listOf(listener))
 }
 
@@ -51,7 +51,7 @@ class Dome(
     }
 
     override fun renderPrimary() {
-        renderDome(id, x to y, radius, selected) {
+        renderDome(id, x, y, radius, selected) {
             // On clicked.
             val currentSelected = shell.selection
             if (currentSelected is Dome) {
