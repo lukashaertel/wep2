@@ -66,7 +66,7 @@ class World(shell: Shell, id: Lx, sx: SX) : SXEnt(shell, id, sx), Reakted {
 
     val buildDome = exchange { x: Float, y: Float, large: Boolean ->
         val radius = if (large) 50f else 25f
-        if (shell.list<Dome>().none { Vector2.dst2(x,y,it.x, it.y) < (radius + it.radius).let { it*it } })
+        if (shell.list<Dome>().none { Vector2.dst2(x, y, it.x, it.y) < (radius + it.radius).let { it * it } })
             domes.add(constructed(Dome(shell, newId() / 1, sx, x, y, radius)))
     }
 
