@@ -23,12 +23,13 @@ import eu.metatools.up.dt.div
 import eu.metatools.up.dt.lx
 import eu.metatools.up.lang.Bind
 import eu.metatools.up.list
+import java.util.*
 
 class SX : BaseGame(radiusLimit = 16f) {
     lateinit var root: World
 
     override fun configureNet(kryo: Kryo) =
-            configureKryo(kryo)
+        configureKryo(kryo)
 
     override fun shellResolve() {
         root = shell.resolve(lx / "root") as? World ?: error("Unsatisfied, root does not exist")
@@ -36,7 +37,7 @@ class SX : BaseGame(radiusLimit = 16f) {
 
     override fun shellCreate() {
         root = World(shell, lx / "root", this)
-                .also(shell.engine::add)
+            .also(shell.engine::add)
     }
 
     override fun Bind<Time>.shellAlways() {
@@ -79,9 +80,11 @@ class SX : BaseGame(radiusLimit = 16f) {
 
     private val updateUi = hostRoot({ uiNode = it }) {
         stage(viewport = ScreenViewport().also { it.unitsPerPixel = 1f / (Gdx.graphics.density * 1.5f) }) {
-            shell.list<Reakted>().forEach {
-                it.renderPrimary()
-            }
+            shell.list<Reakted>()
+                .groupByTo(TreeMap<Int, MutableList<Reakted>>()) { it.layer.z }
+                .forEach {
+                    it.value.forEach(Reakted::renderPrimary)
+                }
         }
     }
 
@@ -93,14 +96,13 @@ class SX : BaseGame(radiusLimit = 16f) {
 
     }
 
-
     override fun output(time: Double, delta: Double) {
         if (updateUiRequested) {
             updateUi()
             updateUiRequested = false
         }
 
-        Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1f)
+        Gdx.gl.glClearColor(0.6f, 0.35f, 0.30f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
         ui?.act(Gdx.graphics.deltaTime)
         ui?.draw()

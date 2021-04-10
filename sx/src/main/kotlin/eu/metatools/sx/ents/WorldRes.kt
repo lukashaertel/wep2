@@ -13,6 +13,7 @@ import eu.metatools.reaktor.gdx.shapes.Fill
 import eu.metatools.reaktor.gdx.shapes.Line
 import eu.metatools.reaktor.gdx.shapes.RectDrawable
 import eu.metatools.reaktor.gdx.shapes.RectRoundedDrawable
+import eu.metatools.reaktor.gdx.test.LayerDrawable
 import eu.metatools.reaktor.gdx.utils.hex
 
 object WorldRes {
@@ -26,12 +27,24 @@ object WorldRes {
         RectRoundedDrawable(Line, 4f, Color.WHITE)
     }
 
-    val fontWhite by lazy {
+    val fontBase by lazy {
         FontStyle()
-                .setColor("#ffffff".hex)
-                .setShadowOffset(Vector2(1f, 1f))
-                .setShadowColor("#00000060".hex)
-                .setSize(18f)
+            .setColor("#ffffff".hex)
+            .setShadowOffset(Vector2(1f, 1f))
+            .setShadowColor("#00000060".hex)
+            .setSize(18f)
+    }
+
+    val fontPrimary by lazy {
+        FontStyle(fontBase).setColor("#e0e0e0".hex)
+    }
+
+    val fontHighlight by lazy {
+        FontStyle(fontBase).setColor("#ffd861".hex)
+    }
+
+    val fontWarn by lazy {
+        FontStyle(fontBase).setColor("#e00b0b".hex)
     }
 
     val textureWhite by lazy {
@@ -39,6 +52,13 @@ object WorldRes {
             setColor(Color.WHITE)
             fill()
         }))
+    }
+
+    val menuBorder by lazy {
+        LayerDrawable(
+            RectDrawable(Fill, "#ffffff20".hex),
+            RectDrawable(Line, "#ffffff".hex),
+        )
     }
 
     val boxDrawable by lazy {

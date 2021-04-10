@@ -25,30 +25,38 @@ val renderDome = component { x: Float, y: Float, radius: Float, selected: Boolea
             false
     }
 
-    VSpriteActor(if (selected) WorldRes.roundDrawableRed else WorldRes.roundDrawable,
-            width = radius * 2f,
-            height = radius * 2f,
-            x = x - radius, y = y - radius,
-            listeners = listOf(listener))
+    VSpriteActor(
+        if (selected) WorldRes.roundDrawableRed else WorldRes.roundDrawable,
+        width = radius * 2f,
+        height = radius * 2f,
+        x = x - radius, y = y - radius,
+        listeners = listOf(listener)
+    )
 }
 
-interface ResourceProducing {
-    val rps: Map<String, Double>
+interface ResSupply {
+    val supply: Map<String, Double>
+}
+
+interface ResFlow {
+    val resPerSecond: Map<String, Double>
 }
 
 class Dome(
-        shell: Shell, id: Lx, sx: SX,
-        val x: Float, val y: Float, val radius: Float,
-) : SXEnt(shell, id, sx), Reakted, Selectable, ResourceProducing {
+    shell: Shell, id: Lx, sx: SX,
+    val x: Float, val y: Float, val radius: Float,
+) : SXEnt(shell, id, sx), Reakted, Selectable, ResSupply, ResFlow {
     override val extraArgs = mapOf(
-            "x" to x,
-            "y" to y,
-            "radius" to radius
+        "x" to x,
+        "y" to y,
+        "radius" to radius
     )
 
     override var selected by observable(false) { _, _, _ ->
         sx.updateUiRequested = true
     }
+
+    override val layer = Layer.Main
 
     override fun renderPrimary() {
         renderDome(id, x, y, radius, selected) {
@@ -66,7 +74,7 @@ class Dome(
     }
 
     private fun canConnectTo(other: Dome): Boolean =
-            Vector2.dst2(x, y, other.x, other.y) < (200f * 200f)
+        Vector2.dst2(x, y, other.x, other.y) < (200f * 200f)
 
     val connectTo = exchange { other: Dome ->
         if (canConnectTo(other))
@@ -76,9 +84,15 @@ class Dome(
             }
     }
 
-    override val rps =
-            if (radius < 50f)
-                mapOf("Oxygen" to -0.1, "Energy" to -0.1, "Influence" to 0.1)
-            else
-                mapOf("Oxygen" to -0.2, "Energy" to -0.2, "Influence" to 0.3)
+    override val supply =
+        if (radius < 50f)
+            mapOf("Living spaces" to 5.0, "Energy" to -1.0)
+        else
+            mapOf("Living spaces" to 10.0, "Energy" to -1.75)
+
+    override val resPerSecond =
+        if (radius < 50f)
+            mapOf("Waste" to 0.1)
+        else
+            mapOf("Waste" to 0.2)
 }

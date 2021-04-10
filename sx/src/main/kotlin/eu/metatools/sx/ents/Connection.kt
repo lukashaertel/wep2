@@ -14,21 +14,25 @@ val renderConnection = component { x1: Float, y1: Float, x2: Float, y2: Float ->
     val a = v.angle()
     val d = v.len()
 
-    VSpriteActor(WorldRes.boxDrawable,
-            x = (x1 + x2) * 0.5f,
-            y = (y1 + y2) * 0.5f,
-            originX = 0.5f,
-            originY = 0.5f,
-            width = d,
-            height = 10f,
-            rotation = a)
+    VSpriteActor(
+        WorldRes.boxDrawable,
+        x = (x1 + x2) * 0.5f,
+        y = (y1 + y2) * 0.5f,
+        originX = 0.5f,
+        originY = 0.5f,
+        width = d,
+        height = 20f,
+        rotation = a
+    )
 }
 
 class Connection(
-        shell: Shell, id: Lx, sx: SX,
+    shell: Shell, id: Lx, sx: SX,
 ) : SXEnt(shell, id, sx), Reakted {
     var from by prop<Dome?> { null }
     var to by prop<Dome?> { null }
+
+    override val layer = Layer.Lower
 
     override fun renderPrimary() {
         val from = from
