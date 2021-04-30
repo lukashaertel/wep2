@@ -7,6 +7,7 @@ import eu.metatools.reaktor.gdx.data.Extents
 import eu.metatools.reaktor.gdx.utils.px
 import eu.metatools.sx.SX
 import eu.metatools.up.Shell
+import eu.metatools.up.constructed
 import eu.metatools.up.dsl.map
 import eu.metatools.up.dsl.set
 import eu.metatools.up.dt.Lx
@@ -41,6 +42,9 @@ interface Reakted {
     fun renderPrimary()
 
 }
+
+fun Float.roundForDisplay() =
+    if (IEEErem(1.0f) == 0.0f) roundToInt().toString() else ((toDouble() * 10.0).roundToInt() / 10.0).toString()
 
 fun Double.roundForDisplay() =
     if (IEEErem(1.0) == 0.0) roundToInt().toString() else ((toDouble() * 10.0).roundToInt() / 10.0).toString()
@@ -97,6 +101,14 @@ class World(shell: Shell, id: Lx, sx: SX) : SXEnt(shell, id, sx), Reakted {
                                     fontStyle = style
                                 )
                             }
+
+                            shell.list<Actor>().forEach {
+                                msdfLabel(
+                                    text = "Actor $it acting on ${it.plan}",
+                                    shader = WorldRes.msdfShader, font = WorldRes.msdfFont,
+                                    fontStyle = WorldRes.fontPrimary
+                                )
+                            }
                         }
                     }
                 }
@@ -110,13 +122,19 @@ class World(shell: Shell, id: Lx, sx: SX) : SXEnt(shell, id, sx), Reakted {
 
     val buildDome = exchange { x: Float, y: Float, large: Boolean ->
         val radius = if (large) 50f else 25f
-        if (shell.list<Dome>().none { Vector2.dst2(x, y, it.x, it.y) < (radius + it.radius).let { it * it } })
-            domes.add(constructed(Dome(shell, newId() / 1, sx, x, y, radius)))
+        if (shell.list<Dome>().none { Vector2.dst2(x, y, it.x, it.y) < (radius + it.radius).let { it * it } }) {
+            domes.add(Dome(shell, newId() / 1, sx, x, y, radius).constructed())
+            Actor(shell, newId() / 2, sx, x, y, 10f).constructed()
+        }
     }
 
-    /**
-     * Periodic world update.
-     */
+
+    val actorUpdate = repeating(Short.MAX_VALUE, 50L, shell::initializedTime) {
+        shell.list<Actor>().forEach {
+            it.update(50 / 1000.0)
+        }
+    }
+
     val worldUpdate = repeating(Short.MAX_VALUE, 1000L, shell::initializedTime) {
         val totalRps = computeResFlow()
 

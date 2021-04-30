@@ -72,4 +72,10 @@ object WorldRes {
     val roundDrawableRed by lazy {
         RectRoundedDrawable(Fill, Float.MAX_VALUE, Color.RED)
     }
+    val roundDrawableActor by lazy {
+        RectRoundedDrawable(Fill, Float.MAX_VALUE, Color.FOREST)
+    }
+    val roundDrawableActorActive by lazy {
+        RectRoundedDrawable(Fill, Float.MAX_VALUE, Color.ORANGE)
+    }
 }

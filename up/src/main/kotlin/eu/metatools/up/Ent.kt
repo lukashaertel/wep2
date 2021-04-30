@@ -166,43 +166,13 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * specialized by appending another node, i.e., by a number locally incrementing for the call.
      */
     protected fun newId() =
-            id / method / time
+        id / method / time
 
     /**
      * Gets the fractional seconds since the shell was initialized.
      */
     protected val elapsed
         get() = (time.global - shell.initializedTime) / 1000.0
-
-    /**
-     * Marks that an entity has been constructed. This will add the entity to the tracking of the [Engine] and deal with
-     * undoing tracking on resets.
-     */
-    protected fun <T : Ent> constructed(ent: T): T {
-        // Include in scope.
-        shell.engine.add(ent)
-
-        // Undo by excluding.
-        shell.engine.capture {
-            shell.engine.remove(ent)
-        }
-
-        return ent
-    }
-
-    /**
-     * Marks that an entity has been deleted. This will remove the entity from the tracking of the [Engine] and deal
-     * with redoing tracking on resets.
-     */
-    protected fun delete(ent: Ent) {
-        // Exclude from scope.
-        shell.engine.remove(ent)
-
-        // Undo by adding.
-        shell.engine.capture {
-            shell.engine.add(ent)
-        }
-    }
 
     /**
      * Invoked after property connection.
@@ -298,12 +268,12 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         // Return send invocation.
         return { time, arg1, arg2, arg3 ->
             shell.engine.exchange(
-                    Instruction(
-                            id,
-                            name,
-                            time,
-                            listOf(arg1, arg2, arg3)
-                    )
+                Instruction(
+                    id,
+                    name,
+                    time,
+                    listOf(arg1, arg2, arg3)
+                )
             )
         }
     }
@@ -329,12 +299,12 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
         // Return send invocation.
         return { time, arg1, arg2, arg3, arg4 ->
             shell.engine.exchange(
-                    Instruction(
-                            id,
-                            name,
-                            time,
-                            listOf(arg1, arg2, arg3, arg4)
-                    )
+                Instruction(
+                    id,
+                    name,
+                    time,
+                    listOf(arg1, arg2, arg3, arg4)
+                )
             )
         }
     }
@@ -353,10 +323,10 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
      * @param function The function to run. Itself will have [time] properly assigned during it's invocation.
      */
     protected fun repeating(
-            player: Short,
-            frequency: Long,
-            init: () -> Long,
-            function: () -> Unit
+        player: Short,
+        frequency: Long,
+        init: () -> Long,
+        function: () -> Unit
     ): (Long) -> Unit {
         // Mark errors.
         require(!driver.isConnected) { "Marking repeating in connected entity, this is most likely an invalid call." }
@@ -415,7 +385,7 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
             }
 
             override fun toString() =
-                    "<repeating, ~$frequency - $initial>"
+                "<repeating, ~$frequency - $initial>"
         })
 
         // Return non-exchanged local invocation.
@@ -443,15 +413,15 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
     }
 
     override fun compareTo(other: Ent) =
-            id.compareTo(other.id)
+        id.compareTo(other.id)
 
     override fun toString() =
-            extraArgs.let {
-                if (it.isNullOrEmpty())
-                    "${this::class.simpleName}#$id"
-                else
-                    "${this::class.simpleName}#$id $it"
-            }
+        extraArgs.let {
+            if (it.isNullOrEmpty())
+                "${this::class.simpleName}#$id"
+            else
+                "${this::class.simpleName}#$id $it"
+        }
 }
 
 /**
@@ -460,4 +430,33 @@ abstract class Ent(val shell: Shell, val id: Lx) : Comparable<Ent> {
  * @since Entities might be deleted and still referred to in frontend. This will not be necessary in future revisions.
  */
 fun Any.isConnected() =
-        this !is Ent || driver.isConnected
+    this !is Ent || driver.isConnected
+
+
+/**
+ * Marks that an entity has been constructed. This will add the entity to the tracking of the [Engine] and deal with
+ * undoing tracking on resets.
+ */
+fun <T : Ent> T.constructed() = apply {
+    // Include in scope.
+    shell.engine.add(this)
+
+    // Undo by excluding.
+    shell.engine.capture {
+        shell.engine.remove(this)
+    }
+}
+
+/**
+ * Marks that an entity has been deleted. This will remove the entity from the tracking of the [Engine] and deal
+ * with redoing tracking on resets.
+ */
+fun Ent.delete() {
+    // Exclude from scope.
+    shell.engine.remove(this)
+
+    // Undo by adding.
+    shell.engine.capture {
+        shell.engine.add(this)
+    }
+}

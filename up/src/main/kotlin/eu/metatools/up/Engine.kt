@@ -1,10 +1,6 @@
 package eu.metatools.up
 
 import eu.metatools.up.dt.Instruction
-import eu.metatools.up.dt.Lx
-import eu.metatools.up.dt.Time
-import java.lang.UnsupportedOperationException
-import java.util.*
 
 /**
  * Engine implementing actual connection, translation, and administration.
@@ -32,7 +28,12 @@ interface Engine {
     fun remove(ent: Ent)
 
     /**
-     * Captures an undo.
+     * True if capturing at the moment.
+     */
+    val isCapturing: Boolean
+
+    /**
+     * Captures an undo. Captures nothing if not [isCapturing].
      */
     fun capture(undo: () -> Unit): Unit =
         throw UnsupportedOperationException("This engine does not support undo.")

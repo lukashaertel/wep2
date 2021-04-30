@@ -14,19 +14,13 @@ import eu.metatools.fio.immediate.submit
 import eu.metatools.fio.tools.CaptureCube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
-import eu.metatools.up.dsl.mapObserved
+import eu.metatools.up.constructed
+import eu.metatools.up.dsl.listenMap
+import eu.metatools.up.dsl.map
 import eu.metatools.up.dsl.set
-import eu.metatools.up.dsl.setObserved
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
 import java.util.*
-import kotlin.collections.Map
-import kotlin.collections.any
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.forEach
-import kotlin.collections.iterator
-import kotlin.collections.mapOf
 import kotlin.collections.set
 
 fun toZ(y: Number, z: Number) =
@@ -56,14 +50,19 @@ class World(
     /**
      * The map. On updates, the [hull] and [bounds] are updated.
      */
-    val map by mapObserved(invTriComparator, { map }) { changed ->
-        changed.removed.forEach { (at, block) ->
-            meshes.remove(at)
-        }
-        changed.added.forEach { (at, block) ->
-            meshes[at] = block.mesh(at.x.toFloat(), at.y.toFloat(), at.z.toFloat())
+    val map by map(invTriComparator) { map }
+
+    init {
+        this::map.listenMap { changed ->
+            changed.removed.forEach { (at, _) ->
+                meshes.remove(at)
+            }
+            changed.added.forEach { (at, block) ->
+                meshes[at] = block.mesh(at.x.toFloat(), at.y.toFloat(), at.z.toFloat())
+            }
         }
     }
+
 
     /**
      * Repeater generating updates in 50ms intervals.
@@ -166,12 +165,10 @@ class World(
 
         // Construct and add hero.
         heroes.add(
-            constructed(
-                Hero(
-                    shell, newId(), ui,
-                    Vec(5f, 5f, 0f), Heroes.Pazu, owner
-                )
-            )
+            Hero(
+                shell, newId(), ui,
+                Vec(5f, 5f, 0f), Heroes.Pazu, owner
+            ).constructed()
         )
     }
 }

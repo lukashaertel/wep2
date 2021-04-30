@@ -12,6 +12,7 @@ import eu.metatools.fio.immediate.submit
 import eu.metatools.fio.tools.CaptureCube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
+import eu.metatools.up.delete
 import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
@@ -65,7 +66,7 @@ abstract class Container(
     }
 
     override fun takeDamage(amount: Float): Int {
-        delete(this)
+        delete()
         return 1
     }
 }

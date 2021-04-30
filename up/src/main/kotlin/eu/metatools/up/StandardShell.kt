@@ -4,7 +4,6 @@ import eu.metatools.up.dt.*
 import eu.metatools.up.lang.constructBy
 import eu.metatools.up.lang.never
 import java.util.*
-import kotlin.collections.HashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KParameter
 import kotlin.reflect.full.cast
@@ -99,10 +98,14 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
     private val locals = TreeMap<Long, Byte>()
 
     /**
+     * State of currently capturing.
+     */
+    private var currentCapturing = false
+
+    /**
      * Currently capturing undo sequence.
      */
     private var currentUndo = mutableListOf<() -> Unit>()
-
 
     /**
      * Run the [block] with the status at time. Will revert every instruction past the [time] and after invoking
@@ -124,11 +127,13 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
             part.values.forEach {
                 // Begin undo capture.
                 currentUndo.clear()
+                currentCapturing = true
 
                 // Resolve entity, perform operation.
                 resolve(it.instruction.target)?.driver?.perform(it.instruction.toValueWith(this))
 
                 // Compile undo.
+                currentCapturing = false
                 val undos = currentUndo.asReversed().toList()
 
                 // Assign as new undo.
@@ -170,8 +175,12 @@ class StandardShell(override val player: Short, val synchronized: Boolean = true
             }
         }
 
+        override val isCapturing
+            get() = currentCapturing
+
         override fun capture(undo: () -> Unit) {
-            currentUndo.add(undo)
+            if (isCapturing)
+                currentUndo.add(undo)
         }
 
         override fun exchange(instruction: Instruction) {

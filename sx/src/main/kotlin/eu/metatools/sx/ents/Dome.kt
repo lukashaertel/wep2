@@ -2,11 +2,14 @@ package eu.metatools.sx.ents
 
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.InputEvent
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable
+import com.badlogic.gdx.scenes.scene2d.utils.TransformDrawable
 import eu.metatools.reaktor.ex.component
 import eu.metatools.reaktor.gdx.utils.inputListener
 import eu.metatools.sx.SX
 import eu.metatools.sx.ui.VSpriteActor
 import eu.metatools.up.Shell
+import eu.metatools.up.constructed
 import eu.metatools.up.dt.Lx
 import kotlin.properties.Delegates.observable
 
@@ -17,7 +20,7 @@ fun easeInOutCubic(x: Float): Float {
     return 1f - u * u * u / 2f
 }
 
-val renderDome = component { x: Float, y: Float, radius: Float, selected: Boolean, select: () -> Unit ->
+val renderCircle = component { x: Float, y: Float, radius: Float, drawable: TransformDrawable?, select: () -> Unit ->
     val listener = inputListener {
         if (it.type == InputEvent.Type.touchDown)
             true.also { select() }
@@ -26,7 +29,7 @@ val renderDome = component { x: Float, y: Float, radius: Float, selected: Boolea
     }
 
     VSpriteActor(
-        if (selected) WorldRes.roundDrawableRed else WorldRes.roundDrawable,
+        drawable,
         width = radius * 2f,
         height = radius * 2f,
         x = x - radius, y = y - radius,
@@ -59,7 +62,7 @@ class Dome(
     override val layer = Layer.Main
 
     override fun renderPrimary() {
-        renderDome(id, x, y, radius, selected) {
+        renderCircle(id, x, y, radius, if (selected) WorldRes.roundDrawableRed else WorldRes.roundDrawable,) {
             // On clicked.
             val currentSelected = shell.selection
             if (currentSelected is Dome) {
@@ -78,7 +81,7 @@ class Dome(
 
     val connectTo = exchange { other: Dome ->
         if (canConnectTo(other))
-            constructed(Connection(shell, newId(), sx)).also {
+            Connection(shell, newId(), sx).constructed().also {
                 it.from = this
                 it.to = other
             }

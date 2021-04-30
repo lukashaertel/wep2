@@ -64,6 +64,7 @@ class SX : BaseGame(radiusLimit = 16f) {
 
     override fun inputRepeating(timeMs: Long) {
         // Update global time takers.
+        root.actorUpdate(timeMs)
         root.worldUpdate(timeMs)
     }
 

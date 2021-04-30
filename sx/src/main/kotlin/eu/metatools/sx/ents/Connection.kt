@@ -5,6 +5,7 @@ import eu.metatools.reaktor.ex.component
 import eu.metatools.sx.SX
 import eu.metatools.sx.ui.VSpriteActor
 import eu.metatools.up.Shell
+import eu.metatools.up.dsl.listenProp
 import eu.metatools.up.dsl.prop
 import eu.metatools.up.dt.Lx
 
@@ -31,6 +32,12 @@ class Connection(
 ) : SXEnt(shell, id, sx), Reakted {
     var from by prop<Dome?> { null }
     var to by prop<Dome?> { null }
+
+    init {
+        this::from.listenProp {
+            println("Assigned from to ${it.to}")
+        }
+    }
 
     override val layer = Layer.Lower
 

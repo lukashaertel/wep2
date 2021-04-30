@@ -12,6 +12,7 @@ import eu.metatools.fio.immediate.submit
 import eu.metatools.fio.tools.CaptureCube
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
+import eu.metatools.up.delete
 import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
@@ -105,7 +106,7 @@ class Projectile(
 
     override fun hitHull(velPrime: Vec) {
         // Hit the hull, just delete.
-        delete(this)
+        delete()
     }
 
     override fun hitOther(other: Moves) {
@@ -116,13 +117,13 @@ class Projectile(
         }
 
         // Delete.
-        delete(this)
+        delete()
     }
 
     override fun update(sec: Double, freq: Long) {
         // Delete if flying for too long.
         if (genesis + 5.0 < sec)
-            delete(this)
+            delete()
     }
 
 }

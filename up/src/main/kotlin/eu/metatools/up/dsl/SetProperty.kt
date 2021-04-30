@@ -9,6 +9,8 @@ import eu.metatools.up.lang.validate
 import java.util.*
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
+import kotlin.reflect.KProperty0
+import kotlin.reflect.jvm.isAccessible
 
 /**
  * A [Change] on a [SetProperty].
@@ -79,7 +81,6 @@ class SetProperty<E>(
     val comparator: Comparator<in E>?,
     val ent: Ent,
     val init: () -> List<E>,
-    val changed: ((SetChange<E>) -> Unit)?
 ) : Part, ReadOnlyProperty<Any?, NavigableSet<E>> {
     private val shell get() = ent.shell
 
@@ -93,13 +94,15 @@ class SetProperty<E>(
 
     override lateinit var notifyHandle: (name: String, change: Change<*>) -> Unit
 
+    var changed: ((SetChange<E>) -> Unit) = {}
+
     private fun createObservedSet(from: List<E>) =
         ObservedSet(TreeSet(comparator).apply { addAll(from) }) { add, remove ->
             // Create change object.
             val changeSet = SetChange(add, remove)
 
             // If listening, notify changed.
-            changed?.invoke(changeSet)
+            changed.invoke(changeSet)
             notifyHandle(name, changeSet)
 
 
@@ -112,7 +115,7 @@ class SetProperty<E>(
                 val changeReset = SetChange(remove, add)
 
                 // If listening, notify changed back.
-                changed?.invoke(changeReset)
+                changed.invoke(changeReset)
                 notifyHandle(name, changeReset)
             }
         }
@@ -141,10 +144,10 @@ class SetProperty<E>(
 
     override fun ready() {
         // Create ready change.
-        val propReady= SetChange(TreeSet(current), current.aligned())
+        val propReady = SetChange(TreeSet(current), current.aligned())
 
         // Invoke initial change.
-        changed?.invoke(propReady)
+        changed.invoke(propReady)
         notifyHandle(name, propReady)
     }
 
@@ -168,7 +171,7 @@ fun <E : Comparable<E>> set(
     Types.performTypeCheck(ent, property, true)
 
     // Create set from implied values.
-    SetProperty(property.name, comparator, ent, init, null).also {
+    SetProperty(property.name, comparator, ent, init).also {
         // Include in entity.
         ent.driver.configure(it)
     }
@@ -180,25 +183,33 @@ fun <E : Comparable<E>> set(
 fun <E : Comparable<E>> set(init: () -> List<E> = ::emptyList) = set(null, init)
 
 /**
- * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
+ * Adds a listener to a property that was defined as a [set].
+ * @param handler The change handler.
  */
-fun <E : Comparable<E>> setObserved(
-    comparator: Comparator<in E>? = null,
-    init: () -> List<E> = ::emptyList,
-    changed: (SetChange<E>) -> Unit
-) = ReadOnlyPropertyProvider { ent: Ent, property ->
-    // Perform optional type check.
-    Types.performTypeCheck(ent, property, true)
+fun <E> KProperty0<Set<E>>.listenSet(handler: (SetChange<E>) -> Unit) {
+    // Memorize for clean-up.
+    val isAccessibleBefore = isAccessible
 
-    // Create set from implied values.
-    SetProperty(property.name, comparator, ent, init, changed).also {
-        // Include in entity.
-        ent.driver.configure(it)
+    try {
+        // Set accessible and get delegate.
+        isAccessible = true
+        val target = getDelegate()
+
+        // Require to be delegate of appropriate type.
+        require(target is SetProperty<*>) { "Receiver $this is not an observable property." }
+
+        // Type assert inner.
+        @Suppress("unchecked_cast")
+        target as SetProperty<E>
+
+        // Append handler.
+        val before = target.changed
+        target.changed = {
+            before(it)
+            handler(it)
+        }
+    } finally {
+        // Reset accessibility.
+        isAccessible = isAccessibleBefore
     }
 }
-
-/**
- * Creates a tracked property that represents a [NavigableSet] with entries which must be comparable.
- */
-fun <E : Comparable<E>> setObserved(init: () -> List<E> = ::emptyList, changed: (SetChange<E>) -> Unit) =
-    setObserved(null, init, changed)

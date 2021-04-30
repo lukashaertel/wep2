@@ -10,6 +10,7 @@ import eu.metatools.ex.ents.Constants.tileHeight
 import eu.metatools.ex.ents.Constants.tileWidth
 import eu.metatools.ex.ents.items.Container
 import eu.metatools.ex.subUiZ
+import eu.metatools.fig.enqueue
 import eu.metatools.fio.data.Mat
 import eu.metatools.fio.data.Pt
 import eu.metatools.fio.data.Vec
@@ -23,9 +24,10 @@ import eu.metatools.fio.resource.get
 import eu.metatools.fio.tools.CaptureCube
 import eu.metatools.fio.tools.Location
 import eu.metatools.fio.tools.ReferText
-import eu.metatools.fig.enqueue
 import eu.metatools.up.Ent
 import eu.metatools.up.Shell
+import eu.metatools.up.constructed
+import eu.metatools.up.delete
 import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.dt.div
@@ -257,13 +259,11 @@ class Hero(
             val damage = factor * stats.baseDamage
 
             // Construct the projectile.
-            val projectile = constructed(
-                Projectile(
-                    shell, newId(), ui,
-                    pos, vel,
-                    elapsed, damage
-                )
-            )
+            val projectile = Projectile(
+                shell, newId(), ui,
+                pos, vel,
+                elapsed, damage
+            ).constructed()
 
             // Assign back reference.
             projectile.owner = this
@@ -308,7 +308,7 @@ class Hero(
             return stats.deathXP.also {
                 // Also, remove hero and delete this.
                 world.heroes.remove(this)
-                delete(this)
+                delete()
             }
 
         // Otherwise, return XP for hitting this hero.
@@ -366,7 +366,7 @@ class Hero(
             other.apply(this)
 
             // Remove the other entity.
-            delete(other)
+            other.delete()
         }
     }
 
