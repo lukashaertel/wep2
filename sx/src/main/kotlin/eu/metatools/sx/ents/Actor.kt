@@ -3,18 +3,126 @@ package eu.metatools.sx.ents
 import com.badlogic.gdx.math.Vector2
 import eu.metatools.sx.SX
 import eu.metatools.up.Shell
+import eu.metatools.up.dsl.prop
 import eu.metatools.up.dsl.provideDelegate
 import eu.metatools.up.dt.Lx
 import eu.metatools.up.list
 import kotlin.math.sqrt
 
-interface Step {
-    fun performPart(actor: Actor, time: Double): Double
+/**
+ * An [SXEnt] that maintains, plans, and performs [Plan]s.
+ * @param shell The hosting shell.
+ * @param id The identity.
+ * @param sx The output node.
+ * @property minimumPressure The minimum pressure before addressing [requirements]
+ * @property planMemory The amount of plans to memorize.
+ */
+abstract class Planner(
+    shell: Shell, id: Lx, sx: SX,
+    private val minimumPressure: Double,
+    private val planMemory: Int
+) : SXEnt(shell, id, sx) {
+    /**
+     * Enumerates the requirements of the entity.
+     */
+    abstract val requirements: List<Requirement<Planner>>
 
-    fun completed(actor: Actor): Boolean
+    /**
+     * The currently executing plan.
+     */
+    var currentPlan by prop<Plan<Planner>?> { null }
+        protected set
+
+    /**
+     * The last [planMemory] plans that failed.
+     */
+    var failedPlans by prop { emptyList<Plan<Planner>>() }
+        protected set
+
+    /**
+     * The last [planMemory] plans that succeeded.
+     */
+    var succeededPlans by prop { emptyList<Plan<Planner>>() }
+        protected set
+
+    /**
+     * Acts on the plans.
+     */
+    fun act(timeElapsed: Double) {
+        // Keep remaining time across iterations.
+        var available = timeElapsed
+
+        // Run while time is left. Aborted when no new plan found after last one is completed.
+        while (available.rgz()) {
+            // Work on current plan or find new plan.
+            var active = currentPlan ?: requirements
+                // Find requirement with highest pressure and combine valid strategies.
+                .flatMap { r ->
+                    // Compute pressure of requirement.
+                    val pressure = r.pressure(this)
+
+                    // Check if no pressure or under threshold.
+                    if (pressure == null || pressure < minimumPressure)
+                    // Not required, skip.
+                        emptyList()
+                    else
+                    // Required, plan with strategies.
+                        r.strategies(this).mapNotNull { s ->
+                            s.cost(this)?.div(pressure)?.let { cost -> Triple(r, s, cost) }
+                        }
+                }
+                // Find strategy with highest pressure and lowest cost.
+                .sortedByDescending { satisfy ->
+                    satisfy.third
+                }
+                // Plan based on strategy.
+                .map { satisfy ->
+                    satisfy to satisfy.second.plan(this)
+                }
+                // Take a solution that is not empty.
+                .firstOrNull { satisfy ->
+                    satisfy.second.isNotEmpty()
+                }
+                // Turn into plan.
+                ?.let { (satisfy, plan) ->
+                    Plan(satisfy.first, satisfy.second, satisfy.third, emptyList(), plan)
+                }
+            // No requirement or plan found, stop evaluation.
+            ?: return
+
+            // While there's time left, act on plan.
+            while (available.rgz()) {
+                // Perform current step.
+                val result = active.current().act(this, available)
+
+                // Subtract time that was consumed.
+                available -= result.consumed
+
+                // Check outcome of step.
+                if (result.outcome == true && active.isLast()) {
+                    // Step successful and last. Push to succeeded plans and deactivate plan. Try to find next plan.
+                    succeededPlans = (succeededPlans + active.next()).takeLast(planMemory)
+                    currentPlan = null
+                    break
+                } else if (result.outcome == true) {
+                    // Step successful but not last, advance. Try again until there's no step or no time left.
+                    active = active.next()
+                    currentPlan = active
+                } else if (result.outcome == false) {
+                    // Step failed. Push to failed and deactivate. Try to find next plan.
+                    failedPlans = (failedPlans + active.next()).takeLast(planMemory)
+                    currentPlan = null
+                    break
+                }
+            }
+        }
+    }
 }
 
-typealias Plan = List<Step>
+interface Ongoing<T> {
+    fun affect(on: T)
+}
+
 
 data class ActorStats(
     val hunger: Double,
@@ -23,7 +131,14 @@ data class ActorStats(
     override fun toString() = "{hunger=${hunger.roundForDisplay()}, fatigue=${fatigue.roundForDisplay()}}"
 }
 
-data class GetTo(val x: Float, val y: Float) : Step {
+
+interface LStep {
+    fun performPart(actor: Actor, time: Double): Double
+
+    fun completed(actor: Actor): Boolean
+}
+
+data class GetTo(val x: Float, val y: Float) : LStep {
     override fun completed(actor: Actor) = Vector2.dst2(actor.x, actor.y, x, y) < 0.0001
 
     override fun performPart(actor: Actor, time: Double): Double {
@@ -40,7 +155,7 @@ data class GetTo(val x: Float, val y: Float) : Step {
     override fun toString() = "GetTo(x=${x.roundForDisplay()}, y=${y.roundForDisplay()})"
 }
 
-data class EatAt(val id: Lx) : Step {
+data class EatAt(val id: Lx) : LStep {
     override fun performPart(actor: Actor, time: Double): Double {
         val eatPerSecond = 0.1
 
@@ -54,7 +169,7 @@ data class EatAt(val id: Lx) : Step {
     override fun completed(actor: Actor) = actor.stats.hunger < 0.01
 }
 
-data class SleepAt(val id: Lx) : Step {
+data class SleepAt(val id: Lx) : LStep {
     override fun performPart(actor: Actor, time: Double): Double {
         val sleepPerSecond = 0.05
 
@@ -78,7 +193,7 @@ class Actor(
         "speed" to speed
     )
 
-    var plan by { emptyList<Step>() }
+    var plan by { emptyList<LStep>() }
 
     var x by { initX }
     var y by { initY }
